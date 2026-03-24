@@ -1,0 +1,141 @@
+/**
+ * Agent Configuration Management
+ * LocalStorage utilities for AgentConfig persistence
+ */
+
+import type { AgentConfig } from '../types';
+import { createDefaultAgentConfig } from '../services/models-registry';
+
+const AGENT_CONFIG_KEY = 'timeline:agent:config';
+const CURRENT_SESSION_KEY = 'timeline:agent:currentSessionId';
+
+/**
+ * Load agent config from localStorage
+ * Returns default config if not found or invalid
+ */
+export function loadAgentConfig(): AgentConfig {
+  try {
+    const stored = localStorage.getItem(AGENT_CONFIG_KEY);
+    
+    if (!stored) {
+      return createDefaultAgentConfig();
+    }
+
+    const config = JSON.parse(stored) as AgentConfig;
+    
+    // Tools are infrastructure (discovered per session), not preferences
+    // Always start with empty availableTools - will be auto-populated from fresh toolsPool
+    // when enableTools is true (via store's auto-population logic)
+    
+    // Merge with defaults to ensure all fields exist
+    return {
+      ...createDefaultAgentConfig(),
+      ...config,
+      availableTools: [], // ← Always fresh, never from cache
+    };
+  } catch (err) {
+    console.error('Failed to load agent config:', err);
+    return createDefaultAgentConfig();
+  }
+}
+
+/**
+ * Save agent config to localStorage
+ */
+export function saveAgentConfig(config: AgentConfig): void {
+  try {
+    localStorage.setItem(AGENT_CONFIG_KEY, JSON.stringify(config));
+  } catch (err) {
+    console.error('Failed to save agent config:', err);
+  }
+}
+
+/**
+ * Clear agent config from localStorage
+ */
+export function clearAgentConfig(): void {
+  try {
+    localStorage.removeItem(AGENT_CONFIG_KEY);
+  } catch (err) {
+    console.error('Failed to clear agent config:', err);
+  }
+}
+
+/**
+ * UI Flags Management - scoped by interface mode
+ */
+
+export interface UIFlags {
+  persistSession: boolean;
+  ephemeral: boolean;
+}
+
+const UI_FLAGS_PREFIX = 'timeline:ui-flags';
+
+/**
+ * Load UI flags for a specific interface mode
+ */
+export function loadUIFlags(mode: 'chat' | 'side-by-side'): UIFlags {
+  try {
+    const key = `${UI_FLAGS_PREFIX}:${mode}`;
+    const stored = localStorage.getItem(key);
+    
+    if (!stored) {
+      // Default values per mode
+      return mode === 'side-by-side' 
+        ? { persistSession: false, ephemeral: true }
+        : { persistSession: true, ephemeral: false };
+    }
+
+    return JSON.parse(stored) as UIFlags;
+  } catch (err) {
+    console.error(`Failed to load UI flags for ${mode}:`, err);
+    return mode === 'side-by-side' 
+      ? { persistSession: false, ephemeral: true }
+      : { persistSession: true, ephemeral: false };
+  }
+}
+
+/**
+ * Save UI flags for a specific interface mode
+ */
+export function saveUIFlags(mode: 'chat' | 'side-by-side', flags: UIFlags): void {
+  try {
+    const key = `${UI_FLAGS_PREFIX}:${mode}`;
+    localStorage.setItem(key, JSON.stringify(flags));
+  } catch (err) {
+    console.error(`Failed to save UI flags for ${mode}:`, err);
+  }
+}
+
+/**
+ * Current Session ID Management
+ * Persists session ID for URL restoration and tab persistence
+ */
+
+/**
+ * Load current session ID from localStorage
+ */
+export function loadCurrentSessionId(): string | null {
+  try {
+    return localStorage.getItem(CURRENT_SESSION_KEY);
+  } catch (err) {
+    console.error('Failed to load current session ID:', err);
+    return null;
+  }
+}
+
+/**
+ * Save current session ID to localStorage
+ */
+export function saveCurrentSessionId(sessionId: string | null): void {
+  try {
+    if (sessionId) {
+      localStorage.setItem(CURRENT_SESSION_KEY, sessionId);
+    } else {
+      localStorage.removeItem(CURRENT_SESSION_KEY);
+    }
+  } catch (err) {
+    console.error('Failed to save current session ID:', err);
+  }
+}
