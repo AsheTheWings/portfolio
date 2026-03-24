@@ -69,7 +69,7 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
   // Sort images by filename for consistent order
   const sortedImages = useMemo(() => {
     return [...images].sort((a, b) => 
-      a.file_name.localeCompare(b.file_name, undefined, { numeric: true })
+      a.fileName.localeCompare(b.fileName, undefined, { numeric: true })
     );
   }, [images]);
   
@@ -367,7 +367,7 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
               )}
               <img
                 src={image.url}
-                alt={image.alt_text || image.file_name}
+                alt={image.altText || image.fileName}
                 className="block w-full h-auto"
                 loading={index < 3 ? 'eager' : 'lazy'}
                 onLoad={() => handleImageLoad(index)}

@@ -9,8 +9,8 @@ interface Workload {
   id: string;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 async function fetchWorkloads(): Promise<Workload[]> {

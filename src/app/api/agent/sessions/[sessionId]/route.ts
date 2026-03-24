@@ -33,7 +33,7 @@ export async function PATCH(
 
     // Update session (RLS ensures only owned sessions can be updated)
     const updates: Record<string, string | boolean | undefined> = {
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     if (body.title !== undefined) updates.title = body.title;

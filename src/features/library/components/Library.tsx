@@ -251,7 +251,7 @@ export function Library({
     
     // Check if it's a folder at this level
     const matchingFolder = allFolders.find(
-      f => f.parent_id === folderId && f.name === itemName
+      f => f.parentId === folderId && f.name === itemName
     );
     
     if (matchingFolder) {
@@ -261,7 +261,7 @@ export function Library({
     }
     
     // Check if it's an asset (assets are pre-loaded from server)
-    const matchingAsset = assets.find(a => a.file_name === itemName);
+    const matchingAsset = assets.find(a => a.fileName === itemName);
     if (matchingAsset) {
       toggleSelection(matchingAsset.id);
       itemSelected.current = true;
@@ -444,7 +444,7 @@ export function Library({
               onSelect={() => {}}
               canPaste={canPaste}
               itemPath={folder.path}
-              isSystemFolder={folder.is_system}
+              isSystemFolder={folder.isSystem}
               isFolder
               isMultiSelection={selectedIds.size > 1 && selectedIds.has(folder.id)}
             >
@@ -469,7 +469,7 @@ export function Library({
                 }
               }}
               canPaste={canPaste}
-              itemPath={asset.storage_path}
+              itemPath={asset.storagePath}
               isMultiSelection={selectedIds.size > 1}
             >
               {children}

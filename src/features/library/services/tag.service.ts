@@ -21,7 +21,7 @@ export class TagService {
       const { data: existing } = await supabase
         .from('asset_tags')
         .select()
-        .eq('user_id', userId)
+        .eq('userId', userId)
         .eq('tag', normalizedTag)
         .single();
 
@@ -31,7 +31,7 @@ export class TagService {
         // Create new tag
         const { data: newTag, error } = await supabase
           .from('asset_tags')
-          .insert({ user_id: userId, tag: normalizedTag })
+          .insert({ userId: userId, tag: normalizedTag })
           .select()
           .single();
 
@@ -57,7 +57,7 @@ export class TagService {
 
     // Delete existing tags
     await supabase
-      .from('asset_item_tags')
+      .from('assetItemTags')
       .delete()
       .eq('asset_id', assetId);
 
@@ -70,7 +70,7 @@ export class TagService {
 
     // Link tags to asset
     const { error } = await supabase
-      .from('asset_item_tags')
+      .from('assetItemTags')
       .insert(tags.map(t => ({ asset_id: assetId, tag_id: t.id })));
 
     if (error) {
@@ -89,7 +89,7 @@ export class TagService {
     const { data, error } = await supabase
       .from('asset_tags')
       .select()
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .order('tag', { ascending: true });
 
     if (error) {

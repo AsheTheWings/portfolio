@@ -136,7 +136,7 @@ export function AssetGrid({
     return allFolders.find(f => f.id === folderId) || null;
   }, [currentFolderId, homeFolder, allFolders]);
   
-  const expectedAssetCount = currentFolder?.assets_count ?? 0;
+  const expectedAssetCount = currentFolder?.assetsCount ?? 0;
 
   // Build a set of asset IDs for quick lookup
   const assetIdSet = useMemo(() => new Set(assets.map(a => a.id)), [assets]);
@@ -206,22 +206,22 @@ export function AssetGrid({
     return progress;
   }, [uploadingFiles]);
 
-  // Sort folders: system folders first (by updated_at desc), then user folders (by updated_at desc)
+  // Sort folders: system folders first (by updatedAt desc), then user folders (by updatedAt desc)
   const sortedFolders = useMemo(() => {
     return [...folders].sort((a, b) => {
       // System folders first
-      if (a.is_system !== b.is_system) {
-        return a.is_system ? -1 : 1;
+      if (a.isSystem !== b.isSystem) {
+        return a.isSystem ? -1 : 1;
       }
-      // Within same type, sort by updated_at descending
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      // Within same type, sort by updatedAt descending
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [folders]);
 
-  // Sort assets by updated_at descending
+  // Sort assets by updatedAt descending
   const sortedAssets = useMemo(() => {
     return [...assets].sort((a, b) => {
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [assets]);
 

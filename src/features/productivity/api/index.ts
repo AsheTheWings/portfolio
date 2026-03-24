@@ -10,8 +10,8 @@ interface Workload {
   id: string;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CreateWorkloadRequest {
@@ -73,8 +73,8 @@ export class ProductivityHandlers {
     const { data, error } = await supabase
       .from('workloads')
       .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false });
 
     if (error) {
       throw new Error(error.message);
@@ -102,7 +102,7 @@ export class ProductivityHandlers {
       .from('workloads')
       .insert([
         {
-          user_id: userId,
+          userId: userId,
           name: name.trim(),
           description: description || null,
         },
@@ -128,8 +128,8 @@ export class ProductivityHandlers {
 
     let query = supabase
       .from('slots')
-      .select('id, workload_id, user_id, start_time, end_time, last_heartbeat, workloads(name)')
-      .eq('user_id', userId);
+      .select('id, workload_id, userId, start_time, end_time, last_heartbeat, workloads(name)')
+      .eq('userId', userId);
 
     if (workloadId) {
       query = query.eq('workload_id', workloadId);
@@ -152,8 +152,8 @@ export class ProductivityHandlers {
 
     const { data, error } = await supabase
       .from('slots')
-      .select('id, workload_id, user_id, start_time, end_time, last_heartbeat, workloads(name)')
-      .eq('user_id', userId)
+      .select('id, workload_id, userId, start_time, end_time, last_heartbeat, workloads(name)')
+      .eq('userId', userId)
       .is('end_time', null)
       .order('start_time', { ascending: false });
 
@@ -180,7 +180,7 @@ export class ProductivityHandlers {
     const { data: workload, error: workloadError } = await supabase
       .from('workloads')
       .select('id, name')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .ilike('name', workload_name.trim())
       .single();
 
@@ -192,7 +192,7 @@ export class ProductivityHandlers {
     const { data: activeSlot, error: activeSlotError } = await supabase
       .from('slots')
       .select('id')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('workload_id', workload.id)
       .is('end_time', null)
       .maybeSingle();
@@ -212,7 +212,7 @@ export class ProductivityHandlers {
       .from('slots')
       .insert([
         {
-          user_id: userId,
+          userId: userId,
           workload_id: workload.id,
           start_time: now,
           last_heartbeat: now,
@@ -245,7 +245,7 @@ export class ProductivityHandlers {
       .from('slots')
       .select('*')
       .eq('id', slotId)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .single();
 
     if (fetchError || !slot) {
@@ -289,7 +289,7 @@ export class ProductivityHandlers {
     const { data: activeSlots, error: fetchError } = await supabase
       .from('slots')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .is('end_time', null);
 
     if (fetchError) {

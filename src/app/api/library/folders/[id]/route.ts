@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/library/folders/:id - Update folder (rename or move)
- * Body: { name?: string, parent_id?: string | null }
+ * Body: { name?: string, parentId?: string | null }
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    const { name, parent_id } = body;
+    const { name, parentId } = body;
 
     if (name !== undefined) {
       if (typeof name !== 'string' || name.trim().length === 0) {
@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const folder = await FolderService.updateFolder(user.id, id, {
       name: name?.trim(),
-      parent_id,
+      parentId,
     });
 
     return NextResponse.json({ folder });

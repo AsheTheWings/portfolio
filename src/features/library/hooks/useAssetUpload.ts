@@ -26,13 +26,13 @@ export function useAssetUpload() {
    * Upload a file with real-time progress tracking using XMLHttpRequest
    */
   const uploadAsset = useCallback(async (request: UploadAssetRequest): Promise<Asset | null> => {
-    const { file, folder_id, alt_text, tags, metadata } = request;
+    const { file, folderId, altText, tags, metadata } = request;
 
     // Determine target folder:
-    // 1. Use explicit folder_id if provided
+    // 1. Use explicit folderId if provided
     // 2. Use current folder if navigated into one
     // 3. Fall back to home folder (fetch/create if missing)
-    let targetFolderId = folder_id || currentFolderId || homeFolder?.id;
+    let targetFolderId = folderId || currentFolderId || homeFolder?.id;
 
     // Ensure home folder exists - all files must belong to a folder
     if (!targetFolderId) {
@@ -98,9 +98,9 @@ export function useAssetUpload() {
     // Build form data
     const formData = new FormData();
     formData.append('file', file);
-    if (targetFolderId) formData.append('folder_id', targetFolderId);
+    if (targetFolderId) formData.append('folderId', targetFolderId);
     if (thumbnailFile) formData.append('thumbnail', thumbnailFile);
-    if (alt_text) formData.append('alt_text', alt_text);
+    if (altText) formData.append('altText', altText);
     if (tags) formData.append('tags', JSON.stringify(tags));
     if (metadata) formData.append('metadata', JSON.stringify(metadata));
 
@@ -188,7 +188,7 @@ export function useAssetUpload() {
    */
   const uploadAssets = useCallback(async (files: File[], folderId?: string): Promise<void> => {
     // Start all uploads in parallel (don't await sequentially)
-    await Promise.all(files.map(file => uploadAsset({ file, folder_id: folderId || '' })));
+    await Promise.all(files.map(file => uploadAsset({ file, folderId: folderId || '' })));
   }, [uploadAsset]);
 
   return {

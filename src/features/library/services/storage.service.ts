@@ -13,7 +13,7 @@ export class StorageService {
 
   /**
    * Upload a file to storage
-   * Path format: {user_id}/{asset_id}/{filename}
+   * Path format: {userId}/{asset_id}/{filename}
    */
   async uploadFile(
     userId: string,
@@ -43,7 +43,7 @@ export class StorageService {
 
   /**
    * Upload a blob to storage (for generated content)
-   * Path format: {user_id}/{asset_id}/{filename}
+   * Path format: {userId}/{asset_id}/{filename}
    */
   async uploadBlob(
     userId: string,
@@ -178,7 +178,7 @@ export class StorageService {
       .from(BUCKET_NAME)
       .list(path, {
         limit: 100,
-        sortBy: { column: 'created_at', order: 'desc' },
+        sortBy: { column: 'createdAt', order: 'desc' },
       });
 
     if (error) {

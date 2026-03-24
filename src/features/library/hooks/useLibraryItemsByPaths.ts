@@ -94,15 +94,15 @@ export function useLibraryItemsByPaths(
             
             setItems(assets.map((asset: Asset & { folder?: { path: string } }) => ({
               id: asset.id,
-              name: asset.file_name,
+              name: asset.fileName,
               path: asset.folder?.path 
-                ? `${asset.folder.path.replace(/^\//, '')}/${asset.file_name}`
-                : asset.file_name,
+                ? `${asset.folder.path.replace(/^\//, '')}/${asset.fileName}`
+                : asset.fileName,
               type: 'asset' as const,
-              thumbnailUrl: asset.thumbnail_url,
+              thumbnailUrl: asset.thumbnailUrl,
               storageUrl: asset.url,
-              fileType: asset.file_type,
-              mimeType: asset.mime_type,
+              fileType: asset.fileType,
+              mimeType: asset.mimeType,
             })));
           } else {
             const response = await fetch('/api/library/browse', {
@@ -128,10 +128,10 @@ export function useLibraryItemsByPaths(
               name: item.name,
               path: item.path,
               type: item.type,
-              thumbnailUrl: item.thumbnail_url,
-              storageUrl: item.storage_url,
-              fileType: item.file_type,
-              mimeType: item.mime_type,
+              thumbnailUrl: item.thumbnailUrl,
+              storageUrl: item.storageUrl,
+              fileType: item.fileType,
+              mimeType: item.mimeType,
             }));
             
             setItems(resolvedItems);

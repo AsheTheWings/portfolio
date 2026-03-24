@@ -18,9 +18,9 @@ export interface SessionRow {
   agent_name: string;
   event_count: number;
   turns_count: number;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
 }
 
 interface SessionHistoryResponse {

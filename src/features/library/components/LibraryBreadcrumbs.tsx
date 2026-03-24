@@ -48,7 +48,7 @@ export function LibraryBreadcrumbs({
       {/* Breadcrumb items */}
       {breadcrumbs.map((folder, index) => {
         const isLast = index === breadcrumbs.length - 1;
-        const isHome = folder.is_system && folder.name === 'home';
+        const isHome = folder.isSystem && folder.name === 'home';
 
         return (
           <div key={folder.id} className="flex items-center gap-1">

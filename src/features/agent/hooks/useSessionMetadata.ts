@@ -60,8 +60,8 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
       agentName: session.agent_name,
       turnCount: session.turns_count,
       eventCount: session.event_count,
-      createdAt: session.created_at,
-      updatedAt: session.updated_at,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
     };
   }, [sessionId, sessions]);
 

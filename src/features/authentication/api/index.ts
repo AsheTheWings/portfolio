@@ -83,7 +83,7 @@ export class AuthHandlers {
         username,
         full_name,
         is_active: true,
-        created_at: newUser.user.created_at,
+        createdAt: newUser.user.createdAt,
       },
     };
   }
@@ -147,7 +147,7 @@ export class AuthHandlers {
         username: authData.user.user_metadata?.username,
         full_name: authData.user.user_metadata?.full_name,
         is_active: true,
-        created_at: authData.user.created_at,
+        createdAt: authData.user.createdAt,
         last_login: authData.user.last_sign_in_at,
       },
     };
@@ -182,7 +182,7 @@ export class AuthHandlers {
       username: user.user_metadata?.username,
       full_name: user.user_metadata?.full_name,
       is_active: true,
-      created_at: user.created_at,
+      createdAt: user.createdAt,
       last_login: user.last_sign_in_at,
     };
   }
@@ -218,7 +218,7 @@ export class AuthHandlers {
         username: authData.user.user_metadata?.username,
         full_name: authData.user.user_metadata?.full_name,
         is_active: true,
-        created_at: authData.user.created_at,
+        createdAt: authData.user.createdAt,
         last_login: authData.user.last_sign_in_at,
       },
     };

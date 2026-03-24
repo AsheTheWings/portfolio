@@ -9,7 +9,7 @@ import type { ListAssetsParams, AssetFileType } from '@/features/library';
 
 /**
  * GET /api/library/assets - List assets with optional filtering
- * Supports: folder_id, file_type, tag, search, sort_by, sort_order
+ * Supports: folderId, fileType, tag, search, sortBy, sortOrder
  * Or: ids[] to fetch specific assets by ID
  */
 export async function GET(request: NextRequest) {
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
     }
 
     const params: ListAssetsParams = {
-      folder_id: searchParams.get('folder_id') || undefined,
-      file_type: searchParams.get('file_type') as AssetFileType | undefined,
+      folderId: searchParams.get('folderId') || undefined,
+      fileType: searchParams.get('fileType') as AssetFileType | undefined,
       tag: searchParams.get('tag') || undefined,
       search: searchParams.get('search') || undefined,
-      sort_by: (searchParams.get('sort_by') as ListAssetsParams['sort_by']) || 'created_at',
-      sort_order: (searchParams.get('sort_order') as 'asc' | 'desc') || 'desc',
+      sortBy: (searchParams.get('sortBy') as ListAssetsParams['sortBy']) || 'createdAt',
+      sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
     };
 
     const result = await AssetService.listAssets(user.id, params);
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * PATCH /api/library/assets - Move asset(s) to a folder
- * Body: { ids: string[], folder_id: string | null }
+ * Body: { ids: string[], folderId: string | null }
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -55,12 +55,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'ids array is required' }, { status: 400 });
     }
     
-    // folder_id can be null (move to root) or string
-    if (body.folder_id === undefined) {
-      return NextResponse.json({ error: 'folder_id is required' }, { status: 400 });
+    // folderId can be null (move to root) or string
+    if (body.folderId === undefined) {
+      return NextResponse.json({ error: 'folderId is required' }, { status: 400 });
     }
 
-    const result = await AssetService.moveAsset(user.id, body.ids, body.folder_id);
+    const result = await AssetService.moveAsset(user.id, body.ids, body.folderId);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';

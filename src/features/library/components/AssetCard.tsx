@@ -43,8 +43,8 @@ function AssetCardComponent({
   // Determine file type from either asset or uploading file
   const getFileType = (): 'image' | 'video' | 'document' => {
     if (asset) {
-      if (asset.mime_type?.startsWith('video/')) return 'video';
-      if (asset.mime_type?.startsWith('image/')) return 'image';
+      if (asset.mimeType?.startsWith('video/')) return 'video';
+      if (asset.mimeType?.startsWith('image/')) return 'image';
       return 'document';
     }
     if (uploadingFile) {
@@ -185,9 +185,9 @@ function AssetCardComponent({
     if (imageSrc) return imageSrc;
     if (isVideo) {
       // Videos should always use thumbnail or placeholder, never the video URL
-      return asset.thumbnail_url || '/video-placeholder.svg';
+      return asset.thumbnailUrl || '/video-placeholder.svg';
     }
-    return asset.thumbnail_url || asset.url;
+    return asset.thumbnailUrl || asset.url;
   };
 
   const handleImageError = () => {
@@ -195,7 +195,7 @@ function AssetCardComponent({
       setUseUnoptimized(true);
       return;
     }
-    if (!imageSrc && asset.thumbnail_url && asset.url && asset.thumbnail_url !== asset.url && !isVideo) {
+    if (!imageSrc && asset.thumbnailUrl && asset.url && asset.thumbnailUrl !== asset.url && !isVideo) {
       // Only try fallback for images, not videos
       setImageSrc(asset.url);
       setUseUnoptimized(false);
@@ -238,7 +238,7 @@ function AssetCardComponent({
 
       <Image
         src={getImageSrc()}
-        alt={asset.alt_text || asset.file_name}
+        alt={asset.altText || asset.fileName}
         className={`
           w-full h-full object-cover transition-opacity duration-300 pointer-events-none
           ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}
@@ -279,7 +279,7 @@ function AssetCardComponent({
         pointer-events-none
       ">
         <p className="text-xs font-medium text-white truncate">
-          {asset.file_name}
+          {asset.fileName}
         </p>
       </div>
 

@@ -30,7 +30,7 @@ interface UseLibraryItemHandlersOptions {
   createFolderTree: (paths: string[], parentId: string | null) => Promise<{ folderMap: Record<string, string>; folders: Folder[] }>;
   renameFolder: (folderId: string, name: string) => Promise<Folder>;
   deleteFolder: (folderId: string) => Promise<void>;
-  uploadAsset: (request: { file: File; folder_id: string }) => Promise<Asset | null>;
+  uploadAsset: (request: { file: File; folderId: string }) => Promise<Asset | null>;
   uploadAssets: (files: File[]) => Promise<void>;
   renameAsset: (assetId: string, name: string) => Promise<boolean>;
   deleteAsset: (assetId: string) => Promise<boolean>;
@@ -88,13 +88,13 @@ export function useLibraryItemHandlers({
   const handleKeyboardDelete = useCallback((item: { id: string; type: 'folder' | 'asset' }) => {
     if (item.type === 'folder') {
       const folder = displayFolders.find(f => f.id === item.id);
-      if (folder && !folder.is_system) {
+      if (folder && !folder.isSystem) {
         setDeleteTarget({ type: 'folder', id: folder.id, name: folder.name });
       }
     } else {
       const asset = displayAssets.find(a => a.id === item.id);
       if (asset) {
-        setDeleteTarget({ type: 'asset', id: asset.id, name: asset.file_name });
+        setDeleteTarget({ type: 'asset', id: asset.id, name: asset.fileName });
       }
     }
   }, [displayFolders, displayAssets]);
@@ -136,7 +136,7 @@ export function useLibraryItemHandlers({
         
         return uploadAsset({
           file,
-          folder_id: targetFolderId || '',
+          folderId: targetFolderId || '',
         });
       });
       
@@ -234,19 +234,19 @@ export function useLibraryItemHandlers({
   // ================== Context Menu: Asset ==================
 
   const handleAssetRename = useCallback((asset: Asset) => {
-    openRenameDialog('asset', asset.id, asset.file_name);
+    openRenameDialog('asset', asset.id, asset.fileName);
   }, [openRenameDialog]);
 
   const handleAssetCopy = useCallback((asset: Asset) => {
-    handleClipboardAction('asset', asset.id, asset.file_name, 'copy');
+    handleClipboardAction('asset', asset.id, asset.fileName, 'copy');
   }, [handleClipboardAction]);
 
   const handleAssetCut = useCallback((asset: Asset) => {
-    handleClipboardAction('asset', asset.id, asset.file_name, 'move');
+    handleClipboardAction('asset', asset.id, asset.fileName, 'move');
   }, [handleClipboardAction]);
 
   const handleAssetDeleteRequest = useCallback((asset: Asset) => {
-    handleDeleteRequest('asset', asset.id, asset.file_name);
+    handleDeleteRequest('asset', asset.id, asset.fileName);
   }, [handleDeleteRequest]);
 
   const handleAssetDownload = useCallback(async (asset: Asset) => {
@@ -266,7 +266,7 @@ export function useLibraryItemHandlers({
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = a.file_name;
+        link.download = a.fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

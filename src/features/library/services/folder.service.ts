@@ -17,10 +17,10 @@ export class FolderService {
     const { data, error } = await supabase
       .from('folders')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('name', 'home')
-      .eq('is_system', true)
-      .is('parent_id', null)
+      .eq('isSystem', true)
+      .is('parentId', null)
       .maybeSingle();
 
     if (data) {
@@ -36,11 +36,11 @@ export class FolderService {
       .from('folders')
       .insert({
         name: 'home',
-        parent_id: null,
-        user_id: userId,
+        parentId: null,
+        userId: userId,
         path: '/home',
         depth: 0,
-        is_system: true,
+        isSystem: true,
       })
       .select()
       .single();
@@ -51,10 +51,10 @@ export class FolderService {
         const { data: raceFolder } = await supabase
           .from('folders')
           .select('*')
-          .eq('user_id', userId)
+          .eq('userId', userId)
           .eq('name', 'home')
-          .eq('is_system', true)
-          .is('parent_id', null)
+          .eq('isSystem', true)
+          .is('parentId', null)
           .single();
         
         if (raceFolder) return raceFolder;
@@ -85,14 +85,14 @@ export class FolderService {
     let query = supabase
       .from('folders')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('name', folderName)
-      .eq('is_system', true);
+      .eq('isSystem', true);
     
     if (parentId) {
-      query = query.eq('parent_id', parentId);
+      query = query.eq('parentId', parentId);
     } else {
-      query = query.is('parent_id', null);
+      query = query.is('parentId', null);
     }
     
     const { data: existing, error: fetchError } = await query.maybeSingle();
@@ -113,11 +113,11 @@ export class FolderService {
       .from('folders')
       .insert({
         name: folderName,
-        parent_id: parentId || null,
-        user_id: userId,
+        parentId: parentId || null,
+        userId: userId,
         path,
         depth,
-        is_system: true,
+        isSystem: true,
       })
       .select()
       .single();
@@ -128,14 +128,14 @@ export class FolderService {
         let raceQuery = supabase
           .from('folders')
           .select('*')
-          .eq('user_id', userId)
+          .eq('userId', userId)
           .eq('name', folderName)
-          .eq('is_system', true);
+          .eq('isSystem', true);
         
         if (parentId) {
-          raceQuery = raceQuery.eq('parent_id', parentId);
+          raceQuery = raceQuery.eq('parentId', parentId);
         } else {
-          raceQuery = raceQuery.is('parent_id', null);
+          raceQuery = raceQuery.is('parentId', null);
         }
         
         const { data: raceFolder } = await raceQuery.single();
@@ -157,8 +157,8 @@ export class FolderService {
     const { data, error } = await supabase
       .from('folders')
       .select('*')
-      .eq('user_id', userId)
-      .order('is_system', { ascending: false })
+      .eq('userId', userId)
+      .order('isSystem', { ascending: false })
       .order('depth', { ascending: true })
       .order('name', { ascending: true });
 
@@ -181,14 +181,14 @@ export class FolderService {
     let query = supabase
       .from('folders')
       .select('*')
-      .eq('user_id', userId)
-      .order('is_system', { ascending: false }) // home first
+      .eq('userId', userId)
+      .order('isSystem', { ascending: false }) // home first
       .order('name', { ascending: true });
 
     if (parentId === null) {
-      query = query.is('parent_id', null);
+      query = query.is('parentId', null);
     } else {
-      query = query.eq('parent_id', parentId);
+      query = query.eq('parentId', parentId);
     }
 
     const { data, error } = await query;
@@ -210,7 +210,7 @@ export class FolderService {
       .from('folders')
       .select('*')
       .eq('id', folderId)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .single();
 
     if (error) {
@@ -234,13 +234,13 @@ export class FolderService {
         .from('folders')
         .select('*')
         .eq('id', currentId)
-        .eq('user_id', userId)
+        .eq('userId', userId)
         .single();
 
       if (result.error || !result.data) break;
       const folder = result.data as Folder;
       breadcrumbs.unshift(folder);
-      currentId = folder.parent_id;
+      currentId = folder.parentId;
     }
 
     return breadcrumbs;
@@ -262,8 +262,8 @@ export class FolderService {
     let path: string;
     let depth: number;
 
-    if (request.parent_id) {
-      const parent = await FolderService.getFolder(userId, request.parent_id);
+    if (request.parentId) {
+      const parent = await FolderService.getFolder(userId, request.parentId);
       if (!parent) throw new Error('Parent folder not found');
       path = `${parent.path}/${folderName}`;
       depth = parent.depth + 1;
@@ -276,11 +276,11 @@ export class FolderService {
       .from('folders')
       .insert({
         name: folderName,
-        parent_id: request.parent_id,
-        user_id: userId,
+        parentId: request.parentId,
+        userId: userId,
         path,
         depth,
-        is_system: false,
+        isSystem: false,
       })
       .select()
       .single();
@@ -307,19 +307,19 @@ export class FolderService {
 
     const folder = await FolderService.getFolder(userId, folderId);
     if (!folder) throw new Error('Folder not found');
-    if (folder.is_system) throw new Error('Cannot modify system folders');
+    if (folder.isSystem) throw new Error('Cannot modify system folders');
 
     const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     let newPath = folder.path;
     let newDepth = folder.depth;
 
     // Handle move
-    if (updates.parent_id !== undefined && updates.parent_id !== folder.parent_id) {
-      if (updates.parent_id) {
-        const newParent = await FolderService.getFolder(userId, updates.parent_id);
+    if (updates.parentId !== undefined && updates.parentId !== folder.parentId) {
+      if (updates.parentId) {
+        const newParent = await FolderService.getFolder(userId, updates.parentId);
         if (!newParent) throw new Error('Target folder not found');
         newPath = `${newParent.path}/${updates.name || folder.name}`;
         newDepth = newParent.depth + 1;
@@ -327,7 +327,7 @@ export class FolderService {
         newPath = `/${updates.name || folder.name}`;
         newDepth = 0;
       }
-      updateData.parent_id = updates.parent_id;
+      updateData.parentId = updates.parentId;
       updateData.path = newPath;
       updateData.depth = newDepth;
     }
@@ -336,7 +336,7 @@ export class FolderService {
     if (updates.name && updates.name !== folder.name) {
       const normalizedName = normalizeName(updates.name);
       updateData.name = normalizedName;
-      if (updates.parent_id === undefined) {
+      if (updates.parentId === undefined) {
         // Just rename, keep same parent
         const pathParts = folder.path.split('/');
         pathParts[pathParts.length - 1] = normalizedName;
@@ -348,7 +348,7 @@ export class FolderService {
       .from('folders')
       .update(updateData)
       .eq('id', folderId)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .select()
       .single();
 
@@ -378,7 +378,7 @@ export class FolderService {
     const { data: children } = await supabase
       .from('folders')
       .select('id, path')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .like('path', `${oldPath}/%`);
 
     if (!children || children.length === 0) return;
@@ -445,13 +445,13 @@ export class FolderService {
       let existingQuery = supabase
         .from('folders')
         .select('id')
-        .eq('user_id', userId)
+        .eq('userId', userId)
         .eq('name', folderName);
       
       if (folderParentId) {
-        existingQuery = existingQuery.eq('parent_id', folderParentId);
+        existingQuery = existingQuery.eq('parentId', folderParentId);
       } else {
-        existingQuery = existingQuery.is('parent_id', null);
+        existingQuery = existingQuery.is('parentId', null);
       }
       
       const { data: existing } = await existingQuery.maybeSingle();
@@ -466,11 +466,11 @@ export class FolderService {
         .from('folders')
         .insert({
           name: folderName,
-          parent_id: folderParentId,
-          user_id: userId,
+          parentId: folderParentId,
+          userId: userId,
           path: fullPath,
           depth: folderDepth,
-          is_system: false,
+          isSystem: false,
         })
         .select()
         .single();
@@ -481,13 +481,13 @@ export class FolderService {
           let retryQuery = supabase
             .from('folders')
             .select('id')
-            .eq('user_id', userId)
+            .eq('userId', userId)
             .eq('name', folderName);
           
           if (folderParentId) {
-            retryQuery = retryQuery.eq('parent_id', folderParentId);
+            retryQuery = retryQuery.eq('parentId', folderParentId);
           } else {
-            retryQuery = retryQuery.is('parent_id', null);
+            retryQuery = retryQuery.is('parentId', null);
           }
           
           const { data: existingAfterError } = await retryQuery.single();
@@ -514,28 +514,28 @@ export class FolderService {
 
     const folder = await FolderService.getFolder(userId, folderId);
     if (!folder) throw new Error('Folder not found');
-    if (folder.is_system) throw new Error('Cannot delete system folders');
+    if (folder.isSystem) throw new Error('Cannot delete system folders');
 
     // Get all assets in folder and subfolders to delete from storage
     const { data: assets } = await supabase
       .from('assets')
-      .select('storage_path')
-      .eq('user_id', userId)
-      .eq('folder_id', folderId);
+      .select('storagePath')
+      .eq('userId', userId)
+      .eq('folderId', folderId);
 
     // Get subfolder assets too
     const { data: subfolders } = await supabase
       .from('folders')
       .select('id')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .like('path', `${folder.path}/%`);
 
     if (subfolders && subfolders.length > 0) {
       const { data: subAssets } = await supabase
         .from('assets')
-        .select('storage_path')
-        .eq('user_id', userId)
-        .in('folder_id', subfolders.map(f => f.id));
+        .select('storagePath')
+        .eq('userId', userId)
+        .in('folderId', subfolders.map(f => f.id));
 
       if (subAssets) {
         assets?.push(...subAssets);
@@ -544,7 +544,7 @@ export class FolderService {
 
     // Delete files from storage
     if (assets && assets.length > 0) {
-      await storageService.deleteFiles(assets.map(a => a.storage_path));
+      await storageService.deleteFiles(assets.map(a => a.storagePath));
     }
 
     // Delete folder (cascades to assets and subfolders)
@@ -552,7 +552,7 @@ export class FolderService {
       .from('folders')
       .delete()
       .eq('id', folderId)
-      .eq('user_id', userId);
+      .eq('userId', userId);
 
     if (error) {
       throw new Error(`Failed to delete folder: ${error.message}`);

@@ -36,7 +36,7 @@ export function useMangaReader() {
   // Fetch assets for the folder when manga reader is open
   const { data, isLoading, error } = useSWR<AssetsResponse>(
     state.isOpen && state.folder
-      ? `/api/library/assets?folder_id=${state.folder.id}&file_type=image`
+      ? `/api/library/assets?folderId=${state.folder.id}&fileType=image`
       : null,
     fetcher,
     {
@@ -47,7 +47,7 @@ export function useMangaReader() {
 
   // Filter only image assets
   const images = (data?.assets ?? []).filter(
-    (asset) => asset.file_type === 'image'
+    (asset) => asset.fileType === 'image'
   );
 
   const openMangaReader = useCallback((folder: Folder) => {

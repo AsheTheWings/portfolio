@@ -60,8 +60,8 @@ export async function handleGenerateImage(
       const transformedItems: Record<string, Record<string, unknown>> = {};
       
       for (const item of Object.values(data.items)) {
-        // Use path as key, strip id, thumbnail_url, storage_url for cleaner response
-        const { id, thumbnail_url, storage_url, ...rest } = item as unknown as Record<string, unknown>;
+        // Use path as key, strip id, thumbnailUrl, storageUrl for cleaner response
+        const { id, thumbnailUrl, storageUrl, ...rest } = item as unknown as Record<string, unknown>;
         transformedItems[item.path] = rest;
       }
       

@@ -132,12 +132,12 @@ export function LibraryPicker({
     // Deduplicate: exclude folders that are subfolders of other context folders
     const contextFolderSet = new Set(folderIds);
     const deduplicatedFolderIds = folderIds.filter(folderId => {
-      let currentId = folderMap.get(folderId)?.parent_id;
+      let currentId = folderMap.get(folderId)?.parentId;
       while (currentId) {
         if (contextFolderSet.has(currentId)) {
           return false;
         }
-        currentId = folderMap.get(currentId)?.parent_id;
+        currentId = folderMap.get(currentId)?.parentId;
       }
       return true;
     });
@@ -151,7 +151,7 @@ export function LibraryPicker({
       const rootSet = new Set(rootContextFolderIds);
       return allFolders.filter(f => rootSet.has(f.id));
     }
-    return allFolders.filter(f => f.parent_id === contextFolderId);
+    return allFolders.filter(f => f.parentId === contextFolderId);
   }, [isContextRoot, rootContextFolderIds, allFolders, contextFolderId]);
   
   // Build breadcrumbs for context navigation (memoized)
@@ -167,7 +167,7 @@ export function LibraryPicker({
       if (!folder) break;
       crumbs.unshift(folder);
       if (contextRootSet.has(currentId)) break;
-      currentId = folder.parent_id;
+      currentId = folder.parentId;
     }
     return crumbs;
   }, [contextFolderId, rootContextFolderIds, folderMap]);

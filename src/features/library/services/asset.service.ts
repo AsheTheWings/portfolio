@@ -18,12 +18,12 @@ export class AssetService {
   ): Promise<{ assets: Asset[]; total: number }> {
     const supabase = await createClient();
     const {
-      folder_id,
-      file_type,
+      folderId,
+      fileType,
       tag,
       search,
-      sort_by = 'created_at',
-      sort_order = 'desc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
     } = params;
 
     // Base query - use left join (no !inner) to include assets without tags
@@ -31,38 +31,38 @@ export class AssetService {
       .from('assets')
       .select(`
         *,
-        asset_item_tags (
+        assetItemTags (
           asset_tags (
             id,
             tag,
-            user_id,
-            created_at,
-            updated_at
+            userId,
+            createdAt,
+            updatedAt
           )
         )
       `, { count: 'exact' })
-      .eq('user_id', userId);
+      .eq('userId', userId);
 
     // Filter by folder
-    if (folder_id) {
+    if (folderId) {
       // Inside a folder - show assets in that folder
-      query = query.eq('folder_id', folder_id);
+      query = query.eq('folderId', folderId);
     } else {
       // At root - show only assets without a folder (unorganized)
-      query = query.is('folder_id', null);
+      query = query.is('folderId', null);
     }
 
     // Apply filters
-    if (file_type) {
-      query = query.eq('file_type', file_type);
+    if (fileType) {
+      query = query.eq('fileType', fileType);
     }
 
     if (search) {
-      query = query.or(`file_name.ilike.%${search}%,alt_text.ilike.%${search}%`);
+      query = query.or(`fileName.ilike.%${search}%,altText.ilike.%${search}%`);
     }
 
     // Sort (no pagination - client-side pagination used)
-    query = query.order(sort_by, { ascending: sort_order === 'asc' });
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
     const { data, error, count } = await query;
 
@@ -73,8 +73,8 @@ export class AssetService {
     // Transform data to flatten tags
     const assets: Asset[] = (data || []).map((asset: Asset & AssetWithTagsJoin) => ({
       ...asset,
-      tags: asset.asset_item_tags?.map((ait: AssetItemTagJoin) => ait.asset_tags) || [],
-      asset_item_tags: undefined,
+      tags: asset.assetItemTags?.map((ait: AssetItemTagJoin) => ait.assetTags) || [],
+      assetItemTags: undefined,
     }));
 
     // If filtering by tag, do it client-side (Supabase join filtering is complex)
@@ -109,26 +109,26 @@ export class AssetService {
           id,
           name,
           path,
-          parent_id,
+          parentId,
           depth,
-          is_system,
-          assets_count,
-          created_at,
-          updated_at
+          isSystem,
+          assetsCount,
+          createdAt,
+          updatedAt
         ),
-        asset_item_tags (
+        assetItemTags (
           asset_tags (
             id,
             tag,
-            user_id,
-            created_at,
-            updated_at
+            userId,
+            createdAt,
+            updatedAt
           )
         )
       `)
-      .eq('user_id', userId)
-      .or(`file_name.ilike.%${searchQuery}%,alt_text.ilike.%${searchQuery}%`)
-      .order('created_at', { ascending: false })
+      .eq('userId', userId)
+      .or(`fileName.ilike.%${searchQuery}%,altText.ilike.%${searchQuery}%`)
+      .order('createdAt', { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -139,8 +139,8 @@ export class AssetService {
       ...asset,
       folder: asset.folders || undefined,
       folders: undefined,
-      tags: asset.asset_item_tags?.map((ait: AssetItemTagJoin) => ait.asset_tags) || [],
-      asset_item_tags: undefined,
+      tags: asset.assetItemTags?.map((ait: AssetItemTagJoin) => ait.assetTags) || [],
+      assetItemTags: undefined,
     }));
   }
 
@@ -154,18 +154,18 @@ export class AssetService {
       .from('assets')
       .select(`
         *,
-        asset_item_tags (
+        assetItemTags (
           asset_tags (
             id,
             tag,
-            user_id,
-            created_at,
-            updated_at
+            userId,
+            createdAt,
+            updatedAt
           )
         )
       `)
       .eq('id', assetId)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .single();
 
     if (error) {
@@ -175,8 +175,8 @@ export class AssetService {
 
     return {
       ...data,
-      tags: data.asset_item_tags?.map((ait: AssetItemTagJoin) => ait.asset_tags) || [],
-      asset_item_tags: undefined,
+      tags: data.assetItemTags?.map((ait: AssetItemTagJoin) => ait.assetTags) || [],
+      assetItemTags: undefined,
     } as Asset;
   }
 
@@ -188,8 +188,8 @@ export class AssetService {
   static async getAssetsByIds(ids: string[]): Promise<Array<{
     id: string;
     url: string;
-    mime_type: string;
-    file_name: string;
+    mimeType: string;
+    fileName: string;
   }>> {
     if (!ids || ids.length === 0) return [];
     
@@ -210,8 +210,8 @@ export class AssetService {
     // For each folder, get all descendant assets recursively
     if (folderIds.size > 0) {
       // Get all subfolders recursively using a recursive CTE
-      const { data: allFolderIds } = await supabase.rpc('get_descendant_folder_ids', {
-        root_folder_ids: Array.from(folderIds)
+      const { data: allFolderIds } = await supabase.rpc('get_descendant_folderIds', {
+        root_folderIds: Array.from(folderIds)
       });
       
       // Combine root folders + descendants
@@ -221,7 +221,7 @@ export class AssetService {
       const { data: folderAssets } = await supabase
         .from('assets')
         .select('id')
-        .in('folder_id', allFolders);
+        .in('folderId', allFolders);
       
       folderAssets?.forEach(a => allAssetIds.add(a.id));
     }
@@ -231,7 +231,7 @@ export class AssetService {
     // Fetch all assets
     const { data, error } = await supabase
       .from('assets')
-      .select('id, url, mime_type, file_name')
+      .select('id, url, mimeType, fileName')
       .in('id', Array.from(allAssetIds));
 
     if (error) {
@@ -243,7 +243,7 @@ export class AssetService {
 
   /**
    * Get library paths for assets by IDs.
-   * Returns folder.path + "/" + file_name for each asset.
+   * Returns folder.path + "/" + fileName for each asset.
    */
   static async getAssetPaths(ids: string[]): Promise<Array<{ id: string; path: string }>> {
     if (!ids || ids.length === 0) return [];
@@ -251,7 +251,7 @@ export class AssetService {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('assets')
-      .select('id, file_name, folder_id')
+      .select('id, fileName, folderId')
       .in('id', ids);
 
     if (error || !data?.length) {
@@ -260,7 +260,7 @@ export class AssetService {
     }
 
     // Fetch folder paths for all unique folder IDs
-    const folderIds = [...new Set(data.map(a => a.folder_id).filter(Boolean))];
+    const folderIds = [...new Set(data.map(a => a.folderId).filter(Boolean))];
     if (folderIds.length === 0) return [];
 
     const { data: folders } = await supabase
@@ -271,16 +271,16 @@ export class AssetService {
     const folderPathMap = new Map((folders || []).map((f: { id: string; path: string }) => [f.id, f.path]));
 
     return data
-      .filter(row => folderPathMap.has(row.folder_id))
+      .filter(row => folderPathMap.has(row.folderId))
       .map(row => ({
         id: row.id,
-        path: `${folderPathMap.get(row.folder_id)}/${row.file_name}`,
+        path: `${folderPathMap.get(row.folderId)}/${row.fileName}`,
       }));
   }
 
   /**
    * Get multiple assets by IDs with full data including tags and folder
-   * Filters by user_id for security
+   * Filters by userId for security
    */
   static async getAssetsByIdsWithTags(userId: string, ids: string[]): Promise<Asset[]> {
     if (!ids || ids.length === 0) return [];
@@ -296,18 +296,18 @@ export class AssetService {
           name,
           path
         ),
-        asset_item_tags (
+        assetItemTags (
           asset_tags (
             id,
             tag,
-            user_id,
-            created_at,
-            updated_at
+            userId,
+            createdAt,
+            updatedAt
           )
         )
       `)
       .in('id', ids)
-      .eq('user_id', userId);
+      .eq('userId', userId);
 
     if (error) {
       throw new Error(`Failed to get assets: ${error.message}`);
@@ -315,8 +315,8 @@ export class AssetService {
 
     return (data || []).map((asset: Asset & AssetWithTagsJoin & { folder?: Folder }) => ({
       ...asset,
-      tags: asset.asset_item_tags?.map((ait: AssetItemTagJoin) => ait.asset_tags) || [],
-      asset_item_tags: undefined,
+      tags: asset.assetItemTags?.map((ait: AssetItemTagJoin) => ait.assetTags) || [],
+      assetItemTags: undefined,
     }));
   }
 
@@ -340,12 +340,12 @@ export class AssetService {
   static async createAsset(
     userId: string,
     data: {
-      folder_id?: string | null;
-      file_name: string;
-      storage_path: string;
-      mime_type: string;
-      size_kb: number;
-      alt_text?: string;
+      folderId?: string | null;
+      fileName: string;
+      storagePath: string;
+      mimeType: string;
+      sizeKb: number;
+      altText?: string;
       metadata?: Record<string, unknown>;
       thumbnail_path?: string;
     }
@@ -354,10 +354,10 @@ export class AssetService {
     const storageService = new StorageService(supabase);
 
     // Normalize file name (replace whitespace with underscores)
-    const normalizedFileName = AssetService.normalizeFileName(data.file_name);
+    const normalizedFileName = AssetService.normalizeFileName(data.fileName);
 
     // Get signed URL for the asset
-    const { signedUrl } = await storageService.getSignedUrl(data.storage_path);
+    const { signedUrl } = await storageService.getSignedUrl(data.storagePath);
 
     // Get thumbnail URL
     let thumbnailUrl: string | null = null;
@@ -365,10 +365,10 @@ export class AssetService {
       // Video: use uploaded thumbnail
       const { signedUrl: thumbUrl } = await storageService.getSignedUrl(data.thumbnail_path);
       thumbnailUrl = thumbUrl;
-    } else if (data.mime_type.startsWith('image/')) {
+    } else if (data.mimeType.startsWith('image/')) {
       // Image: use Supabase transform
       const { signedUrl: thumbUrl } = await storageService.getTransformedUrl(
-        data.storage_path,
+        data.storagePath,
         { width: 200, height: 200, quality: 80 }
       );
       thumbnailUrl = thumbUrl;
@@ -377,16 +377,16 @@ export class AssetService {
     const { data: asset, error } = await supabase
       .from('assets')
       .insert({
-        user_id: userId,
-        folder_id: data.folder_id || null,
-        file_name: normalizedFileName,
-        storage_path: data.storage_path,
+        userId: userId,
+        folderId: data.folderId || null,
+        fileName: normalizedFileName,
+        storagePath: data.storagePath,
         url: signedUrl,
-        file_type: getFileType(data.mime_type),
-        mime_type: data.mime_type,
-        size_kb: data.size_kb,
-        alt_text: data.alt_text || null,
-        thumbnail_url: thumbnailUrl,
+        fileType: getFileType(data.mimeType),
+        mimeType: data.mimeType,
+        sizeKb: data.sizeKb,
+        altText: data.altText || null,
+        thumbnailUrl: thumbnailUrl,
         metadata: data.metadata || {},
       })
       .select()
@@ -450,16 +450,16 @@ export class AssetService {
     const { data: asset, error } = await supabase
       .from('assets')
       .insert({
-        user_id: userId,
-        folder_id: folderId,
-        file_name: finalFileName,
-        storage_path: uploadResult.path,
+        userId: userId,
+        folderId: folderId,
+        fileName: finalFileName,
+        storagePath: uploadResult.path,
         url: signedUrl,
-        file_type: getFileType(mimeType),
-        mime_type: mimeType,
-        size_kb: sizeKb,
-        alt_text: 'AI generated image',
-        thumbnail_url: thumbnailUrl,
+        fileType: getFileType(mimeType),
+        mimeType: mimeType,
+        sizeKb: sizeKb,
+        altText: 'AI generated image',
+        thumbnailUrl: thumbnailUrl,
         metadata: { source: 'agent-generated' },
       })
       .select()
@@ -485,19 +485,19 @@ export class AssetService {
     const supabase = await createClient();
 
     const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    if (updates.file_name !== undefined) {
-      updateData.file_name = AssetService.normalizeFileName(updates.file_name);
+    if (updates.fileName !== undefined) {
+      updateData.fileName = AssetService.normalizeFileName(updates.fileName);
     }
 
-    if (updates.alt_text !== undefined) {
-      updateData.alt_text = updates.alt_text;
+    if (updates.altText !== undefined) {
+      updateData.altText = updates.altText;
     }
 
-    if (updates.folder_id !== undefined) {
-      updateData.folder_id = updates.folder_id;
+    if (updates.folderId !== undefined) {
+      updateData.folderId = updates.folderId;
     }
 
     if (updates.metadata !== undefined) {
@@ -508,7 +508,7 @@ export class AssetService {
       .from('assets')
       .update(updateData)
       .eq('id', assetId)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .select()
       .single();
 
@@ -550,14 +550,14 @@ export class AssetService {
           }
 
           // Delete from storage first
-          await storageService.deleteFile(asset.storage_path);
+          await storageService.deleteFile(asset.storagePath);
 
-          // Delete asset record (cascade deletes asset_item_tags)
+          // Delete asset record (cascade deletes assetItemTags)
           const { error } = await supabase
             .from('assets')
             .delete()
             .eq('id', assetId)
-            .eq('user_id', userId);
+            .eq('userId', userId);
 
           if (error) {
             failed.push(assetId);
@@ -592,7 +592,7 @@ export class AssetService {
 
     // Generate new asset ID and storage path
     const newAssetId = crypto.randomUUID();
-    const originalPath = originalAsset.storage_path;
+    const originalPath = originalAsset.storagePath;
     const pathParts = originalPath.split('/');
     const fileName = pathParts[pathParts.length - 1];
     const newStoragePath = `${userId}/${newAssetId}/${fileName}`;
@@ -610,7 +610,7 @@ export class AssetService {
     const { signedUrl } = await storageService.getSignedUrl(newStoragePath);
     let thumbnailUrl: string | null = null;
 
-    if (originalAsset.mime_type?.startsWith('image/')) {
+    if (originalAsset.mimeType?.startsWith('image/')) {
       const { signedUrl: thumbUrl } = await storageService.getTransformedUrl(
         newStoragePath,
         { width: 200, height: 200, quality: 80 }
@@ -622,16 +622,16 @@ export class AssetService {
     const { data: newAsset, error: insertError } = await supabase
       .from('assets')
       .insert({
-        user_id: userId,
-        folder_id: targetFolderId,
-        file_name: originalAsset.file_name,
-        storage_path: newStoragePath,
+        userId: userId,
+        folderId: targetFolderId,
+        fileName: originalAsset.fileName,
+        storagePath: newStoragePath,
         url: signedUrl,
-        file_type: originalAsset.file_type,
-        mime_type: originalAsset.mime_type,
-        size_kb: originalAsset.size_kb,
-        alt_text: originalAsset.alt_text,
-        thumbnail_url: thumbnailUrl,
+        fileType: originalAsset.fileType,
+        mimeType: originalAsset.mimeType,
+        sizeKb: originalAsset.sizeKb,
+        altText: originalAsset.altText,
+        thumbnailUrl: thumbnailUrl,
         metadata: originalAsset.metadata,
       })
       .select()
@@ -692,9 +692,9 @@ export class AssetService {
 
     const { data, error } = await supabase
       .from('assets')
-      .update({ folder_id: targetFolderId })
+      .update({ folderId: targetFolderId })
       .in('id', ids)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .select('id');
 
     if (error) {
@@ -719,12 +719,12 @@ export class AssetService {
       throw new Error('Asset not found');
     }
 
-    const { signedUrl } = await storageService.getSignedUrl(asset.storage_path);
+    const { signedUrl } = await storageService.getSignedUrl(asset.storagePath);
 
     // Update stored URL
     await supabase
       .from('assets')
-      .update({ url: signedUrl, updated_at: new Date().toISOString() })
+      .update({ url: signedUrl, updatedAt: new Date().toISOString() })
       .eq('id', assetId);
 
     return signedUrl;

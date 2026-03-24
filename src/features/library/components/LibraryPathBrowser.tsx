@@ -45,7 +45,7 @@ function getItemIcon(item: LibraryItem) {
   if (item.type === 'folder') {
     return <Folder className="w-4 h-4 text-amber-500" />;
   }
-  switch (item.file_type) {
+  switch (item.fileType) {
     case 'image':
       return <Image className="w-4 h-4 text-blue-500" />;
     case 'video':
@@ -69,9 +69,9 @@ function flattenTree(tree: FolderTreeNode[]): LibraryItem[] {
         name: node.name,
         type: 'folder',
         path: normalizePath(node.path),
-        created_at: '',
-        updated_at: '',
-        assets_count: node.assets_count,
+        createdAt: '',
+        updatedAt: '',
+        assetsCount: node.assetsCount,
       });
       if (node.children.length > 0) {
         traverse(node.children);
@@ -199,9 +199,9 @@ export function LibraryPathBrowser({
           name: node.name,
           type: 'folder',
           path: itemPath,
-          created_at: '',
-          updated_at: '',
-          assets_count: node.assets_count,
+          createdAt: '',
+          updatedAt: '',
+          assetsCount: node.assetsCount,
         })}
         className={`
           w-full flex items-center gap-2 px-3 py-2 text-left text-sm
@@ -212,8 +212,8 @@ export function LibraryPathBrowser({
       >
         <Folder className="w-4 h-4 text-amber-500 shrink-0" />
         <span className="truncate flex-1">{node.name}</span>
-        {node.assets_count > 0 && (
-          <span className="text-xs text-muted-foreground">{node.assets_count}</span>
+        {node.assetsCount > 0 && (
+          <span className="text-xs text-muted-foreground">{node.assetsCount}</span>
         )}
         <ChevronRight className="w-3 h-3 text-muted-foreground" />
       </button>
@@ -303,14 +303,14 @@ export function LibraryPathBrowser({
                     <span className="truncate flex-1">{item.name}</span>
                     {item.type === 'folder' && (
                       <>
-                        {item.assets_count !== undefined && item.assets_count > 0 && (
-                          <span className="text-xs text-muted-foreground">{item.assets_count}</span>
+                        {item.assetsCount !== undefined && item.assetsCount > 0 && (
+                          <span className="text-xs text-muted-foreground">{item.assetsCount}</span>
                         )}
                         <ChevronRight className="w-3 h-3 text-muted-foreground" />
                       </>
                     )}
-                    {item.type === 'asset' && item.file_type && (
-                      <span className="text-xs text-muted-foreground capitalize">{item.file_type}</span>
+                    {item.type === 'asset' && item.fileType && (
+                      <span className="text-xs text-muted-foreground capitalize">{item.fileType}</span>
                     )}
                   </button>
                 ))}

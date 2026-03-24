@@ -10,7 +10,7 @@ import { FolderService } from '@/features/library/services/folder.service';
  * GET /api/library/folders - List folders
  * Query params:
  * - all: 'true' - Return all folders (for SWR hydration)
- * - parent_id: string | 'null' - Parent folder ID (null for top-level)
+ * - parentId: string | 'null' - Parent folder ID (null for top-level)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Otherwise, return folders at specific level
-    const parentIdParam = searchParams.get('parent_id');
+    const parentIdParam = searchParams.get('parentId');
     const parentId = parentIdParam === 'null' || parentIdParam === null 
       ? null 
       : parentIdParam;
@@ -41,15 +41,15 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/library/folders - Create folder(s)
  * 
- * Single folder: { name: string, parent_id: string | null }
- * Bulk creation: { paths: string[], parent_id: string | null }
+ * Single folder: { name: string, parentId: string | null }
+ * Bulk creation: { paths: string[], parentId: string | null }
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await AuthHandlers.getCurrentUser();
     const body = await request.json();
 
-    const { name, parent_id, paths } = body;
+    const { name, parentId, paths } = body;
 
     // Bulk creation mode
     if (paths && Array.isArray(paths)) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
       const folderMap = await FolderService.createFolderTree(
         user.id,
-        parent_id || null,
+        parentId || null,
         paths
       );
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const folder = await FolderService.createFolder(user.id, {
       name: name.trim(),
-      parent_id: parent_id || null,
+      parentId: parentId || null,
     });
 
     return NextResponse.json({ folder }, { status: 201 });

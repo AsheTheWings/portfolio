@@ -42,7 +42,7 @@ async function resolvePathNavigation(
   
   // If still no match, check if first part is a root folder
   if (!targetFolder && pathParts.length === 1) {
-    targetFolder = allFolders.find(f => f.name === pathParts[0] && f.parent_id === null);
+    targetFolder = allFolders.find(f => f.name === pathParts[0] && f.parentId === null);
     if (!targetFolder) {
       // Single part that's not a folder - might be an item at root
       selectedItemName = pathParts[0];
@@ -59,17 +59,17 @@ async function resolvePathNavigation(
       const folder = allFolders.find(f => f.id === currentId);
       if (!folder) break;
       breadcrumbs.unshift(folder);
-      currentId = folder.parent_id;
+      currentId = folder.parentId;
     }
   }
   
   // Fetch assets for target folder
-  const { assets } = await AssetService.listAssets(userId, { folder_id: folderId ?? undefined });
+  const { assets } = await AssetService.listAssets(userId, { folderId: folderId ?? undefined });
   
   // Get folders at this level
   const foldersAtLevel = folderId === null
-    ? allFolders.filter(f => f.parent_id === null)
-    : allFolders.filter(f => f.parent_id === folderId);
+    ? allFolders.filter(f => f.parentId === null)
+    : allFolders.filter(f => f.parentId === folderId);
   
   return {
     folderId,

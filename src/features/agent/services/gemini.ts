@@ -95,7 +95,7 @@ async function resolveAllLibraryItemParts(
     // Fetch asset metadata
     AssetService.getAssetsByIds(Array.from(allLibraryItemIds)).catch(err => {
       console.error('Failed to fetch assets:', err);
-      return [] as Array<{ id: string; url: string; mime_type: string; file_name: string }>;
+      return [] as Array<{ id: string; url: string; mimeType: string; fileName: string }>;
     }),
     // List existing Gemini files for cache check
     listGeminiFiles(client),
@@ -104,18 +104,18 @@ async function resolveAllLibraryItemParts(
   if (!assets || assets.length === 0) return result;
   
   // 2. Determine which assets need uploading vs cached
-  const assetsToUpload: Array<{ id: string; url: string; mime_type: string; file_name: string }> = [];
+  const assetsToUpload: Array<{ id: string; url: string; mimeType: string; fileName: string }> = [];
   const resolvedParts = new Map<string, { fileData: { fileUri: string; mimeType: string } }>();
   
   for (const asset of assets) {
     const cachedFile = existingFiles.get(asset.id);
     
     if (cachedFile) {
-      console.log(`📁 Using cached Gemini file: ${asset.file_name} (${asset.id})`);
+      console.log(`📁 Using cached Gemini file: ${asset.fileName} (${asset.id})`);
       resolvedParts.set(asset.id, {
         fileData: {
           fileUri: cachedFile.uri,
-          mimeType: asset.mime_type,
+          mimeType: asset.mimeType,
         },
       });
       continue;
@@ -134,7 +134,7 @@ async function resolveAllLibraryItemParts(
     
     const uploadResults = await Promise.allSettled(
       assetsToUpload.map(async (asset) => {
-        console.log(`⬆️ Uploading: ${asset.file_name} (${asset.id})`);
+        console.log(`⬆️ Uploading: ${asset.fileName} (${asset.id})`);
         
         // Fetch from our storage
         const fileResponse = await fetch(asset.url);
@@ -149,12 +149,12 @@ async function resolveAllLibraryItemParts(
           file: blob,
           config: {
             displayName: asset.id,
-            mimeType: asset.mime_type,
+            mimeType: asset.mimeType,
           },
         });
         
-        console.log(`✅ Uploaded: ${asset.file_name}`);
-        return { assetId: asset.id, uri: uploadedFile.uri, mimeType: asset.mime_type };
+        console.log(`✅ Uploaded: ${asset.fileName}`);
+        return { assetId: asset.id, uri: uploadedFile.uri, mimeType: asset.mimeType };
       })
     );
     

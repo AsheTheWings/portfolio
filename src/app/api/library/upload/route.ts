@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
     // Parse multipart form data
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const folderId = formData.get('folder_id') as string | null;
+    const folderId = formData.get('folderId') as string | null;
     const thumbnail = formData.get('thumbnail') as File | null; // Optional video thumbnail
-    const altText = formData.get('alt_text') as string | null;
+    const altText = formData.get('altText') as string | null;
     const tagsJson = formData.get('tags') as string | null;
     const metadataJson = formData.get('metadata') as string | null;
 
@@ -85,12 +85,12 @@ export async function POST(request: NextRequest) {
 
     // Create asset record
     const asset = await AssetService.createAsset(user.id, {
-      folder_id: targetFolderId,
-      file_name: fileName,
-      storage_path: uploadResult.path,
-      mime_type: file.type,
-      size_kb: Math.ceil(file.size / 1024),
-      alt_text: altText || undefined,
+      folderId: targetFolderId,
+      fileName: fileName,
+      storagePath: uploadResult.path,
+      mimeType: file.type,
+      sizeKb: Math.ceil(file.size / 1024),
+      altText: altText || undefined,
       metadata: metadataJson ? JSON.parse(metadataJson) : undefined,
       thumbnail_path: thumbnailPath,
     });

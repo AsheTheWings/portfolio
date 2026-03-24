@@ -7,8 +7,8 @@ interface Workload {
   id: string;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 async function fetchWorkloads(): Promise<Workload[]> {
@@ -146,7 +146,7 @@ export function WorkloadsPanel({ onChanged }: WorkloadsPanelProps) {
                   <div key={w.id} className="rounded-lg border border-border px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{w.name}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString()}</div>
                     </div>
                     {w.description && (
                       <div className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{w.description}</div>

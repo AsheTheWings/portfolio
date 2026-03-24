@@ -34,8 +34,8 @@ interface SessionRow {
   agent_name: string;
   event_count: number;
   turns_count: number;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function HistoryPanel() {
@@ -91,7 +91,7 @@ export function HistoryPanel() {
     // Date range filters
     if (startDate) {
       filtered = filtered.filter(
-        (session) => new Date(session.created_at) >= startDate
+        (session) => new Date(session.createdAt) >= startDate
       );
     }
 
@@ -99,7 +99,7 @@ export function HistoryPanel() {
       const end = new Date(endDate);
       end.setDate(end.getDate() + 1); // Include entire end date
       filtered = filtered.filter(
-        (session) => new Date(session.created_at) < end
+        (session) => new Date(session.createdAt) < end
       );
     }
 
@@ -283,12 +283,12 @@ export function HistoryPanel() {
                       <span>•</span>
                       <span className="whitespace-nowrap">{session.turns_count} {session.turns_count === 1 ? 'turn' : 'turns'}</span>
                       <span>•</span>
-                      <span className="whitespace-nowrap" title={`Created: ${formatDate(session.created_at)}`}>
-                        Created {formatRelativeTime(session.created_at)}
+                      <span className="whitespace-nowrap" title={`Created: ${formatDate(session.createdAt)}`}>
+                        Created {formatRelativeTime(session.createdAt)}
                       </span>
                       <span>•</span>
-                      <span className="whitespace-nowrap" title={`Updated: ${formatDate(session.updated_at)}`}>
-                        Updated {formatRelativeTime(session.updated_at)}
+                      <span className="whitespace-nowrap" title={`Updated: ${formatDate(session.updatedAt)}`}>
+                        Updated {formatRelativeTime(session.updatedAt)}
                       </span>
                     </div>
                   </div>

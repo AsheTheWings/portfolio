@@ -27,7 +27,7 @@ export function useFolderActions() {
     const response = await fetch('/api/library/folders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parent_id: parentId }),
+      body: JSON.stringify({ name, parentId: parentId }),
     });
 
     if (!response.ok) {
@@ -61,7 +61,7 @@ export function useFolderActions() {
     const response = await fetch(`/api/library/folders/${folderId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parent_id: newParentId }),
+      body: JSON.stringify({ parentId: newParentId }),
     });
 
     if (!response.ok) {
@@ -100,7 +100,7 @@ export function useFolderActions() {
     const response = await fetch('/api/library/folders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths, parent_id: parentId }),
+      body: JSON.stringify({ paths, parentId: parentId }),
     });
 
     if (!response.ok) {

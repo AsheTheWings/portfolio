@@ -163,7 +163,7 @@ async function resolveLibraryAssets(
   // Fetch asset metadata (includes signed URLs)
   const assets = await AssetService.getAssetsByIds(Array.from(selectedIds)).catch(err => {
     console.error('Failed to fetch assets for Fireworks vision:', err);
-    return [] as Array<{ id: string; url: string; mime_type: string; file_name: string }>;
+    return [] as Array<{ id: string; url: string; mimeType: string; fileName: string }>;
   });
 
   if (assets.length === 0) return result;
@@ -171,8 +171,8 @@ async function resolveLibraryAssets(
   // Filter to image assets only, build lookup map
   const resolvedMap = new Map<string, { mimeType: string; url: string }>();
   for (const asset of assets) {
-    if (asset.mime_type.startsWith('image/') && asset.url) {
-      resolvedMap.set(asset.id, { mimeType: asset.mime_type, url: asset.url });
+    if (asset.mimeType.startsWith('image/') && asset.url) {
+      resolvedMap.set(asset.id, { mimeType: asset.mimeType, url: asset.url });
     }
   }
 

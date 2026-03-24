@@ -103,10 +103,10 @@ async function findAssetByPath(userId: string, path: string): Promise<Asset | nu
   
   const folder = await findFolderByPath(userId, folderPath);
   const { assets } = await AssetService.listAssets(userId, { 
-    folder_id: folder?.id || undefined 
+    folderId: folder?.id || undefined 
   });
   
-  return assets.find(a => a.file_name === fileName) || null;
+  return assets.find(a => a.fileName === fileName) || null;
 }
 
 /**
@@ -115,17 +115,17 @@ async function findAssetByPath(userId: string, path: string): Promise<Asset | nu
 function assetToItem(asset: Asset, parentPath: string = ''): LibraryItem {
   return {
     id: asset.id,
-    name: asset.file_name,
+    name: asset.fileName,
     type: 'asset',
-    path: parentPath ? `${parentPath}/${asset.file_name}` : asset.file_name,
-    mime_type: asset.mime_type || undefined,
-    file_type: asset.file_type,
-    size_kb: asset.size_kb || undefined,
-    created_at: asset.created_at,
-    updated_at: asset.updated_at,
+    path: parentPath ? `${parentPath}/${asset.fileName}` : asset.fileName,
+    mimeType: asset.mimeType || undefined,
+    fileType: asset.fileType,
+    sizeKb: asset.sizeKb || undefined,
+    createdAt: asset.createdAt,
+    updatedAt: asset.updatedAt,
     tags: asset.tags?.map(t => t.tag) || [],
-    thumbnail_url: asset.thumbnail_url || undefined,
-    storage_url: asset.url || undefined,
+    thumbnailUrl: asset.thumbnailUrl || undefined,
+    storageUrl: asset.url || undefined,
   };
 }
 
@@ -195,13 +195,13 @@ async function resolveReferenceImages(
   const notFound: string[] = [];
 
   // Helper: fetch asset data and push to resolved
-  async function resolveAsset(asset: { url: string; mime_type: string | null } | null, ref: string) {
+  async function resolveAsset(asset: { url: string; mimeType: string | null } | null, ref: string) {
     if (!asset?.url) { notFound.push(ref); return; }
     const response = await fetch(asset.url);
     if (!response.ok) { notFound.push(ref); return; }
     const arrayBuffer = await response.arrayBuffer();
     resolved.push({
-      mimeType: asset.mime_type || 'image/png',
+      mimeType: asset.mimeType || 'image/png',
       data: Buffer.from(arrayBuffer).toString('base64'),
     });
     console.log(`✅ Resolved reference image: ${ref}`);

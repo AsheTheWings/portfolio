@@ -13,7 +13,7 @@ interface RouteParams {
 
 /**
  * POST /api/library/assets/:id/copy - Copy asset to target folder
- * Body: { folder_id: string }
+ * Body: { folderId: string }
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -21,19 +21,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    const { folder_id } = body;
-    if (!folder_id) {
-      return NextResponse.json({ error: 'Target folder_id is required' }, { status: 400 });
+    const { folderId } = body;
+    if (!folderId) {
+      return NextResponse.json({ error: 'Target folderId is required' }, { status: 400 });
     }
 
     // Verify target folder exists
-    const targetFolder = await FolderService.getFolder(user.id, folder_id);
+    const targetFolder = await FolderService.getFolder(user.id, folderId);
     if (!targetFolder) {
       return NextResponse.json({ error: 'Target folder not found' }, { status: 404 });
     }
 
     // Copy the asset
-    const asset = await AssetService.copyAsset(user.id, id, folder_id);
+    const asset = await AssetService.copyAsset(user.id, id, folderId);
 
     return NextResponse.json({ asset }, { status: 201 });
   } catch (error) {

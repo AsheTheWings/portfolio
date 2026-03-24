@@ -77,7 +77,7 @@ export function useLibrarySearch({
 
   // Filter folders based on search query (client-side, instant)
   const searchFilteredFolders = searchQuery.trim()
-    ? allFolders.filter(f => !f.is_system && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    ? allFolders.filter(f => !f.isSystem && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : folders;
 
   // Display folders: filtered if search query exists (regardless of spotlight state)

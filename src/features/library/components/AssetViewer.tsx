@@ -38,7 +38,7 @@ export function AssetViewer({
 
   if (!asset) return null;
 
-  const isVideo = asset.mime_type?.startsWith('video/');
+  const isVideo = asset.mimeType?.startsWith('video/');
 
   const handleFullscreen = () => {
     if (!containerRef.current) return;
@@ -142,7 +142,7 @@ export function AssetViewer({
         ) : (
           <img
             src={asset.url}
-            alt={asset.alt_text || asset.file_name}
+            alt={asset.altText || asset.fileName}
             className="h-full w-full object-contain"
             onLoad={() => setStatus('loaded')}
             onError={() => setStatus('error')}
@@ -181,11 +181,11 @@ export function AssetViewer({
           transition-opacity duration-200
         ">
           <p className="text-white text-sm font-medium truncate">
-            {asset.file_name}
+            {asset.fileName}
           </p>
-          {asset.alt_text && (
+          {asset.altText && (
             <p className="text-white/70 text-xs mt-1 truncate">
-              {asset.alt_text}
+              {asset.altText}
             </p>
           )}
         </div>

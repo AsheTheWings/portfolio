@@ -187,9 +187,9 @@ export function useLibraryPathBrowser({
             name: node.name,
             type: 'folder',
             path: nodePath,
-            created_at: '',
-            updated_at: '',
-            assets_count: node.assets_count,
+            createdAt: '',
+            updatedAt: '',
+            assetsCount: node.assetsCount,
           });
         }
         if (node.children.length > 0) {

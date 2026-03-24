@@ -71,8 +71,8 @@ async function findAssetByName(
   folderId: string | null, 
   assetName: string
 ): Promise<Asset | null> {
-  const { assets } = await AssetService.listAssets(userId, { folder_id: folderId || undefined });
-  return assets.find(a => a.file_name === assetName) || null;
+  const { assets } = await AssetService.listAssets(userId, { folderId: folderId || undefined });
+  return assets.find(a => a.fileName === assetName) || null;
 }
 
 /**
@@ -84,30 +84,30 @@ function folderToItem(folder: Folder, parentPath: string = ''): LibraryItem {
     name: folder.name,
     type: 'folder',
     path: parentPath ? `${parentPath}/${folder.name}` : folder.name,
-    created_at: folder.created_at,
-    updated_at: folder.updated_at,
-    assets_count: folder.assets_count,
+    createdAt: folder.createdAt,
+    updatedAt: folder.updatedAt,
+    assetsCount: folder.assetsCount,
   };
 }
 
 /**
  * Convert asset to LibraryItem
- * Path is derived from parentPath (folder.path) + file_name
+ * Path is derived from parentPath (folder.path) + fileName
  */
 function assetToItem(asset: Asset, parentPath: string = ''): LibraryItem {
   return {
     id: asset.id,
-    name: asset.file_name,
+    name: asset.fileName,
     type: 'asset',
-    path: parentPath ? `${parentPath}/${asset.file_name}` : asset.file_name,
-    mime_type: asset.mime_type || undefined,
-    file_type: asset.file_type,
-    size_kb: asset.size_kb || undefined,
-    created_at: asset.created_at,
-    updated_at: asset.updated_at,
+    path: parentPath ? `${parentPath}/${asset.fileName}` : asset.fileName,
+    mimeType: asset.mimeType || undefined,
+    fileType: asset.fileType,
+    sizeKb: asset.sizeKb || undefined,
+    createdAt: asset.createdAt,
+    updatedAt: asset.updatedAt,
     tags: asset.tags?.map(t => t.tag) || [],
-    thumbnail_url: asset.thumbnail_url || undefined,
-    storage_url: asset.url || undefined,
+    thumbnailUrl: asset.thumbnailUrl || undefined,
+    storageUrl: asset.url || undefined,
   };
 }
 
@@ -116,12 +116,12 @@ function assetToItem(asset: Asset, parentPath: string = ''): LibraryItem {
  */
 function buildFolderTree(folders: Folder[], parentId: string | null = null): FolderTreeNode[] {
   return folders
-    .filter(f => f.parent_id === parentId)
+    .filter(f => f.parentId === parentId)
     .map(f => ({
       id: f.id,
       name: f.name,
       path: f.path,
-      assets_count: f.assets_count,
+      assetsCount: f.assetsCount,
       children: buildFolderTree(folders, f.id),
     }));
 }
@@ -136,12 +136,12 @@ async function handleListItems(userId: string, path?: string): Promise<BrowseRes
   const currentPath = folder?.path?.replace(/^\//, '') || '';
   
   const subfolders = await FolderService.listFolders(userId, folderId);
-  const { assets } = await AssetService.listAssets(userId, { folder_id: folderId || undefined });
+  const { assets } = await AssetService.listAssets(userId, { folderId: folderId || undefined });
   
   const items: Record<string, LibraryItem> = {};
   
   for (const f of subfolders) {
-    if (!f.is_system) {
+    if (!f.isSystem) {
       items[f.id] = folderToItem(f, currentPath);
     }
   }
@@ -280,7 +280,7 @@ async function handleBatchGetMetadata(userId: string, paths?: string[]): Promise
 async function handleSearch(
   userId: string, 
   query?: string, 
-  filters?: { file_type?: string; folder_path?: string }
+  filters?: { fileType?: string; folder_path?: string }
 ): Promise<BrowseResult> {
   if (!query) {
     return { status: 'error', message: 'Query is required for search' };
@@ -288,8 +288,8 @@ async function handleSearch(
   
   let assets = await AssetService.searchAssets(userId, query, 50);
   
-  if (filters?.file_type) {
-    assets = assets.filter(a => a.file_type === filters.file_type);
+  if (filters?.fileType) {
+    assets = assets.filter(a => a.fileType === filters.fileType);
   }
   
   const items: Record<string, LibraryItem> = {};

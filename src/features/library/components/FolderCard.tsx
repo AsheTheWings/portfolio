@@ -44,7 +44,7 @@ export const FolderCard = memo(function FolderCard({
   onRemove,
 }: FolderCardProps) {
   const isPickerMode = mode === 'picker';
-  const isHome = folder.is_system && folder.name === 'home';
+  const isHome = folder.isSystem && folder.name === 'home';
   const isUploading = uploadProgress && uploadProgress.total > uploadProgress.completed;
   // Use completed/total as percentage
   const completionPercent = uploadProgress ? Math.round((uploadProgress.completed / uploadProgress.total) * 100) : 0;

@@ -88,7 +88,7 @@ export async function updateSession(request: NextRequest) {
       username: user.user_metadata?.username,
       full_name: user.user_metadata?.full_name,
       is_active: true,
-      created_at: user.created_at,
+      createdAt: user.createdAt,
       last_login: user.last_sign_in_at,
     };
     

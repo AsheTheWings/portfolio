@@ -20,12 +20,12 @@ interface AssetsResponse {
  */
 function buildQueryString(params: ListAssetsParams): string {
   const searchParams = new URLSearchParams();
-  if (params.folder_id) searchParams.set('folder_id', params.folder_id);
-  if (params.file_type) searchParams.set('file_type', params.file_type);
+  if (params.folderId) searchParams.set('folderId', params.folderId);
+  if (params.fileType) searchParams.set('fileType', params.fileType);
   if (params.tag) searchParams.set('tag', params.tag);
   if (params.search) searchParams.set('search', params.search);
-  if (params.sort_by) searchParams.set('sort_by', params.sort_by);
-  if (params.sort_order) searchParams.set('sort_order', params.sort_order);
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy);
+  if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
   return searchParams.toString();
 }
 

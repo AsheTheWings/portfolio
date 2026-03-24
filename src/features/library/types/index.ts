@@ -12,14 +12,14 @@ export type AssetFileType = 'image' | 'video' | 'document' | 'other';
 export interface Folder {
   id: string;
   name: string;
-  parent_id: string | null;
-  user_id: string;
+  parentId: string | null;
+  userId: string;
   path: string;
   depth: number;
-  is_system: boolean;
-  assets_count: number;
-  created_at: string;
-  updated_at: string;
+  isSystem: boolean;
+  assetsCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FolderWithContents extends Folder {
@@ -29,16 +29,16 @@ export interface FolderWithContents extends Folder {
 
 export interface CreateFolderRequest {
   name: string;
-  parent_id: string | null;
+  parentId: string | null;
 }
 
 export interface UpdateFolderRequest {
   name?: string;
-  parent_id?: string | null;  // Move folder
+  parentId?: string | null;  // Move folder
 }
 
 export interface ListFolderParams {
-  parent_id?: string | null;  // null = top-level folders
+  parentId?: string | null;  // null = top-level folders
 }
 
 // =============================================
@@ -46,19 +46,19 @@ export interface ListFolderParams {
 // Asset metadata stored in database
 export interface Asset {
   id: string;
-  user_id: string;
-  folder_id: string;
-  file_name: string;
-  storage_path: string;
+  userId: string;
+  folderId: string;
+  fileName: string;
+  storagePath: string;
   url: string;
-  file_type: AssetFileType;
-  mime_type: string | null;
-  size_kb: number | null;
-  alt_text: string | null;
-  thumbnail_url: string | null;
+  fileType: AssetFileType;
+  mimeType: string | null;
+  sizeKb: number | null;
+  altText: string | null;
+  thumbnailUrl: string | null;
   metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   // Joined data
   tags?: Tag[];
   folder?: Folder;
@@ -67,26 +67,26 @@ export interface Asset {
 // Tag definition
 export interface Tag {
   id: string;
-  user_id: string;
+  userId: string;
   tag: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Supabase join response types
 export interface AssetItemTagJoin {
-  asset_tags: Tag;
+  assetTags: Tag;
 }
 
 export interface AssetWithTagsJoin {
-  asset_item_tags?: AssetItemTagJoin[];
+  assetItemTags?: AssetItemTagJoin[];
 }
 
 // Upload request
 export interface UploadAssetRequest {
   file: File;
-  folder_id: string;
-  alt_text?: string;
+  folderId: string;
+  altText?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -94,7 +94,7 @@ export interface UploadAssetRequest {
 // Folder upload request
 export interface UploadFolderRequest {
   files: FileWithPath[];
-  parent_id: string | null;  // null = create as top-level folder
+  parentId: string | null;  // null = create as top-level folder
 }
 
 // File with relative path (from folder upload)
@@ -111,19 +111,19 @@ export interface UploadAssetResponse {
 
 // List assets query params (no pagination - client-side pagination used)
 export interface ListAssetsParams {
-  folder_id?: string;  // Filter by folder
-  file_type?: AssetFileType;
+  folderId?: string;  // Filter by folder
+  fileType?: AssetFileType;
   tag?: string;
   search?: string;
-  sort_by?: 'created_at' | 'file_name' | 'size_kb';
-  sort_order?: 'asc' | 'desc';
+  sortBy?: 'createdAt' | 'fileName' | 'sizeKb';
+  sortOrder?: 'asc' | 'desc';
 }
 
 // Update asset request
 export interface UpdateAssetRequest {
-  file_name?: string;  // Rename
-  alt_text?: string;
-  folder_id?: string;  // Move to different folder
+  fileName?: string;  // Rename
+  altText?: string;
+  folderId?: string;  // Move to different folder
   tags?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -185,17 +185,17 @@ export function normalizeName(name: string): string {
 // =============================================
 
 /**
- * API response format for browse endpoint (snake_case)
+ * API response format for browse endpoint
  */
 export interface ApiLightAssetItem {
   id: string;
   name: string;
   path: string;
   type: 'asset' | 'folder';
-  thumbnail_url?: string;
-  file_type?: 'image' | 'video' | 'document';
-  storage_url?: string;
-  mime_type?: string;
+  thumbnailUrl?: string;
+  fileType?: 'image' | 'video' | 'document';
+  storageUrl?: string;
+  mimeType?: string;
 }
 
 /**
@@ -206,16 +206,16 @@ export interface LibraryItem {
   name: string;
   type: 'folder' | 'asset';
   path: string;
-  mime_type?: string;
-  file_type?: string;
-  size_kb?: number;
-  created_at: string;
-  updated_at: string;
-  assets_count?: number;
+  mimeType?: string;
+  fileType?: string;
+  sizeKb?: number;
+  createdAt: string;
+  updatedAt: string;
+  assetsCount?: number;
   tags?: string[];
-  thumbnail_url?: string;
+  thumbnailUrl?: string;
   /** Full URL to the actual asset (for viewer) */
-  storage_url?: string;
+  storageUrl?: string;
 }
 
 /**
@@ -225,6 +225,6 @@ export interface FolderTreeNode {
   id: string;
   name: string;
   path: string;
-  assets_count: number;
+  assetsCount: number;
   children: FolderTreeNode[];
 }

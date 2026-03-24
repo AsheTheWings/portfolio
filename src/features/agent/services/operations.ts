@@ -12,7 +12,7 @@ import type {
 // Database row interfaces
 interface DBSession {
   id: string;
-  user_id: string;
+  userId: string;
   title?: string;
   title_locked: boolean;
   agent_name: string;
@@ -20,8 +20,8 @@ interface DBSession {
   is_head?: boolean;                 // True for active tip of branch tree
   event_count: number;
   turns_count: number;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface DBSessionEvent {
@@ -33,7 +33,7 @@ interface DBSessionEvent {
   event_type: string;
   role: 'user' | 'agent' | 'system';
   data: unknown;
-  created_at: string;
+  createdAt: string;
 }
 
 /**
@@ -52,7 +52,7 @@ export class SessionOperations {
     
     const dbSession: DBSession = {
       id: session.sessionId!,
-      user_id: userId,
+      userId: userId,
       title: session.title,
       title_locked: false,
       agent_name: session.agentName,
@@ -60,8 +60,8 @@ export class SessionOperations {
       is_head: true,  // New sessions are always head
       event_count: 0,
       turns_count: 0,
-      created_at: now,
-      updated_at: now,
+      createdAt: now,
+      updatedAt: now,
     };
 
     const { error } = await supabase
@@ -83,7 +83,7 @@ export class SessionOperations {
       .from('agent_sessions')
       .update({
         ...updates,
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .eq('id', sessionId);
 
@@ -104,10 +104,10 @@ export class SessionOperations {
     let query = supabase
       .from('agent_sessions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('is_head', true)
       .gt('event_count', 0)
-      .order('updated_at', { ascending: false });
+      .order('updatedAt', { ascending: false });
     
     if (filters?.search) {
       query = query.ilike('title', `%${filters.search}%`);
@@ -159,7 +159,7 @@ export class EventOperations {
   ): Promise<void> {
     const persistableEvent = event;
 
-    const DBSessionEvent: Omit<DBSessionEvent, 'created_at'> = {
+    const DBSessionEvent: Omit<DBSessionEvent, 'createdAt'> = {
       id: persistableEvent.eventId,
       session_id: sessionId,
       component_id: componentId,
@@ -191,7 +191,7 @@ export class EventOperations {
   ): Promise<void> {
     if (!events.length) return;
 
-    const DBSessionEvents: Omit<DBSessionEvent, 'created_at'>[] = events.map(({ componentId, event }) => ({
+    const DBSessionEvents: Omit<DBSessionEvent, 'createdAt'>[] = events.map(({ componentId, event }) => ({
       id: event.eventId,
       session_id: sessionId,
       component_id: componentId,
@@ -285,12 +285,12 @@ export class EventOperations {
         event_type,
         role,
         data,
-        created_at,
-        agent_sessions!inner(user_id)
+        createdAt,
+        agent_sessions!inner(userId)
       `)
-      .eq('agent_sessions.user_id', userId)
+      .eq('agent_sessions.userId', userId)
       .eq('event_type', type)
-      .order('created_at', { ascending: false })
+      .order('createdAt', { ascending: false })
       .limit(limit);
 
     // Filter by server if specified
@@ -313,7 +313,7 @@ export class EventOperations {
       turnId: row.turn_id || '',
       role: row.role,
       sequence: row.sequence,
-      timestamp: new Date(row.created_at),
+      timestamp: new Date(row.createdAt),
       data: row.data,
     } as SessionEvent));
   }
@@ -334,7 +334,7 @@ function convertRowToEvent(row: DBSessionEvent): SessionEvent {
     turnId: row.turn_id || '',
     role: row.role,
     sequence: row.sequence,
-    timestamp: new Date(row.created_at),
+    timestamp: new Date(row.createdAt),
     data: row.data,
   } as SessionEvent;
 }

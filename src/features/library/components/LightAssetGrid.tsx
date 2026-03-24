@@ -177,19 +177,19 @@ function LightAssetCard({
 function itemToAsset(item: LightAssetItem): Asset {
   return {
     id: item.id,
-    user_id: '',
-    folder_id: '',
-    file_name: item.name,
-    storage_path: '',
+    userId: '',
+    folderId: '',
+    fileName: item.name,
+    storagePath: '',
     url: item.storageUrl || item.thumbnailUrl || '',
-    file_type: item.fileType || 'image',
-    mime_type: item.mimeType || null,
-    size_kb: null,
-    alt_text: null,
-    thumbnail_url: item.thumbnailUrl || null,
+    fileType: item.fileType || 'image',
+    mimeType: item.mimeType || null,
+    sizeKb: null,
+    altText: null,
+    thumbnailUrl: item.thumbnailUrl || null,
     metadata: {},
-    created_at: '',
-    updated_at: '',
+    createdAt: '',
+    updatedAt: '',
   };
 }
 

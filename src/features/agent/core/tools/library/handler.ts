@@ -70,8 +70,8 @@ export async function handleLibraryBrowse(
           assetIds.push(item.id);
         }
 
-        // Use path as key, strip id, thumbnail_url, and storage_url
-        const { id, thumbnail_url, storage_url, ...rest } = item as unknown as Record<string, unknown>;
+        // Use path as key, strip id, thumbnailUrl, and storageUrl
+        const { id, thumbnailUrl, storageUrl, ...rest } = item as unknown as Record<string, unknown>;
         transformedItems[item.path] = rest;
       }
 

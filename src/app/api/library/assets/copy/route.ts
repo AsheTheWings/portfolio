@@ -8,7 +8,7 @@ import { AssetService } from '@/features/library/services/asset.service';
 
 /**
  * POST /api/library/assets/copy - Copy asset(s) to a folder
- * Body: { ids: string[], folder_id: string }
+ * Body: { ids: string[], folderId: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ids array is required' }, { status: 400 });
     }
     
-    if (!body.folder_id) {
-      return NextResponse.json({ error: 'folder_id is required' }, { status: 400 });
+    if (!body.folderId) {
+      return NextResponse.json({ error: 'folderId is required' }, { status: 400 });
     }
 
-    const result = await AssetService.copyAssets(user.id, body.ids, body.folder_id);
+    const result = await AssetService.copyAssets(user.id, body.ids, body.folderId);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';

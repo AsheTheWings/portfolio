@@ -55,7 +55,7 @@ export function useAssetMutations() {
    */
   const patchAsset = useCallback(async (
     assetId: string,
-    updates: { alt_text?: string; tags?: string[]; metadata?: Record<string, unknown> }
+    updates: { altText?: string; tags?: string[]; metadata?: Record<string, unknown> }
   ): Promise<Asset | null> => {
     try {
       const response = await fetch(`/api/library/assets/${assetId}`, {
@@ -146,7 +146,7 @@ export function useAssetMutations() {
       const response = await fetch(`/api/library/assets/${assetId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: newName }),
+        body: JSON.stringify({ fileName: newName }),
       });
 
       if (!response.ok) {
@@ -175,7 +175,7 @@ export function useAssetMutations() {
       const response = await fetch(`/api/library/assets/${assetId}/copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder_id: targetFolderId }),
+        body: JSON.stringify({ folderId: targetFolderId }),
       });
 
       if (!response.ok) {
@@ -185,7 +185,7 @@ export function useAssetMutations() {
 
       const { asset } = await response.json();
       // Only add if copied to current folder
-      if (asset.folder_id === currentFolderId || (!currentFolderId && asset.folder_id === homeFolder?.id)) {
+      if (asset.folderId === currentFolderId || (!currentFolderId && asset.folderId === homeFolder?.id)) {
         addAsset(asset);
       }
       revalidateAssets();
@@ -210,7 +210,7 @@ export function useAssetMutations() {
       const response = await fetch('/api/library/assets/copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, folder_id: targetFolderId }),
+        body: JSON.stringify({ ids, folderId: targetFolderId }),
       });
 
       if (!response.ok) {
@@ -241,7 +241,7 @@ export function useAssetMutations() {
       const response = await fetch('/api/library/assets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, folder_id: targetFolderId }),
+        body: JSON.stringify({ ids, folderId: targetFolderId }),
       });
 
       if (!response.ok) {

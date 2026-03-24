@@ -28,7 +28,7 @@ List contents of a folder (folders and assets at that level). Fast and cheap.
 ### get_metadata
 Get detailed metadata for a folder or asset without loading file content.
 - **path** (string, required): Path to folder or asset
-- Returns: Full metadata (size, dimensions, created_at, tags, etc.)
+- Returns: Full metadata (size, dimensions, createdAt, tags, etc.)
 - Use for: Getting file details without loading content
 
 ### read_assets
@@ -49,7 +49,7 @@ Read ALL assets in a folder recursively. Loads every file into context.
 ### search
 Search assets by name, tags, or content.
 - **query** (string, required): Search query
-- **filters** (object, optional): { file_type?: 'image'|'video'|'document', folder_path?: string }
+- **filters** (object, optional): { fileType?: 'image'|'video'|'document', folder_path?: string }
 - Returns: Matching assets with relevance info
 
 ### folder_tree
@@ -110,7 +110,7 @@ The UI automatically renders these mentions as interactive previews with thumbna
         filters: {
           type: 'object',
           properties: {
-            file_type: {
+            fileType: {
               type: 'string',
               enum: ['image', 'video', 'document'],
               description: 'Filter by file type',

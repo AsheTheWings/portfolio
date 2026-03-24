@@ -60,7 +60,7 @@ export function useLibraryClipboard({
       // Paste assets (only if inside a folder)
       if (!isAtRoot && targetFolderId && assetIds.length > 0) {
         if (clipboard.operation === 'move') {
-          // Move = just update folder_id (instant, no file copy)
+          // Move = just update folderId (instant, no file copy)
           const result = await moveAssets(assetIds, targetFolderId);
           count = result ? assetIds.length : 0;
         } else {

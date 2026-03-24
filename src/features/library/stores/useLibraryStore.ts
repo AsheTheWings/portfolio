@@ -126,8 +126,8 @@ export interface LibraryState {
 }
 
 const defaultFilters: ListAssetsParams = {
-  sort_by: 'created_at',
-  sort_order: 'desc',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
 };
 
 const initialState = {
@@ -183,14 +183,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   // Navigation actions
   hydrateAllFolders: (folders, initialNavigation) => {
-    const homeFolder = folders.find(f => f.is_system && f.parent_id === null) || null;
+    const homeFolder = folders.find(f => f.isSystem && f.parentId === null) || null;
     
     // If initial navigation provided, use it directly (server-side resolved path)
     if (initialNavigation) {
       const foldersAtLevel = initialNavigation.folders ?? (
         initialNavigation.folderId === null
-          ? folders.filter(f => f.parent_id === null)
-          : folders.filter(f => f.parent_id === initialNavigation.folderId)
+          ? folders.filter(f => f.parentId === null)
+          : folders.filter(f => f.parentId === initialNavigation.folderId)
       );
       
       // Calculate page containing selected item (if any)
@@ -200,16 +200,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         
         // Sort folders and assets same way as AssetGrid
         const sortedFolders = [...foldersAtLevel].sort((a, b) => {
-          if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+          if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         });
         const sortedAssets = [...(initialNavigation.assets ?? [])].sort((a, b) => {
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         });
         
         // Find item index in combined list
         const folderIndex = sortedFolders.findIndex(f => f.name === initialNavigation.selectedItemName);
-        const assetIndex = sortedAssets.findIndex(a => a.file_name === initialNavigation.selectedItemName);
+        const assetIndex = sortedAssets.findIndex(a => a.fileName === initialNavigation.selectedItemName);
         
         let itemIndex = -1;
         if (folderIndex !== -1) {
@@ -234,7 +234,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         homeFolder,
         isLoadingFolders: false,
         isLoading: false,
-        filters: { ...get().filters, folder_id: initialNavigation.folderId ?? undefined },
+        filters: { ...get().filters, folderId: initialNavigation.folderId ?? undefined },
       });
       return;
     }
@@ -242,8 +242,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // No initialNavigation - preserve current navigation if already set
     const { currentFolderId } = get();
     const foldersAtLevel = currentFolderId === null
-      ? folders.filter(f => f.parent_id === null)
-      : folders.filter(f => f.parent_id === currentFolderId);
+      ? folders.filter(f => f.parentId === null)
+      : folders.filter(f => f.parentId === currentFolderId);
     
     set({ 
       allFolders: folders, 
@@ -266,9 +266,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   getFoldersAtLevel: (parentId) => {
     const { allFolders } = get();
     if (parentId === null) {
-      return allFolders.filter(f => f.parent_id === null);
+      return allFolders.filter(f => f.parentId === null);
     }
-    return allFolders.filter(f => f.parent_id === parentId);
+    return allFolders.filter(f => f.parentId === parentId);
   },
 
   buildBreadcrumbs: (folderId) => {
@@ -281,7 +281,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const folder = allFolders.find(f => f.id === currentId);
       if (!folder) break;
       breadcrumbs.unshift(folder);
-      currentId = folder.parent_id;
+      currentId = folder.parentId;
     }
     
     return breadcrumbs;
@@ -295,8 +295,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     
     // Get folders at this level from allFolders
     const foldersAtLevel = folderId === null
-      ? allFolders.filter(f => f.parent_id === null)
-      : allFolders.filter(f => f.parent_id === folderId);
+      ? allFolders.filter(f => f.parentId === null)
+      : allFolders.filter(f => f.parentId === folderId);
     
     set({ 
       currentFolderId: folderId,
@@ -304,7 +304,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       folders: foldersAtLevel,
       assets: [], // Clear assets (will be fetched by SWR)
       currentPage: 1,
-      filters: { ...get().filters, folder_id: folderId || undefined },
+      filters: { ...get().filters, folderId: folderId || undefined },
       selectedIds: new Set(),
       focusedId: null,
       selectionMode: false,
@@ -489,7 +489,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set((state) => {
       const sortFolders = (folders: Folder[]) => 
         [...folders].sort((a, b) => {
-          if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+          if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
           return a.name.localeCompare(b.name);
         });
       
@@ -504,7 +504,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set((state) => {
       const sortFolders = (folders: Folder[]) => 
         [...folders].sort((a, b) => {
-          if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+          if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
           return a.name.localeCompare(b.name);
         });
       
@@ -514,7 +514,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       
       // Only add folders at the current level to the visible folders array
       const foldersAtCurrentLevel = uniqueNewFolders.filter(
-        f => f.parent_id === state.currentFolderId
+        f => f.parentId === state.currentFolderId
       );
       
       return {
