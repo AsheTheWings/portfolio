@@ -1,51 +1,41 @@
 /**
- * POST /api/auth/signup - Register a new user
- * 
- * Proxies signup request to Supabase and sets HTTP-only cookies
+ * POST /api/auth/signup
+ *
+ * Thin proxy → backend POST /auth/signup
+ * Sets the returned JWT as an HTTP-only cookie, returns user data only.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthHandlers } from '@/features/authentication/api';
-import { setAuthCookies } from '@/lib/supabase/cookies';
-import type { UserSignup } from '@/features/authentication/types';
+import { setTokenCookie } from '@/features/authentication/lib/cookies';
+
+const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:3001';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is already authenticated
-    try {
-      const currentUser = await AuthHandlers.getCurrentUser();
-      if (currentUser) {
-        return NextResponse.json(
-          { error: `Already logged in as ${currentUser.username || currentUser.email}. Logout first.` },
-          { status: 400 }
-        );
-      }
-    } catch {
-      // Not authenticated, proceed with signup
+    const body = await request.json();
+
+    const res = await fetch(`${BACKEND_URL}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error ?? 'Signup failed' },
+        { status: res.status },
+      );
     }
 
-    const body: UserSignup = await request.json();
-    
-    // Get tokens from Supabase (server-to-server)
-    const response = await AuthHandlers.signup(body);
-    
-    // Set tokens + user data as HTTP-only cookies
-    await setAuthCookies(
-      response.access_token, 
-      response.refresh_token,
-      response.user
-    );
-    
-    // Return ONLY user data to client (no tokens)
-    return NextResponse.json({
-      user: response.user,
-    }, { status: 201 });
+    // Set JWT as HTTP-only cookie
+    await setTokenCookie(data.token);
+
+    // Return user only (no token)
+    return NextResponse.json({ user: data.user }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    // Supabase validation errors (email invalid, already registered, etc.) should be 400
-    const isClientError = ['required', 'must be', 'invalid', 'already', 'failed'].some(s =>
-      message.toLowerCase().includes(s)
-    );
-    return NextResponse.json({ error: message }, { status: isClientError ? 400 : 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

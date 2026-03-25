@@ -5,14 +5,20 @@
 // Types
 export * from './types';
 
-// Context (legacy - will be deprecated)
+// Context
 export { useAuth, AuthProvider } from './contexts/AuthContext';
 
-// Store (recommended)
+// Store
 export { useAuthStore } from './stores/authStore';
 
-// Plugins
-export { useAuthPlugin } from './hooks/useAuthPlugin';
+// Components
+export { AuthGate } from './components/AuthGate';
 
-// Command executor
-export { authCommandExecutor } from './utils/command-executor';
+// Server-side cookie helpers (only import in server components / route handlers)
+export {
+  setTokenCookie,
+  getTokenCookie,
+  clearTokenCookie,
+  verifyToken,
+  hasTokenCookie,
+} from './lib/cookies';

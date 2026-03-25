@@ -1,54 +1,25 @@
 /**
- * Authentication types
+ * Authentication types — aligned with backend user model
  */
 
 export interface UserPublic {
   id: string;
-  email?: string;
-  username?: string;
-  full_name?: string;
-  is_active: boolean;
-  createdAt?: string;
-  last_login?: string;
-}
-
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-  user: UserPublic;
-}
-
-// API Request/Response types
-export interface UserSignup {
-  password: string;
   username: string;
-  email?: string;
-  full_name?: string;
+  email?: string | null;
+  fullName?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
+  lastLogin?: string | null;
 }
 
 export interface UserLogin {
-  email: string; // Can be username or email
+  username: string;
   password: string;
 }
 
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token: string;
-  user: UserPublic;
-}
-
-export interface PasswordReset {
-  email: string;
-}
-
-export interface PasswordUpdate {
-  new_password: string;
-}
-
-export interface RefreshTokenRequest {
-  refresh_token: string;
+export interface UserSignup {
+  username: string;
+  password: string;
+  email?: string;
+  fullName?: string;
 }

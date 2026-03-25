@@ -13,8 +13,6 @@ import { useAgentStore } from '../stores/useAgentStore';
 import { useSessionLifecycle } from './useSessionLifecycle';
 import { loadCurrentSessionId, saveCurrentSessionId } from '../utils/agent-storage';
 
-const BASE_PATH = '/agent-playground';
-
 interface UseSessionRoutingOptions {
   /** Session ID from URL (undefined if on base route) */
   urlSessionId?: string;
@@ -38,7 +36,7 @@ export function useSessionRouting({ urlSessionId }: UseSessionRoutingOptions = {
    * Navigate to session URL
    */
   const navigateToSession = useCallback((sessionId: string | null) => {
-    const targetPath = sessionId ? `${BASE_PATH}/${sessionId}` : BASE_PATH;
+    const targetPath = sessionId ? `/${sessionId}` : '/';
     if (pathname !== targetPath) {
       router.replace(targetPath);
     }

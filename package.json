@@ -50,6 +50,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "jose": "^6.2.2",
     "lightningcss-linux-arm64-gnu": "^1.30.2",
     "liquid-glass-react": "^1.1.1",
     "lucide-react": "^0.546.0",

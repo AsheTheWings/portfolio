@@ -121,6 +121,8 @@ interface LibraryProps {
   initialFolders?: Folder[];
   /** Server-side resolved navigation state for instant path navigation */
   initialNavigation?: InitialNavigationState;
+  /** URL path query for client-side deep-link resolution (e.g. "folder/subfolder/item") */
+  initialPath?: string;
   /** Mode: 'default' for full library, 'picker' for asset selection */
   mode?: LibraryMode;
   /** Callback when selection is confirmed (picker mode only) */
@@ -158,6 +160,7 @@ interface LibraryProps {
 export function Library({ 
   initialFolders,
   initialNavigation,
+  initialPath,
   mode = 'default',
   onSelectionConfirm,
   className,
@@ -267,6 +270,48 @@ export function Library({
       itemSelected.current = true;
     }
   }, [initialNavigation, isHydrated, assets, allFolders, toggleSelection]);
+
+  // Client-side deep-link: resolve initialPath once SWR loads folders
+  const pathResolved = useRef(false);
+
+  useEffect(() => {
+    if (!initialPath || pathResolved.current || allFolders.length === 0) return;
+    pathResolved.current = true;
+
+    const pathParts = initialPath.split('/').filter(Boolean);
+    if (pathParts.length === 0) return;
+
+    // Try to find a folder matching the full path
+    const fullPath = '/' + pathParts.join('/');
+    let targetFolder = allFolders.find(f => f.path === fullPath);
+
+    // If no exact folder match, try parent path (last part might be an item name)
+    let selectedItemName: string | undefined;
+    if (!targetFolder && pathParts.length > 1) {
+      const parentPath = '/' + pathParts.slice(0, -1).join('/');
+      targetFolder = allFolders.find(f => f.path === parentPath);
+      if (targetFolder) {
+        selectedItemName = pathParts[pathParts.length - 1];
+      }
+    }
+
+    // Check if first part is a root folder
+    if (!targetFolder && pathParts.length === 1) {
+      targetFolder = allFolders.find(f => f.name === pathParts[0] && f.parentId === null);
+      if (!targetFolder) {
+        selectedItemName = pathParts[0];
+      }
+    }
+
+    if (targetFolder) {
+      navigateToFolder(targetFolder.id);
+    }
+
+    // Item selection is handled by a separate effect once assets load
+    if (selectedItemName) {
+      itemSelected.current = false; // Reset so the selection effect can run
+    }
+  }, [initialPath, allFolders, navigateToFolder]);
 
   // Search hook
   const {

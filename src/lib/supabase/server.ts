@@ -8,17 +8,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { getAccessToken, getRefreshToken } from './cookies';
 
 /**
  * Create authenticated Supabase client using HTTP-only cookies
+ * @deprecated Legacy — used by productivity routes only
  */
 export async function createClient() {
   const cookieStore = await cookies();
 
-  // Get tokens from HTTP-only cookies (server-side only)
-  const accessToken = await getAccessToken();
-  const refreshToken = await getRefreshToken();
+  // Read Supabase tokens from HTTP-only cookies
+  const accessToken = cookieStore.get('sb_access_token')?.value ?? null;
+  const refreshToken = cookieStore.get('sb_refresh_token')?.value ?? null;
 
   const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
