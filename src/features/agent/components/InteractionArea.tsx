@@ -12,7 +12,7 @@ import { MessageInput, MessageInputRef } from './MessageInput';
 import { FeedbackPanel } from './FeedbackPanel';
 import { forwardRef, useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAgent } from '../contexts/AgentContext';
+import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

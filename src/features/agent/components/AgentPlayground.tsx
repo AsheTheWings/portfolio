@@ -10,26 +10,45 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
 import { useAgentSessionRouting } from '../hooks/useAgentSessionRouting';
+import { useWsEventIngestion } from '../hooks/useWsEventIngestion';
 import { useAgentStore } from '../stores/useAgentStore';
+import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { ChatInterface } from './ChatInterface';
 import { SideBySideInterface } from './SideBySideInterface';
 import { BackgroundJobInterface } from './BackgroundJobInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
-import type { AgentSessionComponent } from '../types';
+import type { AgentSessionComponent, Tool, WorkflowSpec } from '../types';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 
 interface AgentPlaygroundProps {
   /** Session ID from URL (optional, for dynamic route) */
   sessionId?: string;
+  /** Server-fetched tools (hydrated into store on mount) */
+  initialTools?: Tool[];
+  /** Server-fetched workflows (hydrated into store on mount) */
+  initialWorkflows?: WorkflowSpec[];
 }
 
-export function AgentPlayground({ sessionId }: AgentPlaygroundProps) {
-  // Hydrate store from localStorage (client-side only, after mount)
-  useHydrateStore();
+export function AgentPlayground({ sessionId, initialTools, initialWorkflows }: AgentPlaygroundProps) {
+  // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
+  useHydrateStore({ initialTools, initialWorkflows });
   
   // Sync session ID between URL, localStorage, and store
   useAgentSessionRouting({ urlSessionId: sessionId });
+
+  // Subscribe to WS events (session_event, session_created, agent_status, error)
+  useWsEventIngestion();
+
+  // Reset store on logout
+  const reset = useAgentStore((s) => s.reset);
+  useEffect(() => {
+    let previousUser = useAuthStore.getState().user;
+    return useAuthStore.subscribe((state) => {
+      if (previousUser && !state.user) reset();
+      previousUser = state.user;
+    });
+  }, [reset]);
   
   const {
     upsertComponent,

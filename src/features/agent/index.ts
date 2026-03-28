@@ -6,7 +6,7 @@
  */
 
 export * from './types';
-export { AgentProvider, useAgent } from './contexts/AgentContext';
+export { useAgent } from './hooks/useAgent';
 export { McpClient } from './lib/mcp-client';
 
 // UI components (can be used standalone or inline)

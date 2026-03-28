@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { useAgent } from '../../contexts/AgentContext';
+import { useAgent } from '../../hooks/useAgent';
 
 interface UseJobActionsParams {
   componentId: string;

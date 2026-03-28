@@ -35,6 +35,7 @@ const initialState = {
   
   // Tools
   toolsPool: [] as import('../types').Tool[],
+  workflowsPool: [] as import('../types').WorkflowSpec[],
   
   // State
   conversationStatus: 'healthy' as AgentState['conversationStatus'],
@@ -141,6 +142,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   // Tool management
   setToolsPool: (toolsPool) => {
     set({ toolsPool });
+  },
+
+  setWorkflowsPool: (workflowsPool) => {
+    set({ workflowsPool });
   },
 
   // UI component actions

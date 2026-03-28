@@ -537,6 +537,7 @@ export interface AgentState {
   
   // Tool state
   toolsPool: Tool[];
+  workflowsPool: WorkflowSpec[];
   
   // Scroll state
   scrollToComponentId: string | null;
@@ -577,6 +578,7 @@ export interface AgentState {
   
   // Tool management
   setToolsPool: (tools: Tool[]) => void;
+  setWorkflowsPool: (workflows: WorkflowSpec[]) => void;
   
   // UI component actions
   setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;

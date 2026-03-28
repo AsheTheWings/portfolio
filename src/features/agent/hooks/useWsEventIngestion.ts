@@ -13,6 +13,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
+import { toastError } from '@/features/shared/components/FeedbackMessage';
 import type { AgentSessionEvent, ToolEffectsEvent, AgentConfig } from '../types';
 import type {
   WsAgentSessionEventMessage,
@@ -122,9 +123,9 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         useAgentStore.getState().setConversationStatus('healthy');
       } else if (msg.status === 'error') {
         useAgentStore.getState().setConversationStatus('interrupted');
-        if (msg.error) {
-          useAgentStore.getState().setError(msg.error);
-        }
+        const errorMessage = msg.error || 'Something went wrong. Please try again.';
+        useAgentStore.getState().setError(errorMessage);
+        toastError(errorMessage);
       } else if (msg.status === 'paused') {
         useAgentStore.getState().setConversationStatus('waitingFeedback');
       }

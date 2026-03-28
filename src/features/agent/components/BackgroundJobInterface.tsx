@@ -15,7 +15,7 @@
 import React, { useMemo } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/features/shared/components/shadcn/button';
-import { useAgent } from '../contexts/AgentContext';
+import { useAgent } from '../hooks/useAgent';
 import { resolveComponent } from './ComponentResolver';
 import { useStickyScroll } from '../hooks/useStickyScroll';
 

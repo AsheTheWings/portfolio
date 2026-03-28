@@ -16,7 +16,7 @@ import IconBranch from '@/features/shared/icons/IconBranch';
 import { DebugView } from './DebugView';
 import { BranchTreeView } from './BranchTreeView';
 import { TranslateButton } from './TranslateButton';
-import { useAgent } from '../contexts/AgentContext';
+import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { AgentSessionComponentContext } from '../contexts/AgentSessionComponentContext';

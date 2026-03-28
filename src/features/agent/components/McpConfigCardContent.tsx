@@ -14,7 +14,7 @@ import 'highlight.js/styles/atom-one-light.css';
 
 hljs.registerLanguage('json', json);
 
-import { useAgent } from '../contexts/AgentContext';
+import { useAgent } from '../hooks/useAgent';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import type { McpConfig, McpClientStatus } from '../types';
 import { Label } from '@/features/shared/components/shadcn';

@@ -14,7 +14,6 @@ import type {
   AgentSessionMetadata,
   AgentConfig,
   ModelSpec,
-  Tool,
 } from '../types';
 
 // ============================================================
@@ -60,12 +59,6 @@ async function json<T>(res: Response): Promise<T> {
     throw new Error(data.error ?? `Request failed: ${res.status}`);
   }
   return res.json();
-}
-
-export async function fetchTools(): Promise<Tool[]> {
-  const res = await fetch(`${BASE}/tools`, { credentials: 'include' });
-  const data = await json<{ tools: Tool[] }>(res);
-  return data.tools;
 }
 
 export async function fetchModels(): Promise<ModelsResponse> {

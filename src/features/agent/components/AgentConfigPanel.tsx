@@ -22,14 +22,14 @@ import {
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus } from '../types';
 import { createDefaultAgentConfig, MODEL_REGISTRY, getModelSpec, hasCapability } from '../services/models-registry';
-import { getAvailableWorkflows } from '../lib/workflows-registry';
+
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { McpConfigCardContent } from './McpConfigCardContent';
 
 export function AgentConfigPanel() {
   // Store state
-  const { agentConfig, setAgentConfig, toolsPool, removeComponent, uiMode } = useAgent();
+  const { agentConfig, setAgentConfig, toolsPool, workflowsPool, removeComponent, uiMode } = useAgent();
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
 
@@ -455,7 +455,7 @@ export function AgentConfigPanel() {
                   </div>
                   {(config.enableWorkflows ?? true) && (
                     <div className="flex flex-wrap gap-2 p-2 max-h-[280px] border border-border rounded-md">
-                      {getAvailableWorkflows().map(workflow => {
+                      {workflowsPool.map(workflow => {
                         const isEnabled = config.selectedWorkflows?.includes(workflow.id) ?? false;
                         return (
                           <button

@@ -15,7 +15,7 @@ import {
   Input,
 } from '@/features/shared/components/shadcn';
 import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
-import { useAgent } from '../contexts/AgentContext';
+import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionMetadata } from '../hooks/useAgentSessionMetadata';
 
 interface AgentSessionPopoverProps {

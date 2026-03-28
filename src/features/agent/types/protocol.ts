@@ -24,9 +24,7 @@ export type AgentSessionEventType =
   | 'tool-effects'
   | 'user-feedback-result'
   | 'agent-turn-completed'
-  | 'config-updated'
-  | 'branch'
-  | 'error';
+  | 'branch';
 
 /** Raw event shape as received over the wire (timestamp is ISO string) */
 export interface WireAgentSessionEvent {

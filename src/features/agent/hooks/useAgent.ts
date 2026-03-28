@@ -47,6 +47,9 @@ export function useAgent() {
   // Tool state
   const toolsPool = useAgentStore((state) => state.toolsPool);
   
+  // Workflow state
+  const workflowsPool = useAgentStore((state) => state.workflowsPool);
+  
   // Pending library items
   const pendingLibraryItemIds = useAgentStore((state) => state.pendingLibraryItemIds);
   const addPendingLibraryItems = useAgentStore((state) => state.addPendingLibraryItems);
@@ -151,6 +154,9 @@ export function useAgent() {
     
     // Tool state
     toolsPool,
+    
+    // Workflow state
+    workflowsPool,
     
     // Pending library items
     pendingLibraryItemIds,
