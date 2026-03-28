@@ -20,16 +20,18 @@ import {
   Textarea,
   Slider,
 } from '@/features/shared/components/shadcn';
-import type { AgentConfig, NativeTool, Tool } from '../types';
+import type { AgentConfig, NativeTool, Tool, McpHostStatus } from '../types';
 import { createDefaultAgentConfig, MODEL_REGISTRY, getModelSpec, hasCapability } from '../services/models-registry';
-import { getAvailableWorkflows } from '../core/workflows/registry';
+import { getAvailableWorkflows } from '../lib/workflows-registry';
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { McpConfigCardContent } from './McpConfigCardContent';
 
 export function AgentConfigPanel() {
   // Store state
-  const { agentConfig, setAgentConfig, toolsPool, mcpHostStatus, removeComponent, uiMode } = useAgent();
+  const { agentConfig, setAgentConfig, toolsPool, removeComponent, uiMode } = useAgent();
+  // MCP is Phase 3 — stub as not connected
+  const mcpHostStatus = 'notConnected' as McpHostStatus;
 
   // UI state (not part of agent config)
   const [showMcpConfig, setShowMcpConfig] = useState(false);
@@ -572,7 +574,7 @@ export function AgentConfigPanel() {
                             </div>
                           ) : (
                             toolsPool.map(tool => {
-                              const isBuiltIn = tool.source === 'builtIn';
+                              const isBuiltin = tool.source === 'builtin';
                               const server = tool.server;
                               const isEnabled = availableTools.some(t => t.server === tool.server && t.tool === tool.tool);
                               const isMcpHostAvailable = mcpHostStatus === 'connected';
@@ -580,7 +582,7 @@ export function AgentConfigPanel() {
                                 <button
                                   key={`${tool.server}:${tool.tool}`}
                                   onClick={() => {
-                                    if (!isMcpHostAvailable && !isBuiltIn) return;
+                                    if (!isMcpHostAvailable && !isBuiltin) return;
                                     if (isEnabled) {
                                       // Remove tool from array
                                       const newTools = availableTools.filter(t => 
@@ -592,16 +594,16 @@ export function AgentConfigPanel() {
                                       updateAvailableTools([...availableTools, tool]);
                                     }
                                   }}
-                                  disabled={!isMcpHostAvailable && !isBuiltIn}
+                                  disabled={!isMcpHostAvailable && !isBuiltin}
                                   className={`
                                     px-3 py-1 rounded-sm text-[0.68rem] font-mono transition-all
                                     ${isEnabled
-                                      ? isBuiltIn
+                                      ? isBuiltin
                                         ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30'
                                         : 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/50 hover:bg-orange-500/30'
                                       : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80'
                                     }
-                                    ${!isMcpHostAvailable && !isBuiltIn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                    ${!isMcpHostAvailable && !isBuiltin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                   `}
                                   title={tool.description}
                                 >

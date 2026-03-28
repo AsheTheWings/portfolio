@@ -7,15 +7,15 @@
 
 import { Switch } from '@/features/shared/components/shadcn/switch';
 import { Toggle } from '@/features/shared/components/shadcn/toggle';
-import { SessionPopover } from './SessionPopover';
+import { AgentSessionPopover } from './AgentSessionPopover';
 import { useAgent } from '../hooks/useAgent';
 
 export function QuickAccessHeader() {
   const {
     currentSessionId,
-    persistSession,
+    persistAgentSession,
     ephemeral,
-    setPersistSession,
+    setPersistAgentSession,
     setEphemeral,
     agentConfig,
     setAgentConfig,
@@ -26,9 +26,9 @@ export function QuickAccessHeader() {
   return (
     <div className="h-[36px] z-10 flex items-center justify-start gap-8 px-6 bg-secondary">
       {/* Session Information */}
-      <SessionPopover
+      <AgentSessionPopover
         sessionId={currentSessionId || undefined}
-        persistSession={persistSession}
+        persistAgentSession={persistAgentSession}
         ephemeral={ephemeral}
       />
 
@@ -38,8 +38,8 @@ export function QuickAccessHeader() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-foreground font-light">Persistent</span>
           <Switch
-            checked={persistSession}
-            onCheckedChange={setPersistSession}
+            checked={persistAgentSession}
+            onCheckedChange={setPersistAgentSession}
             aria-label="Toggle persistent mode"
           />
         </div>

@@ -1,28 +1,20 @@
 'use client';
 
 /**
- * useAgent - Custom hook for accessing agent state and actions
+ * useAgent - Facade hook for accessing agent state and actions
  * Uses granular Zustand selectors to prevent unnecessary re-renders
- * Provides a convenient single hook instead of multiple useAgentStore calls
  */
 
-import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useSessionLifecycle } from './useSessionLifecycle';
+import { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
 import { useAgentCall } from './useAgentCall';
 
-/**
- * Hook to access agent state and actions via Zustand
- * Uses granular selectors to prevent unnecessary re-renders
- * Updated for new sessionsManager architecture
- */
 export function useAgent() {
-  // Granular state selectors - each subscribes independently
-  const sessionsManager = useAgentStore((state) => state.sessionsManager);
+  // Granular state selectors
   const currentSessionId = useAgentStore((state) => state.currentSessionId);
   const agentConfig = useAgentStore((state) => state.agentConfig);
   const sessionComponents = useAgentStore((state) => state.sessionComponents);
-  const persistSession = useAgentStore((state) => state.persistSession);
+  const persistAgentSession = useAgentStore((state) => state.persistAgentSession);
   const ephemeral = useAgentStore((state) => state.ephemeral);
   const userMessagesHistory = useAgentStore((state) => state.userMessagesHistory);
   
@@ -32,23 +24,21 @@ export function useAgent() {
   const scrollToComponentId = useAgentStore((state) => state.scrollToComponentId);
   const submitTrigger = useAgentStore((state) => state.submitTrigger);
   
-  // Feedback mode states
+  // Feedback mode
   const activeFeedbackRequest = useAgentStore((state) => state.activeFeedbackRequest);
-  const submitFeedback = useAgentStore((state) => state.submitFeedback);
   
-  // UI mode state
+  // UI mode
   const uiMode = useAgentStore((state) => state.uiMode);
   const setUiMode = useAgentStore((state) => state.setUiMode);
   
-  // Background job UI state
+  // Background job UI
   const selectedJobId = useAgentStore((state) => state.selectedJobId);
   const selectJob = useAgentStore((state) => state.selectJob);
-  const cancelJob = useAgentStore((state) => state.cancelJob);
   const activeJob = useAgentStore((state) => state.activeJob);
   const setActiveJob = useAgentStore((state) => state.setActiveJob);
   const getLastComponentByJob = useAgentStore((state) => state.getLastComponentByJob);
   
-  // Editing states
+  // Editing
   const editingComponentId = useAgentStore((state) => state.editingComponentId);
   const editingData = useAgentStore((state) => state.editingData);
   const startEdit = useAgentStore((state) => state.startEdit);
@@ -56,53 +46,40 @@ export function useAgent() {
   
   // Tool state
   const toolsPool = useAgentStore((state) => state.toolsPool);
-  const mcpServerStatus = useAgentStore((state) => state.mcpServerStatus);
-  const mcpHostStatus = useAgentStore((state) => state.mcpHostStatus);
-  const mcpClientStatus = useAgentStore((state) => state.mcpClientStatus);
-  const mcpError = useAgentStore((state) => state.mcpError);
   
-  // Pending library items for message attachment
+  // Pending library items
   const pendingLibraryItemIds = useAgentStore((state) => state.pendingLibraryItemIds);
   const addPendingLibraryItems = useAgentStore((state) => state.addPendingLibraryItems);
   const removePendingLibraryItem = useAgentStore((state) => state.removePendingLibraryItem);
   const clearPendingLibraryItems = useAgentStore((state) => state.clearPendingLibraryItems);
   
-  // Action selectors (stable - won't cause re-renders)
-  const getCurrentSession = useAgentStore((state) => state.getCurrentSession);
-  const setCurrentSessionId = useAgentStore((state) => state.setCurrentSessionId);
+  // Action selectors
+  const setCurrentAgentSessionId = useAgentStore((state) => state.setCurrentAgentSessionId);
   const setAgentConfig = useAgentStore((state) => state.setAgentConfig);
   const upsertComponent = useAgentStore((state) => state.upsertComponent);
   const clearComponents = useAgentStore((state) => state.clearComponents);
   const removeComponent = useAgentStore((state) => state.removeComponent);
   const removeComponentsByType = useAgentStore((state) => state.removeComponentsByType);
   const removeComponentsByRole = useAgentStore((state) => state.removeComponentsByRole);
-  const setPersistSession = useAgentStore((state) => state.setPersistSession);
+  const setPersistAgentSession = useAgentStore((state) => state.setPersistAgentSession);
   const setEphemeral = useAgentStore((state) => state.setEphemeral);
   const setError = useAgentStore((state) => state.setError);
   const clearError = useAgentStore((state) => state.clearError);
   const setScrollToComponentId = useAgentStore((state) => state.setScrollToComponentId);
   const clearScrollToComponentId = useAgentStore((state) => state.clearScrollToComponentId);
-  const setSessionComponents = useAgentStore((state) => state.setSessionComponents);
+  const setAgentSessionComponents = useAgentStore((state) => state.setAgentSessionComponents);
   const cancelEdit = useAgentStore((state) => state.cancelEdit);
   const triggerSubmit = useAgentStore((state) => state.triggerSubmit);
-  const initializeToolsPool = useAgentStore((state) => state.initializeToolsPool);
-  const refreshToolsPool = useAgentStore((state) => state.refreshToolsPool);
-  const connectMcp = useAgentStore((state) => state.connectMcp);
-  const disconnectMcp = useAgentStore((state) => state.disconnectMcp);
-  const setMcpHostStatus = useAgentStore((state) => state.setMcpHostStatus);
-  const setMcpClientStatus = useAgentStore((state) => state.setMcpClientStatus);
-  const setMcpError = useAgentStore((state) => state.setMcpError);
+  const setActiveFeedbackRequest = useAgentStore((state) => state.setActiveFeedbackRequest);
   
   // Hook dependencies
-  const { createSession, loadSession, clearSession } = useSessionLifecycle();
-  const { callAgent, resumeAgent, stopAgent } = useAgentCall();
+  const { loadAgentSession, clearAgentSession } = useAgentSessionLifecycle();
+  const { submitMessage, stopAgent, submitFeedback } = useAgentCall();
 
   return {
-    // Session management
-    sessionsManager,
+    // Session
     currentSessionId,
-    getCurrentSession,
-    setCurrentSessionId,
+    setCurrentAgentSessionId,
     
     // Configuration
     agentConfig,
@@ -113,7 +90,7 @@ export function useAgent() {
     userMessagesHistory,
     
     // Options
-    persistSession,
+    persistAgentSession,
     ephemeral,
     
     // Processing state
@@ -124,7 +101,7 @@ export function useAgent() {
     
     // Feedback mode
     activeFeedbackRequest,
-    submitFeedback,
+    setActiveFeedbackRequest,
     
     // UI mode
     uiMode,
@@ -133,7 +110,6 @@ export function useAgent() {
     // Background job UI
     selectedJobId,
     selectJob,
-    cancelJob,
     activeJob,
     setActiveJob,
     getLastComponentByJob,
@@ -150,10 +126,10 @@ export function useAgent() {
     removeComponent,
     removeComponentsByType,
     removeComponentsByRole,
-    setSessionComponents,
+    setAgentSessionComponents,
     
     // Control actions
-    setPersistSession,
+    setPersistAgentSession,
     setEphemeral,
     
     // State actions
@@ -165,30 +141,16 @@ export function useAgent() {
     triggerSubmit,
 
     // Session actions
-    createSession,
-    loadSession,
-    clearSession,
+    loadAgentSession,
+    clearAgentSession,
     
-    // Agent actions
-    callAgent,
-    resumeAgent,
+    // Agent actions (WS-driven)
+    submitMessage,
     stopAgent,
+    submitFeedback,
     
     // Tool state
     toolsPool,
-    mcpServerStatus,
-    mcpHostStatus,
-    mcpClientStatus,
-    mcpError,
-    
-    // Tool actions
-    initializeToolsPool,
-    refreshToolsPool,
-    connectMcp,
-    disconnectMcp,
-    setMcpHostStatus,
-    setMcpClientStatus,
-    setMcpError,
     
     // Pending library items
     pendingLibraryItemIds,

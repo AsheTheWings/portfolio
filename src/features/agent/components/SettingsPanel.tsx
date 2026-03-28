@@ -10,11 +10,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, Label, Input } from '@/features/shared/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
+import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 
 export function SettingsPanel() {
   const [apiKeys, setApiKeys] = useState<string[]>(['']);
-  const { connectMcp, disconnectMcp, mcpHostStatus, removeComponent, uiMode, setUiMode } = useAgent();
+  const { removeComponent, uiMode, setUiMode } = useAgent();
+  // MCP is Phase 3 — stub as no-ops / not connected
+  const connectMcp = async (_config: unknown) => { /* Phase 3 */ };
+  const disconnectMcp = async () => { /* Phase 3 */ };
+  const mcpHostStatus = 'notConnected' as McpHostStatus;
   const [mcpEnabled, setMcpEnabled] = useState(() => loadMcpConfig().enabled);
   const [mcpPort, setMcpPort] = useState(() => loadMcpConfig().port);
   const prevMcpPort = useRef(mcpPort);

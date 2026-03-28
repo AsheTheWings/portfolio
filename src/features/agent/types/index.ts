@@ -2,9 +2,6 @@
  * Agent domain types
  */
 
-import type { SessionsManager } from '../core/sessions-manager';
-import type { AgentJobsManager } from '../core/agent-jobs-manager';
-
 
 // Model capabilities
 export enum ModelCapability {
@@ -31,7 +28,6 @@ export type ToolHandler = (
     agentConfig?: AgentConfig; 
     userFeedback?: unknown; 
     componentId?: string;
-    jobsManager?: AgentJobsManager;
     metadata?: AgentMetadata;  // Read-only snapshot of turn metadata at call time
     turnId?: string;           // Turn ID from session context
     turnMetadata?: AgentMetadata;  // Turn-scoped metadata for job aggregation
@@ -44,7 +40,7 @@ export interface Tool {
   tool: string; 
   description: string;
   inputSchema: Record<string, unknown>;
-  source: 'builtIn' | 'localMCPHost';
+  source: 'builtin' | 'managed' | 'custom';
   handler?: ToolHandler;  // Built-in tools provide their own handler
 }
 
@@ -218,7 +214,7 @@ export interface FeedbackAction {
 }
 
 // Session metadata (persistent identity)
-export interface SessionMetadata {
+export interface AgentSessionMetadata {
   sessionId?: string;
   title?: string;
   titleLocked?: boolean;
@@ -243,7 +239,7 @@ export interface ToolEffects {
   
   // UI-handled effects
   updateConfig?: Partial<AgentConfig>;
-  sessionComponents?: (Omit<SessionComponent, 'data'> & { data: SessionComponent['data'] })[];
+  sessionComponents?: (Omit<AgentSessionComponent, 'data'> & { data: AgentSessionComponent['data'] })[];
   userActions?: {
     prompt: string;
     actions: FeedbackAction[];
@@ -337,7 +333,7 @@ export interface UserFeedbackResultData {
 }
 
 // Session component types
-export type SessionComponentType = 
+export type AgentSessionComponentType = 
 | 'message' 
   | 'agent-thoughts' 
   | 'tool-result'
@@ -356,7 +352,7 @@ export type SessionComponentType =
   | 'asset-picker-panel';
 
 // Session component controls (explicit button visibility)
-export interface SessionComponentControls {
+export interface AgentSessionComponentControls {
   debug?: boolean;      // Show debug/events panel button
   edit?: boolean;       // Show edit button
   revert?: boolean;     // Show revert/branch button
@@ -365,13 +361,13 @@ export interface SessionComponentControls {
 }
 
 // Session component (UI display)
-export interface SessionComponent {
+export interface AgentSessionComponent {
   id: string;
   role: 'user' | 'agent' | 'system';
-  type: SessionComponentType;
+  type: AgentSessionComponentType;
   isStreaming?: boolean;      // True for chunk events, false/undefined otherwise
   hideComponent?: boolean;    // UI visibility: hide from foreground chat
-  controls?: SessionComponentControls;  // Explicit button visibility
+  controls?: AgentSessionComponentControls;  // Explicit button visibility
   data: {
     message?: string;
     thoughts?: string;
@@ -386,7 +382,7 @@ export interface SessionComponent {
     error?: string;
     isError?: boolean;
     // Event history (append-only)
-    sessionEvents?: SessionEvent[];
+    sessionEvents?: AgentSessionEvent[];
     // Accept additional fields from events
     [key: string]: unknown;
   };
@@ -399,7 +395,7 @@ export interface RenderContext {
 }
 
 // Session event base fields
-interface SessionEventBase {
+interface AgentSessionEventBase {
   eventId: string;              // Unique per event
   componentId: string;          // Linking ID for related events
   turnId: string;               // Turn ID - shared between user turn and all subsequent agent events
@@ -409,63 +405,63 @@ interface SessionEventBase {
 }
 
 // Individual typed event interfaces
-export interface ModelThoughtChunkEvent extends SessionEventBase {
+export interface ModelThoughtChunkEvent extends AgentSessionEventBase {
   type: 'model-thought-chunk';
   data: ThoughtChunkData;
 }
 
-export interface ModelThoughtCompletedEvent extends SessionEventBase {
+export interface ModelThoughtCompletedEvent extends AgentSessionEventBase {
   type: 'model-thought-completed';
   data: ThoughtCompletedData;
 }
 
-export interface ModelMessageChunkEvent extends SessionEventBase {
+export interface ModelMessageChunkEvent extends AgentSessionEventBase {
   type: 'model-message-chunk';
   data: MessageChunkData;
 }
 
-export interface ModelMessageCompletedEvent extends SessionEventBase {
+export interface ModelMessageCompletedEvent extends AgentSessionEventBase {
   type: 'model-message-completed';
   data: MessageCompletedData;
 }
 
-export interface ToolCallEvent extends SessionEventBase {
+export interface ToolCallEvent extends AgentSessionEventBase {
   type: 'tool-call';
   data: ToolCallData;
 }
 
-export interface ToolEffectsEvent extends SessionEventBase {
+export interface ToolEffectsEvent extends AgentSessionEventBase {
   type: 'tool-effects';
   data: ToolEffectsData;
 }
 
-export interface ToolResultEvent extends SessionEventBase {
+export interface ToolResultEvent extends AgentSessionEventBase {
   type: 'tool-result';
   data: ToolResultData;
 }
 
-export interface AgentTurnCompletedEvent extends SessionEventBase {
+export interface AgentTurnCompletedEvent extends AgentSessionEventBase {
   type: 'agent-turn-completed';
   data: AgentTurnCompletedData;
 }
 
-export interface UserFeedbackResultEvent extends SessionEventBase {
+export interface UserFeedbackResultEvent extends AgentSessionEventBase {
   type: 'user-feedback-result';
   data: UserFeedbackResultData;
 }
 
-export interface UserTurnCompletedEvent extends SessionEventBase {
+export interface UserTurnCompletedEvent extends AgentSessionEventBase {
   type: 'user-turn-completed';
   data: UserTurnCompletedData;
 }
 
-export interface BranchEvent extends SessionEventBase {
+export interface BranchEvent extends AgentSessionEventBase {
   type: 'branch';
   data: BranchEventData;
 }
 
 // Union of all event types
-export type SessionEvent =
+export type AgentSessionEvent =
   | ModelThoughtChunkEvent
   | ModelThoughtCompletedEvent
   | ModelMessageChunkEvent
@@ -507,27 +503,21 @@ export interface BranchRequest {
 
 export interface BranchResponse {
   newSessionId: string;
-  events: SessionEvent[];
-  metadata: SessionMetadata;
+  events: AgentSessionEvent[];
+  metadata: AgentSessionMetadata;
 }
 
 
 
 // Default session metadata factory
-export function createDefaultSessionMetadata(): SessionMetadata {
+export function createDefaultAgentSessionMetadata(): AgentSessionMetadata {
   return {
     agentName: 'assistant',
   };
 }
 
-// Built-in tools registry (re-exported from tools/registry)
-export { BUILT_IN_TOOLS_REGISTRY } from '../core/tools/registry';
-
 // Agent Store State
 export interface AgentState {
-  // sessionsManager (singleton)
-  sessionsManager: SessionsManager;
-  
   // Current session
   currentSessionId: string | null;
   agentConfig: AgentConfig | null;
@@ -535,19 +525,18 @@ export interface AgentState {
   // Internal state (prevents re-showing config panel on route changes)
   _hasShownInitialConfig: boolean;
   
+  // Hydration state
+  _hydrated: boolean;
+  
   // UI state
   uiMode: 'chat' | 'side-by-side';
-  sessionComponents: SessionComponent[];
-  persistSession: boolean;
+  sessionComponents: AgentSessionComponent[];
+  persistAgentSession: boolean;
   ephemeral: boolean;
   userMessagesHistory: string[];  // Last N user messages for input navigation (most recent first)
   
   // Tool state
   toolsPool: Tool[];
-  mcpServerStatus: Record<string, unknown>;
-  mcpHostStatus: McpHostStatus;
-  mcpClientStatus: McpClientStatus;
-  mcpError: string | null;
   
   // Scroll state
   scrollToComponentId: string | null;
@@ -568,47 +557,41 @@ export interface AgentState {
   } | null;
   
   // Background job UI state
-  selectedJobId: string | null;  // Job selected for viewing in BackgroundJobInterface
-  activeJob: { jobId: string; title: string } | null;  // Currently active job context
+  selectedJobId: string | null;
+  activeJob: { jobId: string; title: string } | null;
   
   // Translation state
-  preferredTranslationLanguage: string | null;  // Last used translation language for shift+click
-  translationCache: Record<string, Record<string, string>>;  // componentId → language → translated text
-  activeTranslations: Record<string, string | null>;  // componentId → active language (null = original)
+  preferredTranslationLanguage: string | null;
+  translationCache: Record<string, Record<string, string>>;
+  activeTranslations: Record<string, string | null>;
   
   // Pending library items (asset or folder IDs) for message attachment
   pendingLibraryItemIds: string[];
   
-  // Conversation status (single source of truth for all states)
+  // Conversation status
   conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'hangingInput' | 'interrupted';
-  abortController: AbortController | null;
 
   // Session management
-  getCurrentSession: () => ReturnType<SessionsManager['getSession']>;
-  setCurrentSessionId: (sessionId: string | null) => void;
+  setCurrentAgentSessionId: (sessionId: string | null) => void;
   setAgentConfig: (config: AgentConfig | null) => void;
   
   // Tool management
-  initializeToolsPool: () => Promise<void>;
-  refreshToolsPool: () => Promise<void>;
-  connectMcp: (config: McpConfig) => Promise<void>;
-  disconnectMcp: () => Promise<void>;
-  setMcpHostStatus: (status: McpHostStatus) => void;
-  setMcpClientStatus: (status: McpClientStatus) => void;
-  setMcpError: (mcpError: string | null) => void;
+  setToolsPool: (tools: Tool[]) => void;
   
   // UI component actions
-  setSessionComponents: (components: SessionComponent[] | ((prev: SessionComponent[]) => SessionComponent[])) => void;
-  upsertComponent: (input: SessionComponent | SessionComponent[]) => void;
+  setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;
+  upsertComponent: (input: AgentSessionComponent | AgentSessionComponent[]) => void;
+  upsertComponentFromEvent: (event: AgentSessionEvent) => void;
+  hydrateFromEvents: (events: AgentSessionEvent[]) => void;
   clearComponents: () => void;
   markInitialConfigShown: () => void;
   removeComponent: (id: string) => void;
-  removeComponentsByType: (type: SessionComponent['type']) => void;
-  removeComponentsByRole: (role: SessionComponent['role']) => void;
+  removeComponentsByType: (type: AgentSessionComponent['type']) => void;
+  removeComponentsByRole: (role: AgentSessionComponent['role']) => void;
   
   // Control actions
   setUiMode: (mode: 'chat' | 'side-by-side') => void;
-  setPersistSession: (persist: boolean) => void;
+  setPersistAgentSession: (persist: boolean) => void;
   setEphemeral: (ephemeral: boolean) => void;
   
   // User messages history actions
@@ -617,9 +600,7 @@ export interface AgentState {
   clearUserMessagesHistory: () => void;
   
   // State actions
-  setConversationStatus: (status: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'hangingInput' | 'interrupted') => void;
-  setAbortController: (abortController: AbortController | null) => void;
-  stopAgent: () => void;
+  setConversationStatus: (status: AgentState['conversationStatus']) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
   setScrollToComponentId: (componentId: string | null) => void;
@@ -637,14 +618,13 @@ export interface AgentState {
   scrollToComponent: (componentId: string) => void;
   
   // Feedback mode actions
-  submitFeedback: (feedbackData: Record<string, unknown>) => void;
   setActiveFeedbackRequest: (request: { componentId: string; userActions: Record<string, FeedbackAction[]> } | null) => void;
+  clearActiveFeedbackRequest: () => void;
   
   // Background job UI actions
   selectJob: (jobId: string | null) => void;
-  cancelJob: (jobId: string) => void;
   setActiveJob: (job: { jobId: string; title: string } | null) => void;
-  getLastComponentByJob: () => Record<string, string>;  // jobId -> componentId
+  getLastComponentByJob: () => Record<string, string>;
   
   // Translation actions
   setPreferredTranslationLanguage: (language: string | null) => void;

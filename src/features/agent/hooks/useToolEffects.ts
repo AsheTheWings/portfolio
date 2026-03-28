@@ -2,15 +2,15 @@
  * useToolEffects - Process UI-side effects from tool executions
  * 
  * Effect Distribution:
- * - Session/Agent handles: setBackgroundMode, setActiveJob, appendTurnInstructions, activateWorkflow
+ * - Backend handles: setBackgroundMode, setActiveJob, appendTurnInstructions, activateWorkflow
  * - UI handles: updateConfig, sessionComponent, userActions
  * 
- * userActions triggers feedback mode via setActiveFeedbackRequest + stopAgent.
- * This is symmetric with resumeAgent() called after feedback submission.
+ * userActions triggers feedback mode via setActiveFeedbackRequest.
+ * Backend pauses the agent loop; frontend shows the feedback UI.
  */
 
 import { useCallback } from 'react';
-import type { ToolEffectsEvent, AgentConfig, SessionComponent } from '../types';
+import type { ToolEffectsEvent, AgentConfig, AgentSessionComponent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 
 export function useToolEffects() {
@@ -42,15 +42,13 @@ export function useToolEffects() {
       }
     }
 
-    // Handle userActions effect
+    // Handle userActions effect — backend pauses the agent loop;
+    // frontend just shows the feedback UI
     if (toolEffects.userActions) {
-      // Trigger feedback mode and stop agent loop
-      // Symmetric with resumeAgent() called after feedback submission
       store.setActiveFeedbackRequest({
         componentId,
         userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
       });
-      store.stopAgent();
     }
 
     // Sync active job to store (Session handles event stamping, store provides UI state)

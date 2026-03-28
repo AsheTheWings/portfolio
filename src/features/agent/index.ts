@@ -1,13 +1,13 @@
 /**
  * Agent feature exports
  * 
- * Use the provided hooks (useAgent, useSessionLifecycle, useAgentCall)
+ * Use the provided hooks (useAgent, useAgentSessionLifecycle, useAgentCall)
  * to interact with the agent system.
  */
 
 export * from './types';
 export { AgentProvider, useAgent } from './contexts/AgentContext';
-export { Session, SessionsManager, McpClient } from './core';
+export { McpClient } from './lib/mcp-client';
 
 // UI components (can be used standalone or inline)
 export { AgentPlayground } from './components/AgentPlayground';
@@ -20,13 +20,13 @@ export { HistoryPanel } from './components/HistoryPanel';
 
 // Store and hooks (public API for agent operations)
 export { useAgentStore } from './stores/useAgentStore';
-export { useSessionLifecycle } from './hooks/useSessionLifecycle';
-export { useSessionRouting } from './hooks/useSessionRouting';
+export { useAgentSessionLifecycle } from './hooks/useAgentSessionLifecycle';
+export { useAgentSessionRouting } from './hooks/useAgentSessionRouting';
 export { useAgentCall } from './hooks/useAgentCall';
-export { useSessionHistory } from './hooks/useSessionHistory';
-export { useSessionMetadata } from './hooks/useSessionMetadata';
+export { useAgentSessionHistory } from './hooks/useAgentSessionHistory';
+export { useAgentSessionMetadata } from './hooks/useAgentSessionMetadata';
 export { useHydrateStore } from './hooks/useHydrateStore';
 
 // Configuration utilities
 export { loadMcpConfig, saveMcpConfig, loadToolPreferences, saveToolPreferences, getDefaultMcpConfig } from './utils/mcp-config';
-export { loadAgentConfig, saveAgentConfig, clearAgentConfig, loadCurrentSessionId, saveCurrentSessionId } from './utils/agent-storage';
+export { loadAgentConfig, saveAgentConfig, clearAgentConfig, loadCurrentAgentSessionId, saveCurrentAgentSessionId } from './utils/agent-storage';

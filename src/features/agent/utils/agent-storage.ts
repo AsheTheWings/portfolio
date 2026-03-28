@@ -66,7 +66,7 @@ export function clearAgentConfig(): void {
  */
 
 export interface UIFlags {
-  persistSession: boolean;
+  persistAgentSession: boolean;
   ephemeral: boolean;
 }
 
@@ -83,16 +83,16 @@ export function loadUIFlags(mode: 'chat' | 'side-by-side'): UIFlags {
     if (!stored) {
       // Default values per mode
       return mode === 'side-by-side' 
-        ? { persistSession: false, ephemeral: true }
-        : { persistSession: true, ephemeral: false };
+        ? { persistAgentSession: false, ephemeral: true }
+        : { persistAgentSession: true, ephemeral: false };
     }
 
     return JSON.parse(stored) as UIFlags;
   } catch (err) {
     console.error(`Failed to load UI flags for ${mode}:`, err);
     return mode === 'side-by-side' 
-      ? { persistSession: false, ephemeral: true }
-      : { persistSession: true, ephemeral: false };
+      ? { persistAgentSession: false, ephemeral: true }
+      : { persistAgentSession: true, ephemeral: false };
   }
 }
 
@@ -116,7 +116,7 @@ export function saveUIFlags(mode: 'chat' | 'side-by-side', flags: UIFlags): void
 /**
  * Load current session ID from localStorage
  */
-export function loadCurrentSessionId(): string | null {
+export function loadCurrentAgentSessionId(): string | null {
   try {
     return localStorage.getItem(CURRENT_SESSION_KEY);
   } catch (err) {
@@ -128,7 +128,7 @@ export function loadCurrentSessionId(): string | null {
 /**
  * Save current session ID to localStorage
  */
-export function saveCurrentSessionId(sessionId: string | null): void {
+export function saveCurrentAgentSessionId(sessionId: string | null): void {
   try {
     if (sessionId) {
       localStorage.setItem(CURRENT_SESSION_KEY, sessionId);

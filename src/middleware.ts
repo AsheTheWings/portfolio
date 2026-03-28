@@ -38,7 +38,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  return NextResponse.next();
+  // Inject the JWT as an Authorization header so Next.js rewrites
+  // carry auth to the backend (which only reads Bearer tokens).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('Authorization', `Bearer ${token}`);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

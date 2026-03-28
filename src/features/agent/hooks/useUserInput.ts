@@ -3,66 +3,40 @@
 /**
  * useUserInput Hook
  * 
- * Single Responsibility: Consolidate all user input handling
- * - Detects feedback mode vs normal mode
- * - Routes to appropriate handler (feedback submission vs message sending)
- * - Encapsulates business logic away from components
- * 
- * This hook provides a unified interface for all user text input,
- * eliminating the need for components to handle mode switching logic.
+ * Consolidates user input handling:
+ * - Normal mode: sends user_message via WS
+ * - Feedback mode: sends submit_feedback via WS
  */
 
 import { useCallback } from 'react';
-import { useAgent } from './useAgent';
+import { useAgentStore } from '../stores/useAgentStore';
+import { useAgentCall } from './useAgentCall';
 
-/**
- * Hook for handling user input in both normal and feedback modes
- */
 export function useUserInput() {
-  const {
-    activeFeedbackRequest,
-    submitFeedback: submitFeedbackAction,
-    callAgent,
-    resumeAgent,
-  } = useAgent();
+  const activeFeedbackRequest = useAgentStore((s) => s.activeFeedbackRequest);
+  const { submitMessage, submitFeedback } = useAgentCall();
 
   /**
-   * Submit user input (text message with optional asset attachments)
-   * Automatically detects feedback mode and routes to appropriate handler
-   * 
-   * @param message - User's text input
-   * @param libraryItemIds - Optional library item IDs (assets or folders) to attach
+   * Submit user input — routes to feedback or normal message
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     if (activeFeedbackRequest) {
-      // Feedback mode: submit as tool result with user feedback
-      submitFeedbackAction({ userFeedback: message });
-      
-      // Resume agent loop after feedback submission
-      await resumeAgent();
+      submitFeedback(activeFeedbackRequest.componentId, { userFeedback: message });
     } else {
-      // Normal mode: send as user message with optional library items
-      await callAgent(message, libraryItemIds);
+      submitMessage(message, libraryItemIds);
     }
-  }, [activeFeedbackRequest, submitFeedbackAction, resumeAgent, callAgent]);
+  }, [activeFeedbackRequest, submitFeedback, submitMessage]);
 
   /**
    * Submit action button click (feedback mode only)
-   * 
-   * @param actionId - ID of the clicked action button
    */
   const submitAction = useCallback(async (actionId: string) => {
     if (!activeFeedbackRequest) {
-      console.warn('⚠️ Cannot submit action: Not in feedback mode');
+      console.warn('Cannot submit action: Not in feedback mode');
       return;
     }
-
-    // Submit action as tool result
-    submitFeedbackAction({ action: actionId });
-    
-    // Resume agent loop to process queued tools
-    await resumeAgent();
-  }, [activeFeedbackRequest, submitFeedbackAction, resumeAgent]);
+    submitFeedback(activeFeedbackRequest.componentId, { action: actionId });
+  }, [activeFeedbackRequest, submitFeedback]);
 
   return {
     submitUserInput,

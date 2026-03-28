@@ -1,15 +1,15 @@
 /**
- * Component Resolver - Maps SessionComponent types to React components
+ * Component Resolver - Maps AgentSessionComponent types to React components
  * 
  * Provides context-aware rendering:
  * - Same component type can render differently based on UI mode
- * - Separates data layer (SessionComponent) from presentation layer
+ * - Separates data layer (AgentSessionComponent) from presentation layer
  * - Enables custom UI for different component types (tools, panels, messages)
  * - Handles presentation concerns (e.g., system panels are centered in chat mode)
  */
 
 import React from 'react';
-import type { SessionComponent, RenderContext } from '../types';
+import type { AgentSessionComponent, RenderContext } from '../types';
 import { AgentConfigPanel } from './AgentConfigPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { HistoryPanel } from './HistoryPanel';
@@ -18,7 +18,7 @@ import { MessageBubble } from './MessageBubble';
 import { AgentThoughts } from './AgentThoughts';
 import { ToolCall } from './ToolCall';
 import { UserFeedback } from './UserFeedback';
-import { SessionComponentWrapper } from './SessionComponentWrapper';
+import { AgentSessionComponentWrapper } from './AgentSessionComponentWrapper';
 
 // Tool-owned components
 import { 
@@ -26,21 +26,21 @@ import {
   AgentJobDashboard,
   AgentJobSummary,
   AgentJobOperation 
-} from '../core/tools/agent-job/components';
-import { SystemCall } from '../core/tools/system-call/components';
+} from '../tools/agent-job';
+import { SystemCall } from '../tools/system-call';
 
 /**
- * Resolve a SessionComponent to its React representation
+ * Resolve a AgentSessionComponent to its React representation
  * 
- * All non-system components are wrapped in SessionComponentWrapper for consistent UX.
+ * All non-system components are wrapped in AgentSessionComponentWrapper for consistent UX.
  * System panels (config, settings, history) have their own close/layout handling.
  * 
- * @param component - The SessionComponent to render
+ * @param component - The AgentSessionComponent to render
  * @param context - Rendering context (mode, standalone, etc.)
  * @returns React element or null
  */
 export function resolveComponent(
-  component: SessionComponent,
+  component: AgentSessionComponent,
   context: RenderContext
 ): React.ReactNode {
   const { type, role, data, id, isStreaming, hideComponent, controls } = component;
@@ -63,7 +63,7 @@ export function resolveComponent(
     }
   }
 
-  // System panels (config, settings, history, asset-picker) - standalone, no SessionComponentWrapper
+  // System panels (config, settings, history, asset-picker) - standalone, no AgentSessionComponentWrapper
   if (type === 'config-panel' || type === 'settings-panel' || type === 'history-panel' || type === 'asset-picker-panel') {
     return resolveSystemPanel(type, context);
   }
@@ -86,9 +86,9 @@ export function resolveComponent(
     return null;
   }
 
-  // Wrap in SessionComponentWrapper
+  // Wrap in AgentSessionComponentWrapper
   const wrapped = (
-    <SessionComponentWrapper
+    <AgentSessionComponentWrapper
       componentId={id}
       componentRole={role}
       componentType={type}
@@ -99,7 +99,7 @@ export function resolveComponent(
       renderContext={context}
     >
       {child}
-    </SessionComponentWrapper>
+    </AgentSessionComponentWrapper>
   );
 
   // Chat mode: wrap in div for spacing
@@ -114,9 +114,9 @@ export function resolveComponent(
  * Resolve child component based on type
  */
 function resolveChild(
-  type: SessionComponent['type'],
-  role: SessionComponent['role'],
-  data: SessionComponent['data'],
+  type: AgentSessionComponent['type'],
+  role: AgentSessionComponent['role'],
+  data: AgentSessionComponent['data'],
   isChatMode: boolean
 ): React.ReactNode {
   switch (type) {

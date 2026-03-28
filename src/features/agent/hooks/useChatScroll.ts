@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { SessionComponent } from '../types';
+import { AgentSessionComponent } from '../types';
 
 /**
  * SCROLL BEHAVIORS:
@@ -16,7 +16,7 @@ import { SessionComponent } from '../types';
 
 interface UseChatScrollProps {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  sessionComponents: SessionComponent[];
+  sessionComponents: AgentSessionComponent[];
   currentSessionId: string | null;
   scrollToComponentId: string | null;
   clearScrollToComponentId: () => void;
@@ -159,7 +159,7 @@ export function useChatScroll({
         chat.lastSessionId = currentSessionId;
         chat.lastComponentCount = sessionComponents.length;
       }
-      // Don't update tracking yet if no components - wait for loadSession to complete
+      // Don't update tracking yet if no components - wait for loadAgentSession to complete
       return;
     }
     

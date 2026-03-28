@@ -9,14 +9,14 @@ import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
-import { useSessionRouting } from '../hooks/useSessionRouting';
+import { useAgentSessionRouting } from '../hooks/useAgentSessionRouting';
 import { useAgentStore } from '../stores/useAgentStore';
 import { ChatInterface } from './ChatInterface';
 import { SideBySideInterface } from './SideBySideInterface';
 import { BackgroundJobInterface } from './BackgroundJobInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
-import type { SessionComponent } from '../types';
+import type { AgentSessionComponent } from '../types';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 
 interface AgentPlaygroundProps {
@@ -29,17 +29,17 @@ export function AgentPlayground({ sessionId }: AgentPlaygroundProps) {
   useHydrateStore();
   
   // Sync session ID between URL, localStorage, and store
-  useSessionRouting({ urlSessionId: sessionId });
+  useAgentSessionRouting({ urlSessionId: sessionId });
   
   const {
     upsertComponent,
     removeComponentsByRole,
-    clearSession,
+    clearAgentSession,
     conversationStatus,
-    persistSession,
+    persistAgentSession,
     ephemeral,
     agentConfig,
-    setPersistSession,
+    setPersistAgentSession,
     setEphemeral,
     sessionComponents,
     triggerSubmit,
@@ -117,24 +117,24 @@ export function AgentPlayground({ sessionId }: AgentPlaygroundProps) {
   // Load UI flags when mode changes
   useEffect(() => {
     const flags = loadUIFlags(uiMode);
-    setPersistSession(flags.persistSession);
+    setPersistAgentSession(flags.persistAgentSession);
     setEphemeral(flags.ephemeral);
-  }, [uiMode, setPersistSession, setEphemeral]);
+  }, [uiMode, setPersistAgentSession, setEphemeral]);
   
   // Save UI flags when they change
   useEffect(() => {
-    saveUIFlags(uiMode, { persistSession, ephemeral });
-  }, [uiMode, persistSession, ephemeral]);
+    saveUIFlags(uiMode, { persistAgentSession, ephemeral });
+  }, [uiMode, persistAgentSession, ephemeral]);
 
   
 
-  const handleNewSessionClick = () => {
+  const handleNewAgentSessionClick = () => {
     // Simply clear the session - no configuration panel
-    clearSession();
+    clearAgentSession();
   };
 
   // Utility: Handle panel display (create or scroll to existing)
-  const handlePanelClick = (panelId: string, panelType: SessionComponent['type']) => {
+  const handlePanelClick = (panelId: string, panelType: AgentSessionComponent['type']) => {
     const existingPanel = sessionComponents.find(c => c.id === panelId);
     
     if (uiMode === 'side-by-side') {
@@ -253,7 +253,7 @@ export function AgentPlayground({ sessionId }: AgentPlaygroundProps) {
     <div className="h-full w-full bg-background text-foreground">
       {/* Vertically Centered Tools Bar */}
       <ToolsBar 
-        onNewSessionClick={handleNewSessionClick}
+        onNewSessionClick={handleNewAgentSessionClick}
         onAgentConfigClick={handleConfigurationsClick}
         onHistoryClick={handleHistoryClick}
         onConfigClick={handleSettingsClick}

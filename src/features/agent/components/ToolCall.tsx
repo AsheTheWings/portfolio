@@ -11,7 +11,7 @@ import Editor from 'react-simple-code-editor';
 import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import { useControls } from '../contexts/SessionComponentContext';
+import { useControls } from '../contexts/AgentSessionComponentContext';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';

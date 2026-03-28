@@ -13,7 +13,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Markdown from 'markdown-to-jsx';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import { useControls } from '../contexts/SessionComponentContext';
+import { useControls } from '../contexts/AgentSessionComponentContext';
 
 interface AgentThoughtsProps {
   maxLines?: number;

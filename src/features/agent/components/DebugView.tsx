@@ -11,7 +11,7 @@ import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 import 'highlight.js/styles/atom-one-light.css';
-import type { SessionEvent } from '../types';
+import type { AgentSessionEvent } from '../types';
 import { useChatClickAway } from '../hooks/useChatClickAway';
 
 hljs.registerLanguage('json', json);
@@ -19,7 +19,7 @@ hljs.registerLanguage('json', json);
 /**
  * Truncate base64 image data in events for readable debug display
  */
-function truncateImageData(events: SessionEvent[]): SessionEvent[] {
+function truncateImageData(events: AgentSessionEvent[]): AgentSessionEvent[] {
   return events.map(event => {
     if (event.type !== 'user-turn-completed') return event;
     
@@ -40,7 +40,7 @@ function truncateImageData(events: SessionEvent[]): SessionEvent[] {
 }
 
 interface DebugViewProps {
-  sessionEvents?: SessionEvent[];
+  sessionEvents?: AgentSessionEvent[];
   onClose: () => void;
 }
 

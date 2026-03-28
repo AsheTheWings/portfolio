@@ -21,7 +21,7 @@ interface InteractionAreaProps {}
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, resumeAgent, conversationStatus } = useAgent();
+    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, conversationStatus } = useAgent();
     
     // Derive processing states from conversationStatus
     const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
@@ -178,7 +178,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                 ]}
                 layout="horizontal"
                 onAction={(actionId) => {
-                  if (actionId === 'resume') resumeAgent();
+                  if (actionId === 'resume') submitFeedback('', { action: 'resume' });
                 }}
               />
             </div>

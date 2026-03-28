@@ -2,16 +2,17 @@
 
 /**
  * Agent Context - Simplified wrapper using Zustand store and hooks
- * Provides React Context for auth-based cleanup
+ * Provides React Context for auth-based cleanup + WS connection
  */
 
 import { createContext, ReactNode, useEffect } from 'react';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useConversationStatus } from '../hooks/useConversationStatus';
+import { AgentConnectionProvider } from '../hooks/useAgentConnection';
+import { fetchTools } from '../lib/agent-api';
 
-// Re-export SessionComponent type for convenience
-export type { SessionComponent } from '../types';
+// Re-export AgentSessionComponent type for convenience
+export type { AgentSessionComponent } from '../types';
 
 // Re-export useAgent hook for convenience
 export { useAgent } from '../hooks/useAgent';
@@ -27,21 +28,21 @@ interface AgentProviderProps {
 }
 
 /**
- * Agent Provider - Manages auth-based cleanup
+ * Agent Provider - Manages auth-based cleanup and initial tools fetch
  * State is handled by Zustand store
  */
 export function AgentProvider({ children }: AgentProviderProps) {
   const reset = useAgentStore((state) => state.reset);
-  const initializeToolsPool = useAgentStore((state) => state.initializeToolsPool);
+  const setToolsPool = useAgentStore((state) => state.setToolsPool);
 
-  // Monitor conversation status
-  useConversationStatus();
-
-  // Initialize tool pool on mount
-  // Note: initializeToolsPool() also handles MCP auto-connect if enabled
+  // Fetch tools from backend on mount
   useEffect(() => {
-    initializeToolsPool();
-  }, [initializeToolsPool]);
+    fetchTools().then((tools) => {
+      setToolsPool(tools);
+    }).catch((err) => {
+      console.error('Failed to fetch tools:', err);
+    });
+  }, [setToolsPool]);
 
   // Subscribe to auth changes for logout cleanup
   useEffect(() => {
@@ -49,7 +50,6 @@ export function AgentProvider({ children }: AgentProviderProps) {
 
     const unsubscribe = useAuthStore.subscribe((state) => {
       const currentUser = state.user;
-      // User logged out (had user, now null)
       if (previousUser && !currentUser) {
         reset();
       }
@@ -60,8 +60,10 @@ export function AgentProvider({ children }: AgentProviderProps) {
   }, [reset]);
 
   return (
-    <AgentContext.Provider value={{}}>
-      {children}
-    </AgentContext.Provider>
+    <AgentConnectionProvider>
+      <AgentContext.Provider value={{}}>
+        {children}
+      </AgentContext.Provider>
+    </AgentConnectionProvider>
   );
 }

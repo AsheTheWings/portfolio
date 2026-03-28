@@ -9,12 +9,12 @@ import { useAgent } from '../hooks/useAgent';
 import { resolveComponent } from './ComponentResolver';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/features/shared/components/shadcn';
 import { useUserInput } from '../hooks/useUserInput';
-import type { SessionComponent, FeedbackAction } from '../types';
+import type { AgentSessionComponent, FeedbackAction } from '../types';
 
 interface TurnPair {
-  userMessage: SessionComponent;
-  agentThoughts?: SessionComponent;
-  agentMessage?: SessionComponent;
+  userMessage: AgentSessionComponent;
+  agentThoughts?: AgentSessionComponent;
+  agentMessage?: AgentSessionComponent;
   turnIndex: number;
 }
 
@@ -29,7 +29,7 @@ export function SideBySideInterface({
   initialSlideIndex,
   onSlideIndexChange
 }: SideBySideInterfaceProps) {
-  const { sessionComponents, conversationStatus, callAgent, createSession, currentSessionId, ephemeral, removeComponentsByRole, submitTrigger, agentConfig, activeFeedbackRequest } = useAgent();
+  const { sessionComponents, conversationStatus, submitMessage, currentSessionId, ephemeral, removeComponentsByRole, submitTrigger, agentConfig, activeFeedbackRequest } = useAgent();
   const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
   const { submitAction, isFeedbackMode } = useUserInput();
   const [inputValue, setInputValue] = useState('');
@@ -43,14 +43,14 @@ export function SideBySideInterface({
   // Memoized to prevent recalculation on every render
   const turnPairs = React.useMemo(() => {
     const pairs: TurnPair[] = [];
-    const conversationMessages = sessionComponents.filter((msg: SessionComponent) => msg.role !== 'system');
+    const conversationMessages = sessionComponents.filter((msg: AgentSessionComponent) => msg.role !== 'system');
     
     for (let i = 0; i < conversationMessages.length; i++) {
       const msg = conversationMessages[i];
       if (msg.role === 'user' && msg.type === 'message') {
         // Collect all subsequent agent components until next user message
-        let agentThoughts: SessionComponent | undefined;
-        let agentMessage: SessionComponent | undefined;
+        let agentThoughts: AgentSessionComponent | undefined;
+        let agentMessage: AgentSessionComponent | undefined;
         let j = i + 1;
         
         while (j < conversationMessages.length && conversationMessages[j].role === 'agent') {
@@ -80,7 +80,7 @@ export function SideBySideInterface({
   // Get system messages (for panels/components)
   // Show the latest (most recently added) system panel
   const latestSystemMessage = React.useMemo(() => {
-    const systemMessages = sessionComponents.filter((msg: SessionComponent) => msg.role === 'system');
+    const systemMessages = sessionComponents.filter((msg: AgentSessionComponent) => msg.role === 'system');
     return systemMessages[systemMessages.length - 1];
   }, [sessionComponents]);
   
@@ -165,13 +165,8 @@ export function SideBySideInterface({
     setInputValue('');
 
     try {
-      // Initialize session if not already initialized
-      if (!currentSessionId) {
-        await createSession();
-      }
-      
-      // Call agent (config already in store)
-      await callAgent(message);
+      // submitMessage handles session creation if no currentSessionId
+      await submitMessage(message);
       
       // Carousel will auto-navigate via useEffect when slides array updates
     } catch (error) {

@@ -4,5 +4,7 @@
 
 export { useAgentCall } from './useAgentCall';
 export { useMessageComposer } from './useMessageComposer';
-export { useSessionLifecycle } from './useSessionLifecycle';
-export { useSessionMetadata } from './useSessionMetadata';
+export { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
+export { useAgentSessionMetadata } from './useAgentSessionMetadata';
+export { useWsEventIngestion } from './useWsEventIngestion';
+export { useAgentConnection } from './useAgentConnection';

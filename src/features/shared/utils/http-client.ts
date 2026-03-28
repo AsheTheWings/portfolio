@@ -92,6 +92,16 @@ export class HttpClient {
     });
     return handleResponse<T>(response);
   }
+
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse<T>(response);
+  }
 }
 
 // Singleton instance
