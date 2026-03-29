@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/features/shared";
 import { AuthProvider } from "@/features/authentication";
 import { QueryClientProvider } from "@/features/shared/providers/query-client";
+import { Toaster } from "@/features/shared/components/shadcn/sonner";
 import { TimelineNav } from "./TimelineNav";
 import "./globals.css";
 
@@ -58,6 +59,7 @@ export default function RootLayout({
             <ThemeProvider>
               <TimelineNav />
               {children}
+              <Toaster position="bottom-right" richColors closeButton />
             </ThemeProvider>
           </QueryClientProvider>
         </AuthProvider>

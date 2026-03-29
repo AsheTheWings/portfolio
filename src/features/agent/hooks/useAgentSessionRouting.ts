@@ -13,6 +13,8 @@ import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
 import { loadCurrentAgentSessionId, saveCurrentAgentSessionId } from '../utils/agent-storage';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface UseAgentSessionRoutingOptions {
   /** Session ID from URL (undefined if on base route) */
   urlSessionId?: string;
@@ -53,6 +55,11 @@ export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingO
 
     const resolveSession = async () => {
       if (urlSessionId) {
+        // Validate UUID format — non-UUID paths should not trigger session load
+        if (!UUID_RE.test(urlSessionId)) {
+          navigateToAgentSession(null);
+          return;
+        }
         // URL has session ID → load it if not already loaded
         if (currentSessionId !== urlSessionId) {
           try {

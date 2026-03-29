@@ -21,7 +21,7 @@ interface InteractionAreaProps {}
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, conversationStatus } = useAgent();
+    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, resumeAgent, conversationStatus } = useAgent();
     
     // Derive processing states from conversationStatus
     const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
@@ -30,7 +30,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const isResponding = conversationStatus === 'responding';
     
     // Disable input if processing or hanging input (user message pending)
-    const isInputDisabled = isProcessing || conversationStatus === 'hangingInput';
+    const isInputDisabled = isProcessing || conversationStatus === 'interrupted';
     
     // Use consolidated user input handler
     const { submitUserInput, submitAction, isFeedbackMode } = useUserInput();
@@ -165,7 +165,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                 </div>
               );
             })()
-          ) : (conversationStatus === 'interrupted' || conversationStatus === 'hangingInput') ? (
+          ) : conversationStatus === 'interrupted' ? (
             <div className="flex-1 mb-4 flex justify-center items-center">
               <FeedbackPanel
                 prompt="Agent turn was interrupted. Would you like to resume?"
@@ -178,7 +178,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                 ]}
                 layout="horizontal"
                 onAction={(actionId) => {
-                  if (actionId === 'resume') submitFeedback('', { action: 'resume' });
+                  if (actionId === 'resume') resumeAgent();
                 }}
               />
             </div>
@@ -186,7 +186,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
         {/* MessageInput */}
         <motion.div
           animate={{
-            width: isFeedbackMode || conversationStatus === 'interrupted' || conversationStatus === 'hangingInput'? '60%' : '70%',
+            width: isFeedbackMode || conversationStatus === 'interrupted' ? '60%' : '70%',
           }}
           transition={{
             type: 'spring',

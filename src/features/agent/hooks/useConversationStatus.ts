@@ -16,7 +16,6 @@ export type ConversationStatus =
   | 'toolCalling'
   | 'responding'
   | 'waitingFeedback'
-  | 'hangingInput'
   | 'interrupted';
 
 /**

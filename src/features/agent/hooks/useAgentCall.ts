@@ -78,9 +78,25 @@ export function useAgentCall() {
     });
   }, [send]);
 
+  /**
+   * Resume agent from last state — no new input, re-run from where it stopped
+   */
+  const resumeAgent = useCallback(() => {
+    const sessionId = useAgentStore.getState().currentSessionId;
+    if (!sessionId) return;
+
+    useAgentStore.getState().setConversationStatus('processing');
+
+    send({
+      type: 'resume_agent',
+      sessionId,
+    });
+  }, [send]);
+
   return {
     submitMessage,
     stopAgent,
     submitFeedback,
+    resumeAgent,
   };
 }

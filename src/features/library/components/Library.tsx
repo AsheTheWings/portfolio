@@ -91,7 +91,7 @@ import { CreateFolderDialog } from './CreateFolderDialog';
 import { SpotlightSearch } from './SpotlightSearch';
 import { MangaReader } from './MangaReader';
 import { ConfirmationDialog } from '@/features/shared/components/ConfirmationDialog';
-import { Toaster } from '@/features/shared/components/shadcn/sonner';
+
 import { SelectionArea } from '@viselect/react';
 import { useLibrary } from '../hooks/useLibrary';
 import { useLibraryStore } from '../stores/useLibraryStore';
@@ -663,8 +663,6 @@ export function Library({
               cancelButtonText="Cancel"
               variant="destructive"
             />
-
-            <Toaster position="bottom-right" richColors closeButton />
           </>
         )}
 

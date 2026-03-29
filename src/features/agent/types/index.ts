@@ -570,7 +570,7 @@ export interface AgentState {
   pendingLibraryItemIds: string[];
   
   // Conversation status
-  conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'hangingInput' | 'interrupted';
+  conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'interrupted';
 
   // Session management
   setCurrentAgentSessionId: (sessionId: string | null) => void;

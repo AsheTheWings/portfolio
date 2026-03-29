@@ -82,13 +82,19 @@ export interface WsCustomToolResultMessage {
   result: unknown;
 }
 
+export interface WsResumeAgentMessage {
+  type: 'resume_agent';
+  sessionId: string;
+}
+
 export type WsClientMessage =
   | WsSubscribeMessage
   | WsUnsubscribeMessage
   | WsUserMessageMessage
   | WsStopAgentMessage
   | WsSubmitFeedbackMessage
-  | WsCustomToolResultMessage;
+  | WsCustomToolResultMessage
+  | WsResumeAgentMessage;
 
 // ============================================================
 // Server → Client Messages

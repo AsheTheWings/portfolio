@@ -77,7 +77,7 @@ export function useAgent() {
   
   // Hook dependencies
   const { loadAgentSession, clearAgentSession } = useAgentSessionLifecycle();
-  const { submitMessage, stopAgent, submitFeedback } = useAgentCall();
+  const { submitMessage, stopAgent, submitFeedback, resumeAgent } = useAgentCall();
 
   return {
     // Session
@@ -151,6 +151,7 @@ export function useAgent() {
     submitMessage,
     stopAgent,
     submitFeedback,
+    resumeAgent,
     
     // Tool state
     toolsPool,
