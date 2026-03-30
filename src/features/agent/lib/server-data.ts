@@ -4,6 +4,7 @@
  */
 
 import type { Tool, WorkflowSpec } from '../types';
+import type { WireAgentSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
@@ -34,5 +35,30 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch:', err instanceof Error ? err.message : String(err));
     return empty;
+  }
+}
+
+/**
+ * Fetch session events from the backend (server-side).
+ * Returns events as wire format (ISO string timestamps) for SSR serialization.
+ * Returns null on failure (non-blocking).
+ */
+export async function fetchSessionEventsSSR(
+  token: string,
+  sessionId: string
+): Promise<WireAgentSessionEvent[] | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/agent/sessions/${sessionId}/events`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return (data.events ?? []) as WireAgentSessionEvent[];
+  } catch (err) {
+    console.error('[agent/server-data] Failed to fetch session events:', err instanceof Error ? err.message : String(err));
+    return null;
   }
 }

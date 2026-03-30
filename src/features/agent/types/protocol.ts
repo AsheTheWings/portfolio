@@ -45,6 +45,7 @@ export interface WireAgentSessionEvent {
 export interface WsSubscribeMessage {
   type: 'subscribe';
   sessionId: string;
+  lastSequence?: number;
 }
 
 export interface WsUnsubscribeMessage {
@@ -87,6 +88,20 @@ export interface WsResumeAgentMessage {
   sessionId: string;
 }
 
+export interface WsRevertToComponentMessage {
+  type: 'revert_to_component';
+  sessionId: string;
+  componentId: string;
+}
+
+export interface WsEditComponentMessage {
+  type: 'edit_component';
+  sessionId: string;
+  componentId: string;
+  updatedData: Record<string, unknown>;
+  configOverride?: Record<string, unknown>;
+}
+
 export type WsClientMessage =
   | WsSubscribeMessage
   | WsUnsubscribeMessage
@@ -94,7 +109,9 @@ export type WsClientMessage =
   | WsStopAgentMessage
   | WsSubmitFeedbackMessage
   | WsCustomToolResultMessage
-  | WsResumeAgentMessage;
+  | WsResumeAgentMessage
+  | WsRevertToComponentMessage
+  | WsEditComponentMessage;
 
 // ============================================================
 // Server → Client Messages
@@ -132,9 +149,16 @@ export interface WsErrorMessage {
   error: string;
 }
 
+export interface WsSessionBranchedMessage {
+  type: 'session_branched';
+  oldSessionId: string;
+  newSessionId: string;
+}
+
 export type WsServerMessage =
   | WsAgentSessionEventMessage
   | WsAgentSessionCreatedMessage
   | WsAgentStatusMessage
   | WsExecuteCustomToolMessage
-  | WsErrorMessage;
+  | WsErrorMessage
+  | WsSessionBranchedMessage;

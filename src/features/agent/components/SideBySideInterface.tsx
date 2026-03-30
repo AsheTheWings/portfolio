@@ -239,7 +239,7 @@ export function SideBySideInterface({
                           /* Placeholder Message (when no system message) */
                           <div className="flex h-full items-center justify-center">
                             <p className="text-sm text-muted-foreground italic">
-                              {sessionComponents.length === 0 && !ephemeral 
+                              {sessionComponents.length === 0 && !ephemeral && !currentSessionId
                                 ? 'Send a message to start a conversation' 
                                 : 'Waiting for your prompt...'}
                             </p>

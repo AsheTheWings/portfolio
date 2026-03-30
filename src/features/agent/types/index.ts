@@ -541,6 +541,7 @@ export interface AgentState {
   
   // Scroll state
   scrollToComponentId: string | null;
+  preserveScrollOnSessionChange: boolean;
   error: string | null;
   submitTrigger: number;
   
@@ -607,6 +608,7 @@ export interface AgentState {
   clearError: () => void;
   setScrollToComponentId: (componentId: string | null) => void;
   clearScrollToComponentId: () => void;
+  setPreserveScrollOnSessionChange: (preserve: boolean) => void;
   triggerSubmit: () => void;
   
   // Editing actions

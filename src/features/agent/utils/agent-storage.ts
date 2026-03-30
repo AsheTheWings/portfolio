@@ -7,7 +7,6 @@ import type { AgentConfig } from '../types';
 import { createDefaultAgentConfig } from '../services/models-registry';
 
 const AGENT_CONFIG_KEY = 'timeline:agent:config';
-const CURRENT_SESSION_KEY = 'timeline:agent:currentSessionId';
 
 /**
  * Load agent config from localStorage
@@ -110,32 +109,20 @@ export function saveUIFlags(mode: 'chat' | 'side-by-side', flags: UIFlags): void
 
 /**
  * Current Session ID Management
- * Persists session ID for URL restoration and tab persistence
+ * Persists session ID as a non-httpOnly cookie so both client and server can read it.
+ * Server reads it in page.tsx to redirect `/` → `/<sessionId>` without a client round-trip.
  */
 
-/**
- * Load current session ID from localStorage
- */
-export function loadCurrentAgentSessionId(): string | null {
-  try {
-    return localStorage.getItem(CURRENT_SESSION_KEY);
-  } catch (err) {
-    console.error('Failed to load current session ID:', err);
-    return null;
-  }
-}
+const SESSION_COOKIE_NAME = 'timeline_last_session';
+const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 /**
- * Save current session ID to localStorage
+ * Save current session ID to a cookie (readable by server and client)
  */
 export function saveCurrentAgentSessionId(sessionId: string | null): void {
-  try {
-    if (sessionId) {
-      localStorage.setItem(CURRENT_SESSION_KEY, sessionId);
-    } else {
-      localStorage.removeItem(CURRENT_SESSION_KEY);
-    }
-  } catch (err) {
-    console.error('Failed to save current session ID:', err);
+  if (sessionId) {
+    document.cookie = `${SESSION_COOKIE_NAME}=${sessionId}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; samesite=lax`;
+  } else {
+    document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; samesite=lax`;
   }
 }

@@ -99,21 +99,6 @@ export async function updateAgentSession(
   await json<{ success: boolean }>(res);
 }
 
-export async function branchAgentSession(
-  sessionId: string,
-  breakpointComponentId: string,
-  updatedData?: { message?: string; tool?: string; arguments?: Record<string, unknown> },
-  configOverride?: AgentConfig,
-): Promise<BranchResponse> {
-  const res = await fetch(`${BASE}/sessions/${sessionId}/branch`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ breakpointComponentId, updatedData, configOverride }),
-  });
-  return json<BranchResponse>(res);
-}
-
 export async function translateText(
   text: string,
   targetLanguage: string,

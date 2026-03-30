@@ -13,14 +13,16 @@ import { AgentConnectionProvider } from '@/features/agent/hooks/useAgentConnecti
 import { AgentPlayground } from '@/features/agent';
 import type { UserPublic } from '@/features/authentication/types';
 import type { Tool, WorkflowSpec } from '@/features/agent/types';
+import type { WireAgentSessionEvent } from '@/features/agent/types/protocol';
 
 interface AgentHomeProps {
   initialUser: UserPublic | null;
   initialTools: Tool[];
   initialWorkflows: WorkflowSpec[];
+  initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentHome({ initialUser, initialTools, initialWorkflows }: AgentHomeProps) {
+export function AgentHome({ initialUser, initialTools, initialWorkflows, initialEvents }: AgentHomeProps) {
   const { user, isAuthenticated, setUser } = useAuthStore();
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
@@ -41,7 +43,7 @@ export function AgentHome({ initialUser, initialTools, initialWorkflows }: Agent
 
   return (
     <AgentConnectionProvider>
-      <AgentPlayground sessionId={sessionId} initialTools={initialTools} initialWorkflows={initialWorkflows} />
+      <AgentPlayground sessionId={sessionId} initialTools={initialTools} initialWorkflows={initialWorkflows} initialEvents={initialEvents} />
     </AgentConnectionProvider>
   );
 }

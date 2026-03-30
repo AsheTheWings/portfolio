@@ -4,16 +4,16 @@
  * useWsEventIngestion - Central WS event handler
  *
  * Listens to all server→client WS messages and routes them:
- * - session_event  → buffer (during load) or processLiveEvent
- * - session_created → store.setCurrentAgentSessionId + URL update
- * - agent_status   → store.setConversationStatus
- * - error          → store.setError
+ * - session_event    → processLiveEvent (handles catch-up + live events uniformly)
+ * - session_created  → store.setCurrentAgentSessionId + URL update
+ * - agent_status     → store.setConversationStatus
+ * - session_branched → navigation to new branch session
+ * - error            → store.setError
  */
 
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
-import { bufferEvent } from '../lib/event-buffer';
 import { processLiveEvent } from '../lib/process-event';
 import { toastError } from '@/features/shared/components/FeedbackMessage';
 import type { AgentSessionEvent } from '../types';
@@ -21,6 +21,7 @@ import type {
   WsAgentSessionEventMessage,
   WsAgentSessionCreatedMessage,
   WsAgentStatusMessage,
+  WsSessionBranchedMessage,
   WsErrorMessage,
   WireAgentSessionEvent,
 } from '../types/protocol';
@@ -38,6 +39,8 @@ function wireToAgentSessionEvent(wire: WireAgentSessionEvent): AgentSessionEvent
 interface UseWsEventIngestionOptions {
   /** Called when backend creates a new session (for URL update) */
   onAgentSessionCreated?: (sessionId: string) => void;
+  /** Called when backend creates a branch session (for URL navigation) */
+  onSessionBranched?: (newSessionId: string) => void;
 }
 
 export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
@@ -45,6 +48,8 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
   const store = useAgentStore();
   const onAgentSessionCreatedRef = useRef(options?.onAgentSessionCreated);
   onAgentSessionCreatedRef.current = options?.onAgentSessionCreated;
+  const onSessionBranchedRef = useRef(options?.onSessionBranched);
+  onSessionBranchedRef.current = options?.onSessionBranched;
 
   useEffect(() => {
     if (!client) return;
@@ -54,20 +59,18 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       if (msg.sessionId !== currentSessionId) return;
 
       const event = wireToAgentSessionEvent(msg.event);
-
-      // If session load is in progress, buffer for later replay
-      if (bufferEvent(event)) return;
-
       processLiveEvent(event);
     });
 
     const unsubCreated = client.on('session_created', (msg: WsAgentSessionCreatedMessage) => {
+      console.log(`[WsIngestion] session_created — newSessionId=${msg.sessionId}`);
       useAgentStore.getState().setCurrentAgentSessionId(msg.sessionId);
       onAgentSessionCreatedRef.current?.(msg.sessionId);
     });
 
     const unsubStatus = client.on('agent_status', (msg: WsAgentStatusMessage) => {
       const currentSessionId = useAgentStore.getState().currentSessionId;
+      console.log(`[WsIngestion] agent_status — status=${msg.status} msgSession=${msg.sessionId} currentSession=${currentSessionId ?? '(none)'}`);
       if (msg.sessionId !== currentSessionId) return;
 
       if (msg.status === 'completed' || msg.status === 'aborted') {
@@ -86,11 +89,16 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       useAgentStore.getState().setError(msg.error);
     });
 
+    const unsubBranched = client.on('session_branched', (msg: WsSessionBranchedMessage) => {
+      onSessionBranchedRef.current?.(msg.newSessionId);
+    });
+
     return () => {
       unsubSession();
       unsubCreated();
       unsubStatus();
       unsubError();
+      unsubBranched();
     };
   }, [client]);
 }
