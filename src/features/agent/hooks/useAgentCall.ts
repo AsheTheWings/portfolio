@@ -26,6 +26,8 @@ export function useAgentCall() {
   ) => {
     const store = useAgentStore.getState();
     
+    console.log(`[AgentCall] submitMessage — sessionId=${store.currentSessionId ?? '(none)'} message="${message.slice(0, 60)}..."`);
+    
     // Clear system panels when user sends a new message
     store.removeComponentsByRole('system');
     store.setConversationStatus('processing');

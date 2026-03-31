@@ -70,7 +70,7 @@ export function AgentSessionComponentWrapper({
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Get store state and actions
-  const { editingComponentId, editingData, startEdit, updateEditingData, cancelEdit, setScrollToComponentId } = useAgent();
+  const { editingComponentId, editingData, startEdit, updateEditingData, cancelEdit, setPreserveScrollOnSessionChange } = useAgent();
   
   // Branching operations
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
@@ -289,7 +289,7 @@ export function AgentSessionComponentWrapper({
     <button
       onClick={async () => {
         if (parentBranch.type === 'branch' && parentBranch.data.parentSessionId) {
-          setScrollToComponentId(componentId);
+          setPreserveScrollOnSessionChange(true);
           await loadAgentSession(parentBranch.data.parentSessionId);
         }
       }}
@@ -314,7 +314,7 @@ export function AgentSessionComponentWrapper({
       onClick={() => {
         // If only one branch, directly load it; otherwise show branches panel
         if (branches.length === 1) {
-          setScrollToComponentId(componentId);
+          setPreserveScrollOnSessionChange(true);
           loadAgentSession(branches[0].branchSessionId);
         } else {
           setActivePanel('branches');
@@ -427,7 +427,7 @@ export function AgentSessionComponentWrapper({
             <BranchTreeView
               branches={branches}
               onSelectBranch={(branchSessionId) => {
-                setScrollToComponentId(componentId);
+                setPreserveScrollOnSessionChange(true);
                 loadAgentSession(branchSessionId);
               }}
               onClose={() => {

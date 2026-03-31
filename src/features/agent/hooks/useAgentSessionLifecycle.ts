@@ -4,7 +4,7 @@
  * useAgentSessionLifecycle Hook
  * 
  * Session lifecycle via REST + WS:
- * - loadAgentSession: REST fetch events → store.hydrateFromEvents + WS subscribe
+ * - loadAgentSession: Hydrate from events (SSR or REST) + WS subscribe with lastSequence
  * - clearAgentSession: REST delete + WS unsubscribe + clear store
  * - New sessions are created implicitly by backend on first user_message
  */
@@ -13,50 +13,63 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 import { fetchAgentSessionEvents, deleteAgentSession } from '../lib/agent-api';
-import { startEventBuffering, drainEventBuffer } from '../lib/event-buffer';
-import { processLiveEvent } from '../lib/process-event';
 import { saveCurrentAgentSessionId } from '../utils/agent-storage';
 import type { AgentSessionEvent } from '../types';
+import type { WireAgentSessionEvent } from '../types/protocol';
+
+/**
+ * Convert wire events (ISO timestamps) to rich AgentSessionEvents (Date objects)
+ */
+function wireToAgentSessionEvents(wireEvents: WireAgentSessionEvent[]): AgentSessionEvent[] {
+  return wireEvents.map(e => ({
+    ...e,
+    timestamp: new Date(e.timestamp),
+  })) as unknown as AgentSessionEvent[];
+}
 
 export function useAgentSessionLifecycle() {
   const { send } = useAgentConnection();
 
   /**
-   * Load existing session from REST and subscribe to live events via WS.
+   * Load existing session and subscribe to live events via WS.
    *
-   * Uses subscribe-first + buffer pattern to avoid event gaps:
-   * 1. Start buffering WS events
-   * 2. Set session ID + subscribe via WS (events now buffer)
-   * 3. Fetch snapshot via REST
-   * 4. Hydrate store from snapshot
-   * 5. Drain buffer, replay non-duplicate events
+   * Uses sequence-based catch-up to avoid event gaps:
+   * 1. Get events (from SSR initialEvents or REST fetch)
+   * 2. Hydrate store from events
+   * 3. Subscribe via WS with lastSequence — backend sends missed events as catch-up
+   *
+   * @param sessionId - Session to load
+   * @param initialEvents - Pre-fetched events from SSR (skips REST fetch)
    */
   const loadAgentSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, initialEvents?: WireAgentSessionEvent[]) => {
       const store = useAgentStore.getState();
 
       try {
         store.setError(null);
-
-        // 1. Start buffering — any WS session_events are queued instead of processed
-        startEventBuffering();
-
-        // 2. Set session ID early so the WS ingestion handler accepts events for this session
+        console.log('[SessionLifecycle] loadAgentSession START', { sessionId: sessionId.slice(0, 8), hasInitialEvents: !!initialEvents });
         store.setCurrentAgentSessionId(sessionId);
+        store.clearComponents();
+        console.log('[SessionLifecycle] cleared components, set sessionId');
         saveCurrentAgentSessionId(sessionId);
         store.clearActiveFeedbackRequest();
 
-        // 3. Subscribe via WS — server starts pushing events (buffered on client)
-        send({ type: 'subscribe', sessionId });
+        // 1. Get events — use SSR data if available, otherwise fetch via REST
+        let events: AgentSessionEvent[];
+        if (initialEvents) {
+          events = wireToAgentSessionEvents(initialEvents);
+        } else {
+          const response = await fetchAgentSessionEvents(sessionId);
+          events = response.events as AgentSessionEvent[];
+        }
 
-        // 4. Fetch snapshot via REST
-        const { events, session: sessionMeta } = await fetchAgentSessionEvents(sessionId);
-
-        // 5. Hydrate store from snapshot
-        store.hydrateFromEvents(events as AgentSessionEvent[]);
+        // 2. Hydrate store from events
+        console.log('[SessionLifecycle] hydrating from', events.length, 'events');
+        store.hydrateFromEvents(events);
+        console.log('[SessionLifecycle] hydration complete, components:', useAgentStore.getState().sessionComponents.length);
 
         // Extract user messages for history navigation
-        const userMessages = (events as AgentSessionEvent[])
+        const userMessages = events
           .filter((e) => e.type === 'user-turn-completed' && (e.data as { message?: string }).message)
           .map((e) => (e.data as { message?: string }).message)
           .filter((m): m is string => typeof m === 'string')
@@ -64,45 +77,23 @@ export function useAgentSessionLifecycle() {
           .slice(0, 20);
         store.setUserMessagesHistory(userMessages);
 
-        // 6. Drain buffer and replay non-duplicate events
-        const buffered = drainEventBuffer();
-        if (buffered.length > 0) {
-          const knownIds = new Set((events as AgentSessionEvent[]).map((e) => e.eventId));
-          const newEvents = buffered
-            .filter((e) => !knownIds.has(e.eventId))
-            .sort((a, b) => a.sequence - b.sequence);
+        // 3. Subscribe via WS with lastSequence — backend sends catch-up events
+        const lastSequence = events.length > 0
+          ? Math.max(...events.map(e => e.sequence))
+          : undefined;
 
-          // Log sequence gaps (observability — no auto-retry)
-          if (newEvents.length > 0) {
-            const allSeqs = [
-              ...(events as AgentSessionEvent[]).map((e) => e.sequence),
-              ...newEvents.map((e) => e.sequence),
-            ].sort((a, b) => a - b);
-            for (let i = 1; i < allSeqs.length; i++) {
-              if (allSeqs[i] - allSeqs[i - 1] > 1) {
-                console.warn(`[agent] Sequence gap: ${allSeqs[i - 1]} → ${allSeqs[i]}`);
-              }
-            }
-          }
+        send({ type: 'subscribe', sessionId, lastSequence });
 
-          for (const event of newEvents) {
-            processLiveEvent(event);
-          }
-        }
-
-        // 7. Detect interrupted state: last event is user turn with no agent response
-        const allEvents = events as AgentSessionEvent[];
-        if (allEvents.length > 0) {
-          const lastEvent = allEvents[allEvents.length - 1];
+        // 4. Detect interrupted state: last event is user turn with no agent response
+        if (events.length > 0) {
+          const lastEvent = events[events.length - 1];
           if (lastEvent.type === 'user-turn-completed') {
             store.setConversationStatus('interrupted');
           }
         }
 
-        return { sessionId, metadata: sessionMeta };
+        return { sessionId };
       } catch (e: unknown) {
-        // Stop buffering on error to prevent stale events leaking into next load
-        drainEventBuffer();
         const errorMessage = e instanceof Error ? e.message : 'Failed to load session';
         useAgentStore.getState().setError(errorMessage);
         console.error('Failed to load session:', e);
@@ -119,6 +110,8 @@ export function useAgentSessionLifecycle() {
     async (opts?: { delete?: boolean }) => {
       const store = useAgentStore.getState();
       const sessionId = store.currentSessionId;
+
+      console.log(`[SessionLifecycle] clearAgentSession() — sessionId=${sessionId ?? '(none)'} delete=${opts?.delete ?? false}`);
 
       if (sessionId) {
         // Unsubscribe from live events
@@ -138,7 +131,10 @@ export function useAgentSessionLifecycle() {
       store.clearUserMessagesHistory();
       store.clearActiveFeedbackRequest();
       store.selectJob(null);
+      store.setConversationStatus('healthy');
+      store.setError(null);
       saveCurrentAgentSessionId(null);
+      console.log('[SessionLifecycle] clearAgentSession() complete — store reset');
     },
     [send]
   );

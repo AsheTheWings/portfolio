@@ -3,29 +3,35 @@
 /**
  * useAgentSessionRouting Hook
  * 
- * Syncs session ID between URL, localStorage, and store.
- * Handles initial load from URL or localStorage, and updates URL on session changes.
+ * Syncs session ID between URL, cookie, and store.
+ * Server-side redirect handles `/` → `/<lastSessionId>` (reads cookie in page.tsx).
+ * This hook handles URL → session loading and store → URL sync.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
-import { loadCurrentAgentSessionId, saveCurrentAgentSessionId } from '../utils/agent-storage';
+import { useAgentConnection } from './useAgentConnection';
+import { saveCurrentAgentSessionId } from '../utils/agent-storage';
+import type { WireAgentSessionEvent } from '../types/protocol';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface UseAgentSessionRoutingOptions {
   /** Session ID from URL (undefined if on base route) */
   urlSessionId?: string;
+  /** Server-fetched session events (SSR) — skips REST fetch */
+  initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingOptions = {}) {
+export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgentSessionRoutingOptions = {}) {
   const router = useRouter();
   const pathname = usePathname();
   
   const currentSessionId = useAgentStore((s) => s.currentSessionId);
   const { loadAgentSession } = useAgentSessionLifecycle();
+  const { send } = useAgentConnection();
   
   // Track if we've done initial resolution to prevent loops
   const initialResolvedRef = useRef(false);
@@ -40,6 +46,7 @@ export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingO
   const navigateToAgentSession = useCallback((sessionId: string | null) => {
     const targetPath = sessionId ? `/${sessionId}` : '/';
     if (pathname !== targetPath) {
+      console.log('[SessionRouting] router.replace', { from: pathname, to: targetPath });
       router.replace(targetPath);
     }
   }, [router, pathname]);
@@ -63,7 +70,7 @@ export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingO
         // URL has session ID → load it if not already loaded
         if (currentSessionId !== urlSessionId) {
           try {
-            await loadAgentSession(urlSessionId);
+            await loadAgentSession(urlSessionId, initialEvents ?? undefined);
             saveCurrentAgentSessionId(urlSessionId);
             lastSyncedSessionRef.current = urlSessionId;
           } catch (error) {
@@ -73,23 +80,22 @@ export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingO
             navigateToAgentSession(null);
           }
         } else {
-          // Already loaded, just sync refs
+          // Already loaded, just sync refs and re-subscribe.
+          // After a provider remount the WS connection is new and has no
+          // subscriptions, so we must explicitly subscribe to keep
+          // receiving session events from the backend.
           saveCurrentAgentSessionId(urlSessionId);
           lastSyncedSessionRef.current = urlSessionId;
-        }
-      } else {
-        // No URL session → check localStorage
-        const storedId = loadCurrentAgentSessionId();
-        if (storedId) {
-          // Redirect to stored session
-          lastSyncedSessionRef.current = storedId;
-          navigateToAgentSession(storedId);
+          send({ type: 'subscribe', sessionId: urlSessionId });
+          console.log(`[SessionRouting] Session already loaded — re-subscribing to ${urlSessionId}`);
         }
       }
+      // No URL session on base route → server redirect handles this via cookie.
+      // Nothing to do client-side.
     };
 
     resolveSession();
-  }, [urlSessionId, currentSessionId, loadAgentSession, navigateToAgentSession]);
+  }, [urlSessionId, currentSessionId, loadAgentSession, navigateToAgentSession, send]);
 
   /**
    * Sync URL when store's currentSessionId changes (after initial resolution)
@@ -100,10 +106,21 @@ export function useAgentSessionRouting({ urlSessionId }: UseAgentSessionRoutingO
     // Skip if this is the same session we just synced
     if (currentSessionId === lastSyncedSessionRef.current) return;
     
-    // Update localStorage and URL
+    // Update localStorage
     saveCurrentAgentSessionId(currentSessionId);
     lastSyncedSessionRef.current = currentSessionId;
-    navigateToAgentSession(currentSessionId);
+
+    // Only navigate when we have a session to navigate to.
+    // Navigating to '/' when currentSessionId is null causes a page transition
+    // that remounts AgentConnectionProvider, destroying the WS connection.
+    // When the user sends the next message the backend will create a new session
+    // and session_created will update the URL via this same effect.
+    if (currentSessionId) {
+      console.log(`[SessionRouting] Navigating to session: ${currentSessionId}`);
+      navigateToAgentSession(currentSessionId);
+    } else {
+      console.log('[SessionRouting] currentSessionId=null — skipping navigation to preserve WS connection');
+    }
   }, [currentSessionId, navigateToAgentSession]);
 
   return {

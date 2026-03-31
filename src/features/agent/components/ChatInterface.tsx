@@ -4,11 +4,12 @@
  * Chat-Based UI - Simple chat interface
  * 
  * SCROLL BEHAVIOR:
- * - Session load: Scroll to bottom when loading a session
+ * - Session load: Scroll to last user component (top of viewport)
  * - User messages: Scroll so the message's top edge is near the top of the viewport
  * - System messages: Scroll to show the panel (block: 'start')
  * - Agent messages: No auto-scrolling during streaming
  * - Targeted scroll: Navigation feature for clicking on session items
+ * - Branch navigation: Preserve scroll position
  */
 
 import React, { useRef } from 'react';
@@ -17,7 +18,11 @@ import { InteractionArea } from './InteractionArea';
 import { resolveComponent } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
 
+const renderCount = { current: 0 };
+
 export function ChatInterface() {
+  renderCount.current++;
+  console.log('[ChatInterface] RENDER #' + renderCount.current);
   const {
     sessionComponents,
     currentSessionId,
@@ -77,7 +82,7 @@ export function ChatInterface() {
           {/* Center - Chat Content */}
           <div className="flex flex-col gap-4 p-4">
             {/* Placeholder when no conversation exists */}
-            {sessionComponents.length === 0 && (
+            {sessionComponents.length === 0 && !currentSessionId && (
               <p className="w-full flex-1 flex justify-center items-center text-sm text-muted-foreground italic">
                 {!ephemeral ? 'Send a message to start a conversation' : 'Waiting for your message...'}
               </p>

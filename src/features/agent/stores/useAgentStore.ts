@@ -40,6 +40,7 @@ const initialState = {
   // State
   conversationStatus: 'healthy' as AgentState['conversationStatus'],
   scrollToComponentId: null as string | null,
+  preserveScrollOnSessionChange: false,
   error: null as string | null,
   submitTrigger: 0,
   
@@ -87,6 +88,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   clearScrollToComponentId: () => {
     set({ scrollToComponentId: null });
+  },
+
+  setPreserveScrollOnSessionChange: (preserve: boolean) => {
+    set({ preserveScrollOnSessionChange: preserve });
   },
 
   triggerSubmit: () => {

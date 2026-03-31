@@ -70,6 +70,7 @@ export function useAgent() {
   const clearError = useAgentStore((state) => state.clearError);
   const setScrollToComponentId = useAgentStore((state) => state.setScrollToComponentId);
   const clearScrollToComponentId = useAgentStore((state) => state.clearScrollToComponentId);
+  const setPreserveScrollOnSessionChange = useAgentStore((state) => state.setPreserveScrollOnSessionChange);
   const setAgentSessionComponents = useAgentStore((state) => state.setAgentSessionComponents);
   const cancelEdit = useAgentStore((state) => state.cancelEdit);
   const triggerSubmit = useAgentStore((state) => state.triggerSubmit);
@@ -140,6 +141,7 @@ export function useAgent() {
     clearError,
     setScrollToComponentId,
     clearScrollToComponentId,
+    setPreserveScrollOnSessionChange,
     cancelEdit,
     triggerSubmit,
 

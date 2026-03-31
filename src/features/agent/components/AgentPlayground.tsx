@@ -5,12 +5,14 @@
  * Provides 90vw container, ToolsBar, and UI mode rendering
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
 import { useAgentSessionRouting } from '../hooks/useAgentSessionRouting';
+import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { useWsEventIngestion } from '../hooks/useWsEventIngestion';
+import { useAgentConnection } from '../hooks/useAgentConnection';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { ChatInterface } from './ChatInterface';
@@ -19,6 +21,7 @@ import { BackgroundJobInterface } from './BackgroundJobInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import type { AgentSessionComponent, Tool, WorkflowSpec } from '../types';
+import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 
 interface AgentPlaygroundProps {
@@ -28,17 +31,43 @@ interface AgentPlaygroundProps {
   initialTools?: Tool[];
   /** Server-fetched workflows (hydrated into store on mount) */
   initialWorkflows?: WorkflowSpec[];
+  /** Server-fetched session events (SSR) */
+  initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentPlayground({ sessionId, initialTools, initialWorkflows }: AgentPlaygroundProps) {
+const playgroundRenderCount = { current: 0 };
+
+export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialEvents }: AgentPlaygroundProps) {
+  playgroundRenderCount.current++;
+  console.log('[AgentPlayground] RENDER #' + playgroundRenderCount.current);
+
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
   useHydrateStore({ initialTools, initialWorkflows });
   
   // Sync session ID between URL, localStorage, and store
-  useAgentSessionRouting({ urlSessionId: sessionId });
+  useAgentSessionRouting({ urlSessionId: sessionId, initialEvents });
 
-  // Subscribe to WS events (session_event, session_created, agent_status, error)
-  useWsEventIngestion();
+  // Lifecycle + WS connection for branch session transitions
+  const { loadAgentSession } = useAgentSessionLifecycle();
+  const { send } = useAgentConnection();
+
+  // Handle session_branched — fully transition to the new branch session.
+  // The routing hook's initialResolvedRef blocks re-resolution on soft
+  // navigation, so we load the session here directly. The routing hook's
+  // currentSessionId-sync effect handles URL update automatically.
+  const handleSessionBranched = useCallback(async (newSessionId: string) => {
+    console.log('[AgentPlayground] handleSessionBranched', { newSessionId: newSessionId.slice(0, 8) });
+    const store = useAgentStore.getState();
+    const oldSessionId = store.currentSessionId;
+    store.cancelEdit();
+    if (oldSessionId) {
+      send({ type: 'unsubscribe', sessionId: oldSessionId });
+    }
+    await loadAgentSession(newSessionId);
+  }, [send, loadAgentSession]);
+
+  // Subscribe to WS events (session_event, session_created, agent_status, session_branched, error)
+  useWsEventIngestion({ onSessionBranched: handleSessionBranched });
 
   // Reset store on logout
   const reset = useAgentStore((s) => s.reset);
@@ -98,14 +127,22 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows }: A
   
   // Save and restore scroll position when UI mode changes
   useEffect(() => {
-    // Save scroll position of the PREVIOUS mode before switching
-    const container = document.querySelector('.interface-scroll-container');
-    if (container && prevUiMode.current !== uiMode) {
-      scrollPositions.current[prevUiMode.current] = container.scrollTop;
+    // Only act when mode actually changed (not on initial mount)
+    const modeChanged = prevUiMode.current !== uiMode;
+    
+    if (modeChanged) {
+      // Save scroll position of the PREVIOUS mode before switching
+      const container = document.querySelector('.interface-scroll-container');
+      if (container) {
+        scrollPositions.current[prevUiMode.current] = container.scrollTop;
+      }
     }
     
     // Update previous mode tracker
     prevUiMode.current = uiMode;
+    
+    // Skip restore on initial mount — only restore when switching modes
+    if (!modeChanged) return;
     
     // Restore scroll position for the NEW mode after animation completes
     const timer = setTimeout(() => {
@@ -118,10 +155,10 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows }: A
     return () => clearTimeout(timer);
   }, [uiMode]);
   
-  // Show config panel only on first ever load with empty session
-  // Uses store flag to survive route changes within the layout
+  // Show config panel only on first ever load with empty session and no URL session
+  // (URL session means we're about to load events — don't flash config panel)
   useEffect(() => {
-    if (!hasShownInitialConfig && sessionComponents.length === 0) {
+    if (!hasShownInitialConfig && sessionComponents.length === 0 && !sessionId) {
       markInitialConfigShown();
       upsertComponent({
         id: 'configurations-panel',
@@ -131,7 +168,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows }: A
         data: {}
       });
     }
-  }, [hasShownInitialConfig, sessionComponents.length, markInitialConfigShown, upsertComponent]);
+  }, [hasShownInitialConfig, sessionComponents.length, sessionId, markInitialConfigShown, upsertComponent]);
 
   // Load UI flags when mode changes
   useEffect(() => {

@@ -29,4 +29,4 @@ export { useHydrateStore } from './hooks/useHydrateStore';
 
 // Configuration utilities
 export { loadMcpConfig, saveMcpConfig, loadToolPreferences, saveToolPreferences, getDefaultMcpConfig } from './utils/mcp-config';
-export { loadAgentConfig, saveAgentConfig, clearAgentConfig, loadCurrentAgentSessionId, saveCurrentAgentSessionId } from './utils/agent-storage';
+export { loadAgentConfig, saveAgentConfig, clearAgentConfig, saveCurrentAgentSessionId } from './utils/agent-storage';
