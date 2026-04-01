@@ -18,10 +18,19 @@ import { useUserInput } from '../hooks/useUserInput';
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface InteractionAreaProps {}
 
+const interactionRenderCount = { current: 0 };
+
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
+    interactionRenderCount.current++;
     // Get state from store
     const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, resumeAgent, conversationStatus } = useAgent();
+    
+    console.log('[InteractionArea] RENDER #' + interactionRenderCount.current, {
+      conversationStatus,
+      isFeedbackMode: !!activeFeedbackRequest,
+      isInterrupted: conversationStatus === 'interrupted',
+    });
     
     // Derive processing states from conversationStatus
     const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';

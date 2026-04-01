@@ -48,13 +48,9 @@ export function useAgentSessionLifecycle() {
       try {
         store.setError(null);
         console.log('[SessionLifecycle] loadAgentSession START', { sessionId: sessionId.slice(0, 8), hasInitialEvents: !!initialEvents });
-        store.setCurrentAgentSessionId(sessionId);
-        store.clearComponents();
-        console.log('[SessionLifecycle] cleared components, set sessionId');
-        saveCurrentAgentSessionId(sessionId);
-        store.clearActiveFeedbackRequest();
 
-        // 1. Get events — use SSR data if available, otherwise fetch via REST
+        // 1. Get events FIRST — before clearing store to avoid empty-state flash
+        //    (await breaks React's batch, so fetch before any store mutations)
         let events: AgentSessionEvent[];
         if (initialEvents) {
           events = wireToAgentSessionEvents(initialEvents);
@@ -63,7 +59,12 @@ export function useAgentSessionLifecycle() {
           events = response.events as AgentSessionEvent[];
         }
 
-        // 2. Hydrate store from events
+        // 2. All store mutations in one synchronous block (React batches these)
+        store.setCurrentAgentSessionId(sessionId);
+        store.clearComponents();
+        saveCurrentAgentSessionId(sessionId);
+        store.clearActiveFeedbackRequest();
+
         console.log('[SessionLifecycle] hydrating from', events.length, 'events');
         store.hydrateFromEvents(events);
         console.log('[SessionLifecycle] hydration complete, components:', useAgentStore.getState().sessionComponents.length);
@@ -77,20 +78,20 @@ export function useAgentSessionLifecycle() {
           .slice(0, 20);
         store.setUserMessagesHistory(userMessages);
 
+        // Detect interrupted state: last non-branch event is not agent-turn-completed
+        if (events.length > 0) {
+          const lastNonBranch = [...events].reverse().find(e => e.type !== 'branch');
+          if (lastNonBranch && lastNonBranch.type !== 'agent-turn-completed') {
+            store.setConversationStatus('interrupted');
+          }
+        }
+
         // 3. Subscribe via WS with lastSequence — backend sends catch-up events
         const lastSequence = events.length > 0
           ? Math.max(...events.map(e => e.sequence))
           : undefined;
 
         send({ type: 'subscribe', sessionId, lastSequence });
-
-        // 4. Detect interrupted state: last event is user turn with no agent response
-        if (events.length > 0) {
-          const lastEvent = events[events.length - 1];
-          if (lastEvent.type === 'user-turn-completed') {
-            store.setConversationStatus('interrupted');
-          }
-        }
 
         return { sessionId };
       } catch (e: unknown) {

@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
 import { useAgentConnection } from './useAgentConnection';
@@ -26,9 +25,6 @@ interface UseAgentSessionRoutingOptions {
 }
 
 export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgentSessionRoutingOptions = {}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  
   const currentSessionId = useAgentStore((s) => s.currentSessionId);
   const { loadAgentSession } = useAgentSessionLifecycle();
   const { send } = useAgentConnection();
@@ -41,15 +37,16 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
   const mountedRef = useRef(false);
 
   /**
-   * Navigate to session URL
+   * Navigate to session URL using history.replaceState to avoid
+   * Next.js soft navigation (which remounts providers and drops WS).
    */
   const navigateToAgentSession = useCallback((sessionId: string | null) => {
     const targetPath = sessionId ? `/${sessionId}` : '/';
-    if (pathname !== targetPath) {
-      console.log('[SessionRouting] router.replace', { from: pathname, to: targetPath });
-      router.replace(targetPath);
+    if (window.location.pathname !== targetPath) {
+      console.log('[SessionRouting] history.replaceState', { from: window.location.pathname, to: targetPath });
+      window.history.replaceState(null, '', targetPath);
     }
-  }, [router, pathname]);
+  }, []);
 
   /**
    * Initial resolution: URL → localStorage → store
