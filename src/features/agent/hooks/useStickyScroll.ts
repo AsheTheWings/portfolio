@@ -28,7 +28,7 @@ interface UseStickyScrollReturn {
   refs: React.MutableRefObject<{
     isAtBottom: boolean;
     isStickyMode: boolean;
-    isProgrammaticScroll: boolean;
+    programmaticUntil: number;
     lastScrollTop: number;
   }>;
 }
@@ -43,7 +43,7 @@ export function useStickyScroll(
   const refs = useRef({
     isAtBottom: true,
     isStickyMode: true,
-    isProgrammaticScroll: false,
+    programmaticUntil: 0,
     lastScrollTop: 0,
   });
 
@@ -51,11 +51,8 @@ export function useStickyScroll(
   const scrollTo = useCallback((scrollOptions: { top?: number; behavior?: ScrollBehavior }) => {
     const container = scrollRef.current;
     if (!container) return;
-    refs.current.isProgrammaticScroll = true;
+    refs.current.programmaticUntil = Date.now() + (scrollOptions.behavior === 'smooth' ? 500 : 50);
     container.scrollTo(scrollOptions);
-    requestAnimationFrame(() => {
-      refs.current.isProgrammaticScroll = false;
-    });
   }, []);
 
   // Scroll to bottom helper
@@ -80,7 +77,10 @@ export function useStickyScroll(
     if (!container) return;
 
     const handleScroll = () => {
-      if (refs.current.isProgrammaticScroll) return;
+      if (Date.now() < refs.current.programmaticUntil) {
+        refs.current.lastScrollTop = container.scrollTop;
+        return;
+      }
 
       const currentScrollTop = container.scrollTop;
       const wasScrollingUp = currentScrollTop < refs.current.lastScrollTop;

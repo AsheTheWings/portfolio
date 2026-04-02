@@ -8,12 +8,21 @@ import { useAgentStore } from '../stores/useAgentStore';
  * 2. Explicit Navigation  → System: smooth to top | Other: instant to element
  * 3. New User Message     → Smooth scroll to message top
  * 4. New System Panel     → Smooth scroll to panel top
- * 5. New Agent Message    → If at bottom & auto-scroll: smooth to bottom
- * 6. Streaming Content    → If at bottom & auto-scroll: instant stick-to-bottom
+ * 5. New Agent Component  → Smooth scroll to bottom (first response only)
+ * 6. Streaming Content    → rAF loop keeps scroll pinned to bottom
  * 7. User Scrolls Up      → Disable stick-to-bottom until return to bottom
  * 8. Branch Navigation    → Preserve scroll position (no scrolling)
- * 
- * Uses useStickyScroll as base for core sticky behavior.
+ *
+ * Streaming scroll architecture:
+ * - Old approach: useEffect fires on every sessionComponents change (each WS chunk
+ *   triggers Zustand update → re-render → useEffect → scrollTo). This caused:
+ *   a) N scroll calls per second matching token throughput
+ *   b) isProgrammaticScroll flag race (rAF reset could fire before/after scroll event)
+ *   c) Two overlapping effects both calling scrollTo on the same render
+ *
+ * - New approach: A single rAF loop runs at display refresh rate (~60fps) and checks
+ *   if scrollHeight grew. Completely decoupled from React render timing — collapses
+ *   any number of chunk→render cycles per frame into one scroll update.
  */
 
 interface UseChatScrollProps {
@@ -31,40 +40,38 @@ export function useChatScroll({
   scrollToComponentId,
   clearScrollToComponentId,
 }: UseChatScrollProps) {
-  // Only state that affects UI rendering
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   const [showAutoScrollNotification, setShowAutoScrollNotification] = useState(false);
 
-  // Tracking refs for chat-specific logic
   const chatRefs = useRef({
     lastSessionId: null as string | null,
     lastComponentCount: 0,
   });
 
-  // Core sticky scroll refs
   const stickyRefs = useRef({
     lastScrollTop: 0,
     isAtBottom: true,
     isStickyMode: true,
-    isProgrammaticScroll: false,
+    // Timestamp-based programmatic scroll guard.
+    // Scroll events before this time are treated as programmatic (skipped by handler).
+    // Replaces the old boolean + rAF reset which had a race condition:
+    // rAF reset could fire before scroll event arrived, causing the handler
+    // to misidentify programmatic scrolls as user scrolls and exit sticky mode.
+    programmaticUntil: 0,
   });
 
-  // Scroll helpers
+  // --- Scroll helpers ---
+
   const scrollTo = useCallback((options: { top?: number; behavior?: ScrollBehavior }) => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    console.log('[ChatScroll] scrollTo', { top: options.top, behavior: options.behavior, scrollHeight: container.scrollHeight });
-    stickyRefs.current.isProgrammaticScroll = true;
+    stickyRefs.current.programmaticUntil = Date.now() + (options.behavior === 'smooth' ? 500 : 50);
     container.scrollTo(options);
-    requestAnimationFrame(() => {
-      stickyRefs.current.isProgrammaticScroll = false;
-    });
   }, [scrollContainerRef]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    console.log('[ChatScroll] scrollToBottom', { scrollHeight: container.scrollHeight, behavior });
     stickyRefs.current.isAtBottom = true;
     stickyRefs.current.isStickyMode = true;
     scrollTo({ top: container.scrollHeight, behavior });
@@ -73,7 +80,7 @@ export function useChatScroll({
   const scrollToElement = useCallback((id: string, behavior: ScrollBehavior = 'auto') => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    stickyRefs.current.isProgrammaticScroll = true;
+    stickyRefs.current.programmaticUntil = Date.now() + (behavior === 'smooth' ? 500 : 50);
     requestAnimationFrame(() => {
       const element = document.getElementById(id);
       if (element) {
@@ -83,57 +90,78 @@ export function useChatScroll({
         const elementRect = element.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         const targetScroll = container.scrollTop + (elementRect.top - containerRect.top) - 16;
-        console.log('[ChatScroll] scrollToElement — scrolling container', {
-          id: id.slice(0, 8),
-          behavior,
-          targetScroll,
-          currentScrollTop: container.scrollTop,
-          elementOffsetTop: element.offsetTop,
-        });
         container.scrollTo({ top: Math.max(0, targetScroll), behavior });
-      } else {
-        console.warn('[ChatScroll] scrollToElement — element NOT found:', id.slice(0, 8));
       }
-      setTimeout(() => {
-        stickyRefs.current.isProgrammaticScroll = false;
-      }, behavior === 'smooth' ? 500 : 50);
     });
   }, [scrollContainerRef]);
 
-  const isAtBottom = useCallback(() => {
+  const isAtBottomCheck = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return true;
     return container.scrollHeight - container.scrollTop - container.clientHeight <= 50;
   }, [scrollContainerRef]);
 
-  // Track user scroll position (ref-only, no state updates)
+  // --- User scroll tracking ---
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      if (stickyRefs.current.isProgrammaticScroll) return;
+      const sticky = stickyRefs.current;
+
+      // Skip programmatic scrolls (timestamp guard)
+      if (Date.now() < sticky.programmaticUntil) {
+        sticky.lastScrollTop = container.scrollTop;
+        return;
+      }
 
       const currentScrollTop = container.scrollTop;
-      const wasScrollingUp = currentScrollTop < stickyRefs.current.lastScrollTop;
-      stickyRefs.current.lastScrollTop = currentScrollTop;
+      const wasScrollingUp = currentScrollTop < sticky.lastScrollTop;
+      sticky.lastScrollTop = currentScrollTop;
 
       if (wasScrollingUp) {
-        stickyRefs.current.isAtBottom = false;
-        stickyRefs.current.isStickyMode = false;
+        sticky.isAtBottom = false;
+        sticky.isStickyMode = false;
       } else {
-        stickyRefs.current.isAtBottom = isAtBottom();
-        if (stickyRefs.current.isAtBottom) {
-          stickyRefs.current.isStickyMode = true;
+        sticky.isAtBottom = isAtBottomCheck();
+        if (sticky.isAtBottom) {
+          sticky.isStickyMode = true;
         }
       }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [scrollContainerRef, isAtBottom]);
+  }, [scrollContainerRef, isAtBottomCheck]);
 
-  // Keyboard shortcut (Ctrl+Alt+S)
+  // --- rAF-coalesced sticky scroll loop ---
+  // Pins scroll to bottom during streaming, independent of React render timing.
+  // The rAF loop only scrolls DOWN (never up), so scroll events it generates
+  // will never trigger the wasScrollingUp branch — no programmatic scroll guard needed.
+  // Cost: one scrollHeight/scrollTop read per frame (~0.01ms). Negligible.
+  useEffect(() => {
+    if (!isAutoScrollEnabled) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let rafId: number;
+
+    const tick = () => {
+      if (stickyRefs.current.isStickyMode) {
+        const { scrollHeight, scrollTop, clientHeight } = container;
+        if (scrollHeight - scrollTop - clientHeight > 1) {
+          container.scrollTop = scrollHeight - clientHeight;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isAutoScrollEnabled, scrollContainerRef]);
+
+  // --- Keyboard shortcut (Ctrl+Alt+S) ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 's') {
@@ -147,7 +175,9 @@ export function useChatScroll({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Main scroll logic - single effect
+  // --- Main scroll logic (discrete events only) ---
+  // Handles: session load, explicit navigation, new component addition.
+  // Does NOT handle streaming content growth — the rAF loop above covers that.
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -157,19 +187,6 @@ export function useChatScroll({
     const isSessionChange = currentSessionId !== chat.lastSessionId;
     const isNewContent = sessionComponents.length > chat.lastComponentCount;
     const componentDelta = sessionComponents.length - chat.lastComponentCount;
-
-    console.log('[ChatScroll] Effect fired', {
-      currentSessionId: currentSessionId?.slice(0, 8),
-      lastSessionId: chat.lastSessionId?.slice(0, 8),
-      isSessionChange,
-      componentCount: sessionComponents.length,
-      lastComponentCount: chat.lastComponentCount,
-      scrollToComponentId,
-      containerExists: !!container,
-      scrollHeight: container.scrollHeight,
-      scrollTop: container.scrollTop,
-      clientHeight: container.clientHeight,
-    });
 
     // 1. Explicit Navigation (takes priority)
     if (scrollToComponentId) {
@@ -186,64 +203,53 @@ export function useChatScroll({
     }
 
     // 2. Session Load (only when components are actually loaded)
-    // Delay updating lastSessionId until we have components to scroll to
     if (isSessionChange) {
       if (sessionComponents.length > 0) {
         const preserveScroll = useAgentStore.getState().preserveScrollOnSessionChange;
         if (preserveScroll) {
-          // Branch navigation: preserve current scroll position
-          console.log('[ChatScroll] Branch navigation — preserving scroll position');
           useAgentStore.getState().setPreserveScrollOnSessionChange(false);
         } else {
-          // Session load / history: scroll to last user component
           const lastUserComponent = [...sessionComponents].reverse().find(c => c.role === 'user');
           if (lastUserComponent) {
-            console.log('[ChatScroll] Session load — scrolling to last user component:', lastUserComponent.id.slice(0, 8));
-            // Disable sticky mode to prevent stick-to-bottom from overriding
             sticky.isStickyMode = false;
             sticky.isAtBottom = false;
             scrollToElement(lastUserComponent.id, 'auto');
           } else {
-            console.log('[ChatScroll] Session load — no user component found, scrolling to bottom');
             scrollToBottom('auto');
           }
         }
         chat.lastSessionId = currentSessionId;
         chat.lastComponentCount = sessionComponents.length;
-      } else {
-        console.log('[ChatScroll] Session change but no components yet — waiting');
       }
-      // Don't update tracking yet if no components - wait for loadAgentSession to complete
       return;
     }
-    
-    // Update tracking for non-session-change cases
+
     chat.lastComponentCount = sessionComponents.length;
 
-    // 3. New Content
+    // 3. New Component Added (discrete event, not streaming content update)
     if (isNewContent && componentDelta > 0) {
       const lastComponent = sessionComponents[sessionComponents.length - 1];
       if (!lastComponent) return;
 
-      // New user message → scroll to message top
       if (lastComponent.role === 'user') {
         scrollToElement(lastComponent.id, 'smooth');
-        sticky.isAtBottom = true; // Re-engage auto-scroll
+        sticky.isStickyMode = true;
+        sticky.isAtBottom = true;
         return;
       }
 
-      // New system panel → scroll to panel top
       if (lastComponent.role === 'system') {
         scrollToElement(lastComponent.id, 'smooth');
         return;
       }
 
-      // Agent content: auto-scroll if enabled and at bottom
-      if (isAutoScrollEnabled && sticky.isAtBottom) {
-        // Use smooth for first message in a response, instant for streaming
+      // First agent response after user message: smooth scroll to bottom.
+      // Subsequent streaming is handled by the rAF loop.
+      if (isAutoScrollEnabled && sticky.isStickyMode) {
         const prevComponent = sessionComponents.length > 1 ? sessionComponents[sessionComponents.length - 2] : null;
-        const isFirstAgentResponse = prevComponent?.role === 'user';
-        scrollToBottom(isFirstAgentResponse ? 'smooth' : 'auto');
+        if (prevComponent?.role === 'user') {
+          scrollToBottom('smooth');
+        }
       }
     }
   }, [
@@ -256,25 +262,6 @@ export function useChatScroll({
     scrollToBottom,
     scrollToElement,
   ]);
-
-  // Stick-to-bottom for streaming (uses sticky mode, not isAtBottom)
-  useEffect(() => {
-    if (!isAutoScrollEnabled || !stickyRefs.current.isStickyMode) {
-      console.log('[ChatScroll] Stick-to-bottom SKIPPED', { isAutoScrollEnabled, isStickyMode: stickyRefs.current.isStickyMode, componentCount: sessionComponents.length });
-      return;
-    }
-    
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    // Keep at bottom while in sticky mode
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    console.log('[ChatScroll] Stick-to-bottom check', { distanceFromBottom, scrollHeight: container.scrollHeight, scrollTop: container.scrollTop, componentCount: sessionComponents.length });
-    if (distanceFromBottom > 5) {
-      console.log('[ChatScroll] Stick-to-bottom SCROLLING to bottom');
-      scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-    }
-  }, [sessionComponents, isAutoScrollEnabled, scrollContainerRef, scrollTo]);
 
   return {
     isAutoScrollEnabled,
