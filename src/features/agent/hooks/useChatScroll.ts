@@ -190,6 +190,9 @@ export function useChatScroll({
 
     // 1. Explicit Navigation (takes priority)
     if (scrollToComponentId) {
+      // Disable sticky mode so the rAF loop doesn't yank scroll back to bottom
+      sticky.isStickyMode = false;
+      sticky.isAtBottom = false;
       const target = sessionComponents.find(c => c.id === scrollToComponentId);
       if (target?.role === 'system') {
         scrollToElement(scrollToComponentId, 'smooth');
