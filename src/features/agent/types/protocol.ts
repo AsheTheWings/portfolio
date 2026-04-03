@@ -131,8 +131,9 @@ export interface WsAgentSessionCreatedMessage {
 export interface WsAgentStatusMessage {
   type: 'agent_status';
   sessionId: string;
-  status: 'completed' | 'aborted' | 'paused' | 'error';
+  status: 'completed' | 'aborted' | 'paused' | 'error' | 'resuming';
   error?: string;
+  deletedComponentIds?: string[];
 }
 
 export interface WsExecuteCustomToolMessage {

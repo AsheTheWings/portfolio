@@ -10,7 +10,7 @@ import { Save, ArrowLeft, RefreshCw } from 'lucide-react';
 import Editor from 'react-simple-code-editor';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
-import 'highlight.js/styles/atom-one-light.css';
+
 
 hljs.registerLanguage('json', json);
 
@@ -229,7 +229,7 @@ export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
           <Label htmlFor="mcp-json" className="font-normal text-[0.805rem]">
             Configuration JSON
           </Label>
-          <div className="flex-1 min-h-[300px] mx-1 border border-input rounded-md code-editor-container">
+          <div className="json-highlight flex-1 min-h-[300px] mx-1 border border-input rounded-md code-editor-container">
             <Editor
               value={jsonString}
               onValueChange={handleJsonChange}

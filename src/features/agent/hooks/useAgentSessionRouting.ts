@@ -116,7 +116,8 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
       console.log(`[SessionRouting] Navigating to session: ${currentSessionId}`);
       navigateToAgentSession(currentSessionId);
     } else {
-      console.log('[SessionRouting] currentSessionId=null — skipping navigation to preserve WS connection');
+      console.log('[SessionRouting] Navigating to base route (new session)');
+      navigateToAgentSession(null);
     }
   }, [currentSessionId, navigateToAgentSession]);
 

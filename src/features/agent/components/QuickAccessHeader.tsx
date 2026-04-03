@@ -24,7 +24,7 @@ export function QuickAccessHeader() {
   } = useAgent();
   
   return (
-    <div className="h-[36px] z-10 flex items-center justify-start gap-8 px-6 bg-secondary">
+    <div className="h-[36px] z-10 flex items-center justify-start gap-8 px-6">
       {/* Session Information */}
       <AgentSessionPopover
         sessionId={currentSessionId || undefined}

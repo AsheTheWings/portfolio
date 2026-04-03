@@ -165,8 +165,21 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const currentSessionId = useAgentStore.getState().currentSessionId;
       if (msg.sessionId !== currentSessionId) return;
 
-      if (msg.status === 'completed' || msg.status === 'aborted') {
+      if (msg.status === 'completed') {
         useAgentStore.getState().setConversationStatus('healthy');
+      } else if (msg.status === 'aborted') {
+        // Agent was stopped mid-turn — no agent-turn-completed event was emitted,
+        // so the session is in an incomplete state. Match the reload behavior in
+        // useAgentSessionLifecycle which detects this same condition.
+        useAgentStore.getState().setConversationStatus('interrupted');
+      } else if (msg.status === 'resuming') {
+        // Remove stale streaming components before agent resumes
+        if (msg.deletedComponentIds?.length) {
+          const store = useAgentStore.getState();
+          for (const cid of msg.deletedComponentIds) {
+            store.removeComponent(cid);
+          }
+        }
       } else if (msg.status === 'error') {
         useAgentStore.getState().setConversationStatus('interrupted');
         const errorMessage = msg.error || 'Something went wrong. Please try again.';

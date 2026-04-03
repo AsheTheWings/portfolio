@@ -10,7 +10,7 @@ import { ArrowUp } from 'lucide-react';
 import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
-import 'highlight.js/styles/atom-one-light.css';
+
 import type { AgentSessionEvent } from '../types';
 import { useChatClickAway } from '../hooks/useChatClickAway';
 
@@ -91,7 +91,7 @@ export function DebugView({
             No events recorded
           </div>
         ) : (
-          <pre className="text-xs font-mono whitespace-pre-wrap px-4">
+          <pre className="json-highlight text-xs font-mono whitespace-pre-wrap px-4">
             <code
               className="hljs language-json"
               style={{ background: 'transparent' }}

@@ -78,12 +78,16 @@ export function useAgentSessionLifecycle() {
           .slice(0, 20);
         store.setUserMessagesHistory(userMessages);
 
-        // Detect interrupted state: last non-branch event is not agent-turn-completed
+        // Derive conversation status from loaded events
         if (events.length > 0) {
           const lastNonBranch = [...events].reverse().find(e => e.type !== 'branch');
           if (lastNonBranch && lastNonBranch.type !== 'agent-turn-completed') {
             store.setConversationStatus('interrupted');
+          } else {
+            store.setConversationStatus('healthy');
           }
+        } else {
+          store.setConversationStatus('healthy');
         }
 
         // 3. Subscribe via WS with lastSequence — backend sends catch-up events

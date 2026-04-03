@@ -22,15 +22,10 @@ export function loadAgentConfig(): AgentConfig {
 
     const config = JSON.parse(stored) as AgentConfig;
     
-    // Tools are infrastructure (discovered per session), not preferences
-    // Always start with empty availableTools - will be auto-populated from fresh toolsPool
-    // when enableTools is true (via store's auto-population logic)
-    
     // Merge with defaults to ensure all fields exist
     return {
       ...createDefaultAgentConfig(),
       ...config,
-      availableTools: [], // ← Always fresh, never from cache
     };
   } catch (err) {
     console.error('Failed to load agent config:', err);

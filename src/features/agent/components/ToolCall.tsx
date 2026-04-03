@@ -15,7 +15,7 @@ import { useControls } from '../contexts/AgentSessionComponentContext';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
-import 'highlight.js/styles/atom-one-light.css';
+
 
 hljs.registerLanguage('json', json);
 
@@ -131,7 +131,7 @@ export function ToolCall() {
         // Check if text block is JSON
         const combinedText = textBlocks.join('\n\n');
         if (isJsonString(combinedText)) {
-          return { content: combinedText, isString: false };
+          return { content: prettyJson(combinedText), isString: false };
         }
         return { content: combinedText, isString: true };
       }
@@ -146,7 +146,7 @@ export function ToolCall() {
     if (typeof toolResult === 'string') {
       // Check if string is JSON
       if (isJsonString(toolResult)) {
-        return { content: toolResult, isString: false };
+        return { content: prettyJson(toolResult), isString: false };
       }
       return { content: toolResult, isString: true };
     }
@@ -156,7 +156,7 @@ export function ToolCall() {
       // Check if result is JSON string
       if (typeof resultObj.result === 'string') {
         if (isJsonString(resultObj.result)) {
-          return { content: resultObj.result, isString: false };
+          return { content: prettyJson(resultObj.result), isString: false };
         }
         return { content: resultObj.result, isString: true };
       }
@@ -166,7 +166,7 @@ export function ToolCall() {
     
     if (resultObj.content && typeof resultObj.content === 'string') {
       if (isJsonString(resultObj.content)) {
-        return { content: resultObj.content, isString: false };
+        return { content: prettyJson(resultObj.content), isString: false };
       }
       return { content: resultObj.content, isString: true };
     }
@@ -182,6 +182,15 @@ export function ToolCall() {
       return true;
     } catch {
       return false;
+    }
+  };
+
+  // Pretty-print a JSON string with indentation
+  const prettyJson = (str: string): string => {
+    try {
+      return JSON.stringify(JSON.parse(str), null, 2);
+    } catch {
+      return str;
     }
   };
   
@@ -271,7 +280,7 @@ export function ToolCall() {
       {(isExpanded || isEditMode) && (
         <div className={`flex flex-col mt-4 mb-2 overflow-y-auto scrollbar-inner overflow-x-hidden lg:flex-row gap-3 ${isEditMode ? 'h-[400px]' : 'max-h-[400px]'}`}>
           {/* Left Panel - Shared structure, swappable content */}
-          <div className="w-[40%] h-full min-w-0 flex flex-col">
+          <div className="lg:w-[40%] min-w-0 min-h-0 flex flex-col">
             <div className="flex items-start justify-between mb-2 px-1 gap-2">
               <div className="text-sm font-medium text-foreground flex-shrink-0 whitespace-nowrap">
                 {isEditMode ? 'Tool Arguments' : 'Tool Declaration'}
@@ -286,7 +295,7 @@ export function ToolCall() {
               {isEditMode ? (
                 // Edit mode: editable arguments
                 <div 
-                  className="border border-input rounded-md overflow-hidden h-full code-editor-container transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]"
+                  className="json-highlight border border-input rounded-md overflow-hidden h-full code-editor-container transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       // Enter: submit edit
@@ -325,7 +334,7 @@ export function ToolCall() {
                 </div>
               ) : (
                 // View mode: read-only tool declaration
-                <div className="overflow-y-auto overflow-x-hidden scrollbar-inner h-full">
+                <div className="json-highlight overflow-y-auto overflow-x-hidden scrollbar-inner h-full">
                   <pre className="text-xs font-mono whitespace-pre-wrap break-words">
                     <code
                       className="hljs language-json"
@@ -339,7 +348,7 @@ export function ToolCall() {
           </div>
 
           {/* Right Panel - Shared structure, swappable content */}
-          <div className="w-[60%] h-full min-w-0 flex flex-col">
+          <div className="lg:w-[60%] min-w-0 min-h-0 flex flex-col">
             <div className="text-sm font-medium text-foreground mb-2 px-1">
               Tool Result
             </div>
@@ -367,7 +376,7 @@ export function ToolCall() {
                 <div className="overflow-y-auto scrollbar-inner h-full">
                   {isExecuting && (
                     <div className="flex items-center justify-center h-full w-full">
-                      <ThreeDotsScaleMiddleIcon size={32} className="text-cyan-500" />
+                      <ThreeDotsScaleMiddleIcon size={26} className="text-cyan-500" />
                     </div>
                   )}
                   
@@ -389,7 +398,7 @@ export function ToolCall() {
                         </div>
                       ) : (
                         // JSON result with syntax highlighting
-                        <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+                        <pre className="json-highlight text-xs font-mono whitespace-pre-wrap break-words">
                           <code
                             className="hljs language-json"
                             style={{ background: 'transparent' }}

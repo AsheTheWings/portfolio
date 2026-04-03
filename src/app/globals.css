@@ -182,17 +182,47 @@ img {
   -webkit-user-drag: none;
 }
 
-/* Custom highlight.js color overrides for JSON */
-.hljs {
-  color: inherit !important;r: rgb(249, 115, 22) !important; /* orange-500 for numbers */
+/* highlight.js theme-aware color overrides for JSON tool panels */
+:root.light .json-highlight .hljs {
+  color: #383a42 !important;
+  background: transparent !important;
+}
+:root.light .json-highlight .hljs-attr {
+  color: #a626a4 !important; /* magenta – object keys */
+}
+:root.light .json-highlight .hljs-string {
+  color: #2e7d32 !important; /* deep green – strings */
+}
+:root.light .json-highlight .hljs-number {
+  color: #b45309 !important; /* warm amber – numbers */
+}
+:root.light .json-highlight .hljs-literal,
+:root.light .json-highlight .hljs-literal .hljs-keyword {
+  color: #0184bc !important; /* teal – true/false/null */
+}
+:root.light .json-highlight .hljs-punctuation {
+  color: #383a42 !important;
 }
 
-.hljs-literal {
-  color: rgb(168, 85, 247) !important; /* purple-500 for true/false/null */
+:root.dark .json-highlight .hljs {
+  color: #abb2bf !important;
+  background: transparent !important;
 }
-
-.hljs-punctuation {
-  color: inherit !important; /* inherit for brackets/colons */
+:root.dark .json-highlight .hljs-attr {
+  color: #c678dd !important; /* lavender – object keys */
+}
+:root.dark .json-highlight .hljs-string {
+  color: #98c379 !important; /* soft green – strings */
+}
+:root.dark .json-highlight .hljs-number {
+  color: #d19a66 !important; /* warm orange – numbers */
+}
+:root.dark .json-highlight .hljs-literal,
+:root.dark .json-highlight .hljs-literal .hljs-keyword {
+  color: #56b6c2 !important; /* cyan – true/false/null */
+}
+:root.dark .json-highlight .hljs-punctuation {
+  color: #abb2bf !important;
 }
 
 /* Custom shadow utilities */

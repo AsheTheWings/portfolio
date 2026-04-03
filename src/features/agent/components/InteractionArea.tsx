@@ -11,7 +11,7 @@
 import { MessageInput, MessageInputRef } from './MessageInput';
 import { FeedbackPanel } from './FeedbackPanel';
 import { forwardRef, useRef, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
 
@@ -159,11 +159,19 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       <div className="flex relative flex-col justify-center items-center w-full pt-2 px-6 overflow-visible gap-4">
         <div className="flex relative justify-center items-center w-full overflow-visible gap-4">
           {/* Feedback Panel or Resume Prompt */}
+          <AnimatePresence mode="wait">
           {(isFeedbackMode && activeFeedbackRequest) ? (
             (() => {
               const [prompt, actions] = Object.entries(activeFeedbackRequest.userActions)[0] || ['', []];
               return (
-                <div className="flex-1 mb-4 flex justify-center items-center">
+                <motion.div
+                  key="feedback"
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 'auto', opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="mb-4 flex justify-center items-center overflow-hidden whitespace-nowrap"
+                >
                   <FeedbackPanel
                     prompt={prompt}
                     actions={actions}
@@ -171,11 +179,18 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                     onAction={submitAction}
                     disabled={isProcessing}
                   />
-                </div>
+                </motion.div>
               );
             })()
           ) : conversationStatus === 'interrupted' ? (
-            <div className="flex-1 mb-4 flex justify-center items-center">
+            <motion.div
+              key="interrupted"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 'auto', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="mb-4 flex justify-center items-center overflow-hidden whitespace-nowrap"
+            >
               <FeedbackPanel
                 prompt="Agent turn was interrupted. Would you like to resume?"
                 actions={[
@@ -190,8 +205,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                   if (actionId === 'resume') resumeAgent();
                 }}
               />
-            </div>
+            </motion.div>
           ) : null}
+          </AnimatePresence>
         {/* MessageInput */}
         <motion.div
           animate={{

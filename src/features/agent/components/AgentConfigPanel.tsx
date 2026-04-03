@@ -577,12 +577,10 @@ export function AgentConfigPanel() {
                               const isBuiltin = tool.source === 'builtin';
                               const server = tool.server;
                               const isEnabled = availableTools.some(t => t.server === tool.server && t.tool === tool.tool);
-                              const isMcpHostAvailable = mcpHostStatus === 'connected';
                               return (
                                 <button
                                   key={`${tool.server}:${tool.tool}`}
                                   onClick={() => {
-                                    if (!isMcpHostAvailable && !isBuiltin) return;
                                     if (isEnabled) {
                                       // Remove tool from array
                                       const newTools = availableTools.filter(t => 
@@ -594,16 +592,14 @@ export function AgentConfigPanel() {
                                       updateAvailableTools([...availableTools, tool]);
                                     }
                                   }}
-                                  disabled={!isMcpHostAvailable && !isBuiltin}
                                   className={`
-                                    px-3 py-1 rounded-sm text-[0.68rem] font-mono transition-all
+                                    px-3 py-1 rounded-sm text-[0.68rem] font-mono transition-all cursor-pointer
                                     ${isEnabled
                                       ? isBuiltin
                                         ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30'
                                         : 'bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/50 hover:bg-orange-500/30'
                                       : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80'
                                     }
-                                    ${!isMcpHostAvailable && !isBuiltin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                   `}
                                   title={tool.description}
                                 >

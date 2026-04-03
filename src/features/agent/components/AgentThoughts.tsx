@@ -115,10 +115,11 @@ export function AgentThoughts({ maxLines = 6 }: AgentThoughtsProps) {
 
       {/* Thoughts Content - Expandable */}
       {isExpanded && (
-        <div className="relative mt-4">
+        <div className="relative mt-2">
           <div
             ref={thoughtsRef}
             className="
+              py-2 pr-2
               overflow-y-auto 
               text-xs
               text-muted-foreground 
