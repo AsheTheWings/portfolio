@@ -46,11 +46,11 @@ export const MessageBubble = React.memo(function MessageBubble() {
   const editingElRef = React.useRef<HTMLDivElement | null>(null);
   
   // Extract encoded images from data
-  const encodedImages = data.encodedImages as Array<{ mimeType: string; data: string }> | undefined;
+  const encodedImages = data.encodedImages;
   const hasImages = encodedImages && encodedImages.length > 0;
   
   // Extract library item IDs (for user messages from asset picker)
-  const libraryItemIds = data.libraryItemIds as string[] | undefined;
+  const libraryItemIds = data.libraryItemIds;
   
   // Parse @library/path patterns from content — stabilize array reference
   // to prevent useEffect in useLibraryItemsByPaths from re-firing when the

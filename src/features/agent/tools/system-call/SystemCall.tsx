@@ -6,11 +6,10 @@
  * User feedback is handled by dedicated user-feedback component
  */
 
+import type { AgentSessionComponentData } from '../../types';
+
 interface SystemCallProps {
-  data: {
-    arguments?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
+  data: AgentSessionComponentData;
 }
 
 export function SystemCall({ data }: SystemCallProps) {

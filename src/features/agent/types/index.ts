@@ -360,6 +360,51 @@ export interface AgentSessionComponentControls {
   translate?: boolean;  // Show translate button (message components only)
 }
 
+// Session component data — all fields explicitly declared.
+// Standard fields come from event.data spreads in the mapper.
+// Tool-owned fields (job, proposal, etc.) come from toolEffects.sessionComponents.
+export interface AgentSessionComponentData {
+  // Text content (streaming append or completion replace)
+  message?: string;
+  thoughts?: string;
+
+  // Event metadata
+  metadata?: AgentMetadata;
+  turnId?: string;
+
+  // Background job context
+  isBackground?: boolean;
+  jobId?: string;
+
+  // Tool identity
+  server?: string;
+  tool?: string;
+  arguments?: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  isError?: boolean;
+
+  // Event history (append-only, deduplicated by eventId)
+  sessionEvents?: AgentSessionEvent[];
+
+  // User turn data (spread from UserTurnCompletedData)
+  agentConfig?: AgentConfig;
+  libraryItemIds?: string[];
+  encodedImages?: Array<{ mimeType: string; data: string }>;
+
+  // Tool call data (spread from ToolCallData)
+  thoughtSignature?: string;
+
+  // Tool effects data (spread from ToolEffectsData)
+  toolEffects?: ToolEffects;
+
+  // Agent-job tool-owned component data
+  job?: unknown;
+  proposal?: unknown;
+  state?: string;
+  jobMetadata?: AgentMetadata;
+}
+
 // Session component (UI display)
 export interface AgentSessionComponent {
   id: string;
@@ -368,24 +413,7 @@ export interface AgentSessionComponent {
   isStreaming?: boolean;      // True for chunk events, false/undefined otherwise
   hideComponent?: boolean;    // UI visibility: hide from foreground chat
   controls?: AgentSessionComponentControls;  // Explicit button visibility
-  data: {
-    message?: string;
-    thoughts?: string;
-    metadata?: AgentMetadata;
-    turnId?: string;          // Turn ID for relating component to its origin turn
-    isBackground?: boolean;
-    jobId?: string;
-    server?: string;
-    tool?: string;
-    arguments?: Record<string, unknown>;
-    result?: unknown;
-    error?: string;
-    isError?: boolean;
-    // Event history (append-only)
-    sessionEvents?: AgentSessionEvent[];
-    // Accept additional fields from events
-    [key: string]: unknown;
-  };
+  data: AgentSessionComponentData;
 }
 
 // Render context for component resolver

@@ -10,12 +10,9 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Edit2, RotateCcw, Send } from 'lucide-react';
-import IconFocusCenter from '@/features/shared/icons/IconFocusCenter';
-import IconBranch from '@/features/shared/icons/IconBranch';
 import { DebugView } from './DebugView';
 import { BranchTreeView } from './BranchTreeView';
-import { TranslateButton } from './TranslateButton';
+import { ComponentControls } from './ComponentControls';
 import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
@@ -153,22 +150,6 @@ export function AgentSessionComponentWrapper({
     };
   }, []);
 
-  // Control visibility - explicitly set via controls object
-  // Hide revert on the last non-system component (nothing after it to revert to)
-  const isLastComponent = useAgentStore((state) => {
-    const comps = state.sessionComponents;
-    for (let i = comps.length - 1; i >= 0; i--) {
-      if (comps[i].role !== 'system') return comps[i].id === componentId;
-    }
-    return false;
-  });
-
-  const canShowDebug = controls?.debug;
-  const canShowBranches = controls?.branch && branches.length > 0;
-  const canShowEdit = controls?.edit;
-  const canShowRevert = controls?.revert && !isLastComponent;
-  const canShowTranslate = controls?.translate && componentType === 'message';
-
   // Sync edit mode with panel state
   React.useEffect(() => {
     if (isEditMode) {
@@ -178,211 +159,11 @@ export function AgentSessionComponentWrapper({
     }
   }, [isEditMode, activePanel]);
 
-  // Edit mode: only show submit button, scaled and cyan
-  const editModeButton = isEditMode ? (
-    <button
-      data-edit-allowed
-      onClick={() => {
-        const { editingComponentId: ecid, editingData: edata } = useAgentStore.getState();
-        submitEdit(ecid!, edata!);
-      }}
-      disabled={!isValidForSubmit}
-      className={`
-        p-1 rounded-md scale-[1.1]
-        transition-all duration-200
-        ${isValidForSubmit 
-          ? 'text-cyan-400 dark:text-cyan-400 hover:text-cyan-300 hover:scale-[1.3] dark:hover:text-cyan-300 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/10' 
-          : 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
-        }
-      `}
-      title={isValidForSubmit ? "Submit Edit" : "Fix validation errors to submit"}
-    >
-      <Send size="14" />
-    </button>
-  ) : null;
-
-  // All control buttons in single row
-  // Order: branch button nearest to content (rightmost for left position, leftmost for right position)
-  const debugButton = canShowDebug ? (
-    <button
-      onClick={() => {
-        setActivePanel('debug');
-      }}
-      className="
-        p-1 rounded-md
-        text-slate-400 dark:text-slate-500
-        hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
-        hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-        transition-all duration-200
-        opacity-0 group-hover:opacity-100 cursor-pointer
-      "
-      aria-label="Show debug view"
-      title="Show debug view"
-    >
-      <IconFocusCenter size="12" />
-    </button>
-  ) : null;
-
-  const editButton = canShowEdit && !isEditMode ? (
-    <button
-      data-edit-allowed
-      onClick={() => {
-        // For messages: pass content string
-        // For tool-calls: pass object with arguments + result (tool name is readonly)
-        if (componentType === 'tool-call') {
-          startEdit(componentId, {
-            arguments: data.arguments || {},
-            result: data.result,
-          });
-        } else {
-          startEdit(componentId, message || thoughts || '');
-        }
-      }}
-      className="
-        p-1 rounded-md
-        text-slate-400 dark:text-slate-500
-        hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
-        hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-        transition-all duration-200
-        opacity-0 group-hover:opacity-100 cursor-pointer
-      "
-      aria-label="Edit component"
-      title="Edit component"
-    >
-      <Edit2 size="12" />
-    </button>
-  ) : isEditMode ? (
-    <button
-      data-edit-allowed
-      onClick={() => {
-        const { editingComponentId: ecid, editingData: edata } = useAgentStore.getState();
-        submitEdit(ecid!, edata!);
-      }}
-      className="
-        p-1 rounded-md
-        text-slate-400 dark:text-slate-500
-        hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
-        hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-        transition-all duration-200
-        opacity-100 cursor-pointer
-      "
-      aria-label="Submit edit"
-      title="Submit edit (creates branch)"
-    >
-      <Send size="12" />
-    </button>
-  ) : null;
-
-  const revertButton = canShowRevert ? (
-    <button
-      onClick={() => {
-        revertToComponent(componentId);
-      }}
-      className="
-        p-1 rounded-md
-        text-slate-400 dark:text-slate-500
-        hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
-        hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-        transition-all duration-200
-        opacity-0 group-hover:opacity-100 cursor-pointer
-      "
-      aria-label="Revert to this point"
-      title="Revert to this point"
-    >
-      <RotateCcw size="12" />
-    </button>
-  ) : null;
-
-  // Parent button (orange, normal rotation) - shown when this component is parent link
-  const parentButton = isParentLink && parentBranch ? (
-    <button
-      onClick={async () => {
-        if (parentBranch.type === 'branch' && parentBranch.data.parentSessionId) {
-          setPreserveScrollOnSessionChange(true);
-          await loadAgentSession(parentBranch.data.parentSessionId);
-        }
-      }}
-      className="
-        p-1 rounded-md
-        text-orange-500 dark:text-orange-400
-        hover:text-orange-600 hover:scale-110 dark:hover:text-orange-300
-        hover:bg-orange-100/50 dark:hover:bg-orange-900/20
-        transition-all duration-200
-        opacity-100 cursor-pointer
-      "
-      aria-label="Go to parent session"
-      title="Go to parent session"
-    >
-      <IconBranch size="12" />
-    </button>
-  ) : null;
-
-  // Branch button (purple, rotated) - shown when this component has child branches
-  const branchButton = canShowBranches ? (
-    <button
-      onClick={() => {
-        // If only one branch, directly load it; otherwise show branches panel
-        if (branches.length === 1) {
-          setPreserveScrollOnSessionChange(true);
-          loadAgentSession(branches[0].branchSessionId);
-        } else {
-          setActivePanel('branches');
-        }
-      }}
-      className="
-        p-1 rounded-md
-        text-purple-500 dark:text-purple-400
-        hover:text-purple-600 hover:scale-110 dark:hover:text-purple-300
-        hover:bg-purple-100/50 dark:hover:bg-purple-900/20
-        transition-all duration-200
-        opacity-100 cursor-pointer
-        rotate-180
-      "
-      aria-label={branches.length === 1 ? "Switch to branch" : "Show branches"}
-      title={branches.length === 1 ? "Switch to branch" : `Show ${branches.length} branches`}
-    >
-      <IconBranch size="12" />
-    </button>
-  ) : null;
-
-  
-  const isAgentRole = componentRole !== 'user';
-  const reverseClass = isAgentRole ? 'flex-row-reverse' : '';
-
-  // Translate button (furthest from content)
-  const translateButton = canShowTranslate ? (
-    <TranslateButton
-      componentId={componentId}
-      originalText={message || ''}
-      position={isAgentRole ? 'left' : 'right'}
-    />
-  ) : null;
-
-  // Show control buttons only if any control is enabled
-  const hasAnyControls = canShowDebug || canShowEdit || canShowRevert || canShowBranches || canShowTranslate;
-
-  const controlButtons = !hasAnyControls ? null : (
-    isEditMode ? (
-      <div data-edit-allowed className={`flex items-center gap-1 ${reverseClass}`}>
-        {editModeButton}
-      </div>
-    ) : (
-      <div className={`flex items-center gap-1 ${reverseClass}`}>
-        {/* Always visible buttons (nearest to content) */}
-        <div className={`flex items-center gap-1 ${reverseClass}`}>
-          {branchButton}
-          {parentButton}
-        </div>
-        {/* Hover-only buttons */}
-        <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0 ${reverseClass}`}>
-          {editButton}
-          {revertButton}
-          {debugButton}
-          {translateButton}
-        </div>
-      </div>
-    )
-  );
+  // Stable callback for ComponentControls submit
+  const handleSubmitEdit = React.useCallback(() => {
+    const { editingComponentId: ecid, editingData: edata } = useAgentStore.getState();
+    submitEdit(ecid!, edata!);
+  }, [submitEdit]);
 
   // Create context value
   const contextValue = useMemo(() => ({
@@ -475,12 +256,28 @@ export function AgentSessionComponentWrapper({
         onClick={handleShiftClick}
       >
         {/* Control buttons - absolutely positioned based on role */}
-        {showControls && hasAnyControls && activePanel !== 'debug' && (
+        {showControls && activePanel !== 'debug' && (
           <div 
             data-controls
             className={`absolute z-99 w-[100px] ${componentRole === 'user' ? 'right-[-6.4rem]' : 'left-[-6.4rem]'}`}
           >
-            {controlButtons}
+            <ComponentControls
+              componentId={componentId}
+              componentRole={componentRole}
+              componentType={componentType}
+              controls={controls}
+              data={data}
+              isEditMode={isEditMode}
+              isValidForSubmit={isValidForSubmit}
+              branches={branches}
+              parentBranch={parentBranch}
+              onStartEdit={startEdit}
+              onSubmitEdit={handleSubmitEdit}
+              onRevert={revertToComponent}
+              onLoadSession={loadAgentSession}
+              onSetActivePanel={setActivePanel}
+              onSetPreserveScroll={setPreserveScrollOnSessionChange}
+            />
           </div>
         )}
         
@@ -490,5 +287,3 @@ export function AgentSessionComponentWrapper({
   );
 }
 
-// Export Branch interface for external use
-export type { Branch };

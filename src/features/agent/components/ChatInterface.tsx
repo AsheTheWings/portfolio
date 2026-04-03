@@ -13,6 +13,7 @@
  */
 
 import React, { useRef } from 'react';
+import type { AgentSessionComponent } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import { resolveComponent } from './ComponentResolver';
@@ -46,8 +47,8 @@ export function ChatInterface() {
 
   // Group components by groups (User message starts a new group)
   const componentGroups = React.useMemo(() => {
-    const groups: { userComponent?: any; agentComponents: any[] }[] = [];
-    let currentGroup: { userComponent?: any; agentComponents: any[] } = { agentComponents: [] };
+    const groups: { userComponent?: AgentSessionComponent; agentComponents: AgentSessionComponent[] }[] = [];
+    let currentGroup: { userComponent?: AgentSessionComponent; agentComponents: AgentSessionComponent[] } = { agentComponents: [] };
     
     sessionComponents.forEach(c => {
       if (c.role === 'user') {
@@ -96,7 +97,8 @@ export function ChatInterface() {
               const useMinHeight = isLastGroup && group.userComponent;
               const minHeightClass = useMinHeight ? (isFirstGroup ? 'min-h-[70vh]' : 'min-h-[80vh]') : '';
               
-              const renderedUser = group.userComponent ? resolveComponent(group.userComponent, {
+              const userComp = group.userComponent;
+              const renderedUser = userComp ? resolveComponent(userComp, {
                 mode: 'chat',
                 includeThoughtsInResponse: agentConfig?.includeThoughtsInResponse ?? true,
               }) : null;
@@ -104,8 +106,8 @@ export function ChatInterface() {
               return (
                 <div key={idx} className={`flex flex-col gap-4 ${minHeightClass}`}>
                   {/* User Message (Header of the group) */}
-                  {renderedUser && (
-                    <div key={group.userComponent.id} id={group.userComponent.id} className="w-full">
+                  {renderedUser && userComp && (
+                    <div key={userComp.id} id={userComp.id} className="w-full">
                       {renderedUser}
                     </div>
                   )}

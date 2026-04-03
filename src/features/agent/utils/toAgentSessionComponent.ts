@@ -5,7 +5,17 @@
  * Store's upsertComponent handles merge logic (append strings, coexist keys)
  */
 
-import type { AgentSessionEvent, AgentSessionComponent, AgentSessionComponentType, AgentSessionComponentControls } from '../types';
+import type { AgentSessionEvent, AgentSessionComponent, AgentSessionComponentData, AgentSessionComponentType, AgentSessionComponentControls } from '../types';
+
+/** Type guard: does a feedback result contain user-typed text? */
+export function isTextFeedback(result: unknown): result is { userFeedback: string } {
+  return (
+    typeof result === 'object' && result !== null &&
+    'userFeedback' in result &&
+    typeof (result as { userFeedback: unknown }).userFeedback === 'string' &&
+    (result as { userFeedback: string }).userFeedback.trim().length > 0
+  );
+}
 
 /**
  * Event type → Component type mapping
@@ -91,22 +101,21 @@ export function toAgentSessionComponents(event: AgentSessionEvent): AgentSession
   let componentType = EVENT_TO_COMPONENT_TYPE[event.type];
   if (!componentType) return additionalComponents;
   
-  // user-feedback-result: text feedback → 'user-feedback' type, action feedback → 'tool-call' type
+  // user-feedback-result branching:
+  //   Text feedback  → standalone 'user-feedback' component (new id = eventId)
+  //   Action feedback → merges into existing 'tool-call' component (same componentId)
   let componentId = event.componentId;
-  if (event.type === 'user-feedback-result') {
-    const result = (event.data as { result?: { userFeedback?: string } }).result;
-    const hasTextFeedback = result?.userFeedback && 
-      typeof result.userFeedback === 'string' && 
-      result.userFeedback.trim();
-    if (hasTextFeedback) {
-      componentType = 'user-feedback';
-      componentId = event.eventId;  // Unique id for text feedback component
-    }
-    // else: use 'tool-call' type with componentId (links to tool-call)
+  if (event.type === 'user-feedback-result' && isTextFeedback(event.data.result)) {
+    componentType = 'user-feedback';
+    componentId = event.eventId;
   }
   
   // Unified mapping: spread event.data + add sessionEvents
-  const isBackground = (event.data as { isBackground?: boolean }).isBackground;
+  // Type assertion justified: this is the single boundary where typed event data
+  // crosses into the component data bag. All event data fields are declared in
+  // AgentSessionComponentData; the assertion bridges the structural mismatch.
+  const eventData = event.data as unknown as AgentSessionComponentData;
+  const isBackground = eventData.isBackground;
   const isStreaming = event.type.includes('-chunk');
   
   // Main component for this event
@@ -118,7 +127,7 @@ export function toAgentSessionComponents(event: AgentSessionEvent): AgentSession
     controls: getControls(event.type, isBackground),
     hideComponent: !!isBackground && componentType !== 'message',
     data: {
-      ...event.data,
+      ...eventData,
       sessionEvents: [event],
     },
   };

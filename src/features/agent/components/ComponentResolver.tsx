@@ -19,6 +19,7 @@ import { AgentThoughts } from './AgentThoughts';
 import { ToolCall } from './ToolCall';
 import { UserFeedback } from './UserFeedback';
 import { AgentSessionComponentWrapper } from './AgentSessionComponentWrapper';
+import { isTextFeedback } from '../utils/toAgentSessionComponent';
 
 // Tool-owned components
 import { 
@@ -157,7 +158,7 @@ function resolveChild(
       );
 
     case 'user-feedback':
-      return <UserFeedback feedback={(data.result as any)?.userFeedback || ''} />;
+      return <UserFeedback feedback={isTextFeedback(data.result) ? data.result.userFeedback : ''} />;
 
     default:
       return null;

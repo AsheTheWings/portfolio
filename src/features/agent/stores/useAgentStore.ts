@@ -16,6 +16,61 @@ import { ModelCapability } from '../types';
 import { saveAgentConfig } from '../utils/agent-storage';
 import { toAgentSessionComponents } from '../utils/toAgentSessionComponent';
 
+/**
+ * Merge an incoming component into an existing one.
+ * - Streaming chunks: append message/thoughts text
+ * - Completed events: replace message/thoughts text
+ * - sessionEvents: deduplicate by eventId, append new
+ * - role: preserve non-system role if incoming is system
+ * - hideComponent: once hidden, stays hidden
+ * - controls: incoming wins, fall back to existing
+ */
+function mergeComponent(
+  existing: AgentSessionComponent,
+  incoming: AgentSessionComponent,
+): AgentSessionComponent {
+  const mergedMessage = (() => {
+    if (incoming.data.message === undefined) return existing.data.message;
+    if (existing.data.message === undefined) return incoming.data.message;
+    if (!incoming.isStreaming) return incoming.data.message;
+    return existing.data.message + incoming.data.message;
+  })();
+
+  const mergedThoughts = (() => {
+    if (incoming.data.thoughts === undefined) return existing.data.thoughts;
+    if (existing.data.thoughts === undefined) return incoming.data.thoughts;
+    if (!incoming.isStreaming) return incoming.data.thoughts;
+    return existing.data.thoughts + incoming.data.thoughts;
+  })();
+
+  const mergedSessionEvents = (() => {
+    if (!existing.data.sessionEvents && !incoming.data.sessionEvents) return undefined;
+    if (!existing.data.sessionEvents) return incoming.data.sessionEvents;
+    if (!incoming.data.sessionEvents) return existing.data.sessionEvents;
+    const existingIds = new Set(existing.data.sessionEvents.map((e: { eventId: string }) => e.eventId));
+    const newEvents = incoming.data.sessionEvents.filter((e: { eventId: string }) => !existingIds.has(e.eventId));
+    return [...existing.data.sessionEvents, ...newEvents];
+  })();
+
+  return {
+    ...existing,
+    ...incoming,
+    role: (incoming.role === 'system' && existing.role !== 'system')
+      ? existing.role
+      : incoming.role,
+    isStreaming: incoming.isStreaming,
+    hideComponent: existing.hideComponent ?? incoming.hideComponent,
+    controls: incoming.controls ?? existing.controls,
+    data: {
+      ...existing.data,
+      ...incoming.data,
+      message: mergedMessage,
+      thoughts: mergedThoughts,
+      sessionEvents: mergedSessionEvents,
+    },
+  };
+}
+
 const initialState = {
   currentSessionId: null as string | null,
   agentConfig: createDefaultAgentConfig(),
@@ -168,53 +223,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         const existingIndex = updated.findIndex((comp) => comp.id === component.id);
         
         if (existingIndex >= 0) {
-          // Update existing component with smart merge
-          const existing = updated[existingIndex];
-          
-          // Append-merge for message (string concatenation for streaming)
-          // Only append if incoming is a chunk (isStreaming=true), otherwise replace
-          const mergedMessage = (() => {
-            if (component.data.message === undefined) return existing.data.message;
-            if (existing.data.message === undefined) return component.data.message;
-            if (!component.isStreaming) return component.data.message;
-            return existing.data.message + component.data.message;
-          })();
-          
-          // Append-merge for thoughts (string concatenation for streaming)
-          const mergedThoughts = (() => {
-            if (component.data.thoughts === undefined) return existing.data.thoughts;
-            if (existing.data.thoughts === undefined) return component.data.thoughts;
-            if (!component.isStreaming) return component.data.thoughts;
-            return existing.data.thoughts + component.data.thoughts;
-          })();
-          
-          // Append-merge for sessionEvents (deduplicate by eventId)
-          const mergedSessionEvents = (() => {
-            if (!existing.data.sessionEvents && !component.data.sessionEvents) return undefined;
-            if (!existing.data.sessionEvents) return component.data.sessionEvents;
-            if (!component.data.sessionEvents) return existing.data.sessionEvents;
-            const existingIds = new Set(existing.data.sessionEvents.map((e: { eventId: string }) => e.eventId));
-            const newEvents = component.data.sessionEvents.filter((e: { eventId: string }) => !existingIds.has(e.eventId));
-            return [...existing.data.sessionEvents, ...newEvents];
-          })();
-          
-          updated[existingIndex] = {
-            ...existing,
-            ...component,
-            role: (component.role === 'system' && existing.role !== 'system') 
-              ? existing.role 
-              : component.role,
-            isStreaming: component.isStreaming,
-            hideComponent: existing.hideComponent ?? component.hideComponent,
-            controls: component.controls ?? existing.controls,
-            data: {
-              ...existing.data,
-              ...component.data,
-              message: mergedMessage,
-              thoughts: mergedThoughts,
-              sessionEvents: mergedSessionEvents,
-            },
-          };
+          updated[existingIndex] = mergeComponent(updated[existingIndex], component);
         } else {
           updated = [...updated, component];
         }
@@ -238,34 +247,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       for (const component of mapped) {
         const existingIndex = allComponents.findIndex((c) => c.id === component.id);
         if (existingIndex >= 0) {
-          // Merge (same logic as upsertComponent but in-memory)
-          const existing = allComponents[existingIndex];
-          const mergedMessage = component.data.message !== undefined
-            ? (existing.data.message !== undefined && component.isStreaming
-                ? existing.data.message + component.data.message
-                : component.data.message)
-            : existing.data.message;
-          const mergedThoughts = component.data.thoughts !== undefined
-            ? (existing.data.thoughts !== undefined && component.isStreaming
-                ? existing.data.thoughts + component.data.thoughts
-                : component.data.thoughts)
-            : existing.data.thoughts;
-          const mergedSessionEvents = (() => {
-            if (!existing.data.sessionEvents && !component.data.sessionEvents) return undefined;
-            if (!existing.data.sessionEvents) return component.data.sessionEvents;
-            if (!component.data.sessionEvents) return existing.data.sessionEvents;
-            const ids = new Set(existing.data.sessionEvents.map((e: { eventId: string }) => e.eventId));
-            return [...existing.data.sessionEvents, ...component.data.sessionEvents.filter((e: { eventId: string }) => !ids.has(e.eventId))];
-          })();
-          allComponents[existingIndex] = {
-            ...existing,
-            ...component,
-            role: (component.role === 'system' && existing.role !== 'system') ? existing.role : component.role,
-            isStreaming: component.isStreaming,
-            hideComponent: existing.hideComponent ?? component.hideComponent,
-            controls: component.controls ?? existing.controls,
-            data: { ...existing.data, ...component.data, message: mergedMessage, thoughts: mergedThoughts, sessionEvents: mergedSessionEvents },
-          };
+          allComponents[existingIndex] = mergeComponent(allComponents[existingIndex], component);
         } else {
           allComponents.push(component);
         }
