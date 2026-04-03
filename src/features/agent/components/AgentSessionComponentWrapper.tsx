@@ -154,10 +154,19 @@ export function AgentSessionComponentWrapper({
   }, []);
 
   // Control visibility - explicitly set via controls object
+  // Hide revert on the last non-system component (nothing after it to revert to)
+  const isLastComponent = useAgentStore((state) => {
+    const comps = state.sessionComponents;
+    for (let i = comps.length - 1; i >= 0; i--) {
+      if (comps[i].role !== 'system') return comps[i].id === componentId;
+    }
+    return false;
+  });
+
   const canShowDebug = controls?.debug;
   const canShowBranches = controls?.branch && branches.length > 0;
   const canShowEdit = controls?.edit;
-  const canShowRevert = controls?.revert;
+  const canShowRevert = controls?.revert && !isLastComponent;
   const canShowTranslate = controls?.translate && componentType === 'message';
 
   // Sync edit mode with panel state
