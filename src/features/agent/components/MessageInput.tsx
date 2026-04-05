@@ -5,9 +5,9 @@
  * Supports text input, library asset attachments, and @library/path mentions
  */
 
-import { useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Button } from '@/features/shared/components/shadcn';
-import { Plus } from 'lucide-react';
+import { Plus, Keyboard } from 'lucide-react';
 import IconSend from '@/features/shared/icons/IconSend';
 import IconPause from '@/features/shared/icons/IconPause';
 import { useAgent } from '../hooks/useAgent';
@@ -24,6 +24,9 @@ interface MessageInputProps {
   disabled?: boolean;
   placeholder?: string;
   onMentionOpenChange?: (isOpen: boolean) => void;
+  collapsed?: boolean;
+  onExpand?: () => void;
+  isAnimating?: boolean;
 }
 
 export interface MessageInputRef {
@@ -34,7 +37,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onStop, isProcessing, isThinking, isToolCalling, isResponding, disabled, placeholder = 'Type your message...', onMentionOpenChange }, ref) => {
+  ({ onSend, onStop, isProcessing, isThinking, isToolCalling, isResponding, disabled, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -108,33 +111,66 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;
 
+  // Visual collapsed state: stays collapsed-looking during GSAP animation
+  const visuallyCollapsed = collapsed || isAnimating;
+
+  // Delayed placeholder: appears 300ms after expansion animation completes
+  const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
+  const placeholderTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    if (visuallyCollapsed) {
+      // Hide placeholder immediately when collapsing
+      clearTimeout(placeholderTimerRef.current);
+      setShowPlaceholder(false);
+    } else {
+      // Show placeholder 300ms after animation completes
+      placeholderTimerRef.current = setTimeout(() => setShowPlaceholder(true), 300);
+    }
+    return () => clearTimeout(placeholderTimerRef.current);
+  }, [visuallyCollapsed]);
+
+  // Restore cursor to end of text when expanding from collapsed state
+  const prevCollapsedRef = useRef(collapsed);
+  useEffect(() => {
+    if (prevCollapsedRef.current && !collapsed && inputRef.current) {
+      const len = inputRef.current.value.length;
+      inputRef.current.setSelectionRange(len, len);
+    }
+    prevCollapsedRef.current = collapsed;
+  }, [collapsed, inputRef]);
+
   return (
-    <div className="pb-4 flex flex-col justify-center w-full min-w-[320px] gap-2 relative">
+    <div className={`relative flex w-full gap-2 relative ${visuallyCollapsed ? '' : 'min-w-[320px]'}`}>
       {/* Library Path Browser Dropdown */}
-      <LibraryPathBrowser
-        isOpen={mentionDropdown.isOpen}
-        query={mentionDropdown.query}
-        onSelect={mentionDropdown.onSelect}
-        onClose={mentionDropdown.onClose}
-        containerClassName="absolute bottom-full left-0 right-0 mb-2 z-[100]"
-      />
+      {!visuallyCollapsed && (
+        <LibraryPathBrowser
+          isOpen={mentionDropdown.isOpen}
+          query={mentionDropdown.query}
+          onSelect={mentionDropdown.onSelect}
+          onClose={mentionDropdown.onClose}
+          containerClassName="absolute bottom-full left-0 right-0 mb-2 z-[100]"
+        />
+      )}
       
       {/* Input Form */}
       <form 
         ref={formRef}
-        onSubmit={handleSubmit}
-        className="w-full flex items-center gap-3 bg-surface-1 rounded-4xl px-4 pr-4 py-3 shadow-depth-md transition-all hover:shadow-depth-lg border border-border-subtle"
+        onSubmit={collapsed ? (e) => { e.preventDefault(); onExpand?.(); } : handleSubmit}
+        onClick={collapsed ? onExpand : undefined}
+        className={`w-full flex justify-center items-center gap-3 bg-surface-1 p-3 shadow-depth-md transition-all duration-350 hover:shadow-depth-lg border border-border-subtle ${
+          visuallyCollapsed ? 'cursor-pointer rounded-full' : 'rounded-4xl'
+        }`}
         style={{
           boxShadow: 'var(--shadow-md), inset 0 0 0 1px oklch(0.95 0.002 264 / 0.1)',
         }}
       >
-        {/* Plus button for asset attachment from library */}
-        <div className="flex items-center justify-center gap-2">
+        {/* Plus button + chevron - always visible */}
+        <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            onClick={openAssetPicker}
+            onClick={(e) => { e.stopPropagation(); openAssetPicker(); }}
             disabled={isProcessing || disabled}
             className="rounded-full text-muted-foreground hover:text-foreground hover:bg-surface-2 shrink-0"
             title="Attach assets from library"
@@ -148,15 +184,21 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           )}
         </div>
         
+        {/* Textarea - visible as soon as expanding starts; sr-only only when truly collapsed */}
         <textarea
           ref={inputRef}
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
           disabled={isProcessing || disabled}
-          className="flex-1 bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground disabled:opacity-50 resize-none field-sizing-content max-h-[8rem] scrollbar-inner"
-          placeholder={getProcessingMessage()}
+          className={collapsed
+            ? 'sr-only'
+            : 'bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground disabled:opacity-50 resize-none field-sizing-content max-h-[8rem] scrollbar-inner flex-1 animate-in fade-in duration-200'
+          }
+          placeholder={showPlaceholder ? getProcessingMessage() : ''}
           rows={1}
+          tabIndex={collapsed ? -1 : 0}
+          aria-hidden={collapsed}
         />
         
         {isProcessing ? (
@@ -165,7 +207,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
             type="button"
             onClick={onStop}
             size="icon-lg"
-            className="relative rounded-full bg-black text-white hover:bg-black/80"
+            className="ml-auto relative rounded-full bg-black text-white hover:bg-black/80 shrink-0"
             title="Pause agent"
           >
             {/* Spinning cyan ring */}
@@ -177,13 +219,15 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         ) : (
           <Button
             ref={buttonRef}
-            type="submit"
-            disabled={!hasContent || disabled}
+            type={collapsed ? 'button' : 'submit'}
+            disabled={collapsed ? false : (!hasContent || disabled)}
             size="icon-lg"
-            className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-            title="Send message"
+            className="ml-auto rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+            title={collapsed ? 'Open input (Enter)' : 'Send message'}
+            tabIndex={collapsed ? -1 : 0}
+            data-gsap="submit-btn"
           >
-            <IconSend size="24" />
+            {collapsed ? <Keyboard size={20} /> : <IconSend size="24" />}
           </Button>
         )}
       </form>

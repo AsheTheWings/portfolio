@@ -19,11 +19,7 @@ import { InteractionArea } from './InteractionArea';
 import { resolveComponent } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
 
-const renderCount = { current: 0 };
-
 export function ChatInterface() {
-  renderCount.current++;
-  console.log('[ChatInterface] RENDER #' + renderCount.current);
   const {
     sessionComponents,
     currentSessionId,
@@ -80,8 +76,8 @@ export function ChatInterface() {
           {/* Left Panel - Portal target for agent-side content */}
           <div id="chat-left-panel" className="relative" />
           
-          {/* Center - Chat Content */}
-          <div className="flex flex-col gap-4 p-4">
+          {/* Center - Chat Content (pb-24 clears the floating InteractionArea overlay) */}
+          <div className="flex flex-col gap-4 p-4 pb-8">
             {/* Placeholder when no conversation exists */}
             {sessionComponents.length === 0 && !currentSessionId && (
               <p className="w-full flex-1 flex justify-center items-center text-sm text-muted-foreground italic">
@@ -91,11 +87,10 @@ export function ChatInterface() {
             
             {componentGroups.map((group, idx) => {
               const isLastGroup = idx === componentGroups.length - 1;
-              const isFirstGroup = idx === 0;
               // Apply min-height if it's the last group AND it was initiated by a user
               // This reserves space for the agent to fill, keeping the user message at the top
               const useMinHeight = isLastGroup && group.userComponent;
-              const minHeightClass = useMinHeight ? (isFirstGroup ? 'min-h-[70vh]' : 'min-h-[80vh]') : '';
+              const minHeightClass = useMinHeight ? 'min-h-[90vh]' : '';
               
               const userComp = group.userComponent;
               const renderedUser = userComp ? resolveComponent(userComp, {
@@ -134,12 +129,12 @@ export function ChatInterface() {
           {/* Right Panel - Portal target for user-side content */}
           <div id="chat-right-panel" className="relative" />
         </div>
-      </div>
-
-      <div className="w-[72%] mx-auto">
-        <InteractionArea
-          ref={messageInputRef}
-        />
+        {/* InteractionArea - always visible at bottom of scroll viewport */}
+        <div className="absolute px-auto w-full bottom-8 z-10 pointer-events-none">
+          <InteractionArea
+            ref={messageInputRef}
+          />
+        </div>
       </div>
 
       {/* Autoscroll Notification - bottom right corner */}

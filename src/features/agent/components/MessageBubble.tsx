@@ -203,7 +203,7 @@ export const MessageBubble = React.memo(function MessageBubble() {
             ${
               isUser
                 ? 'max-w-[56%] bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md'
-                : 'w-[76%] bg-white dark:bg-surface-1 border border-slate-200 dark:border-border-subtle text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-tl-md'
+                : 'w-[76%] text-foreground rounded-tl-md'
             }
           `}
         >

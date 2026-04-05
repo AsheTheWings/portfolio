@@ -5,32 +5,53 @@
  * Self-contained interaction handler
  * - Displays MessageInput and FeedbackPanel
  * - Delegates business logic to useUserInput hook
- * - Animated transitions with Framer Motion
+ * - GSAP-driven morph animation for the input container
  */
 
 import { MessageInput, MessageInputRef } from './MessageInput';
 import { FeedbackPanel } from './FeedbackPanel';
 import { forwardRef, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
+
+gsap.registerPlugin(useGSAP);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface InteractionAreaProps {}
 
-const interactionRenderCount = { current: 0 };
-
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
-    interactionRenderCount.current++;
     // Get state from store
     const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, resumeAgent, conversationStatus } = useAgent();
     
-    console.log('[InteractionArea] RENDER #' + interactionRenderCount.current, {
-      conversationStatus,
-      isFeedbackMode: !!activeFeedbackRequest,
-      isInterrupted: conversationStatus === 'interrupted',
-    });
+    // Collapsed state: auto-collapse when healthy, expand on user interaction
+    const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
+    const isCollapsed = conversationStatus === 'healthy' && !isManuallyExpanded;
+    
+    // Auto-collapse when returning to healthy
+    useEffect(() => {
+      if (conversationStatus === 'healthy') {
+        setIsManuallyExpanded(false);
+      }
+    }, [conversationStatus]);
+    
+    // Escape key collapses (via agent:collapseAll event) — discard input
+    useEffect(() => {
+      const onCollapseAll = () => {
+        if (conversationStatus === 'healthy') {
+          setIsManuallyExpanded(false);
+          // Clear input text on collapse
+          if (ref && typeof ref !== 'function' && ref.current) {
+            ref.current.setValue('');
+          }
+        }
+      };
+      window.addEventListener('agent:collapseAll', onCollapseAll);
+      return () => window.removeEventListener('agent:collapseAll', onCollapseAll);
+    }, [conversationStatus, ref]);
     
     // Derive processing states from conversationStatus
     const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
@@ -53,14 +74,18 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
 
     /**
      * Watch submit trigger and focus input (from global keyboard shortcuts)
+     * Also expand collapsed input
      */
     useEffect(() => {
       if (submitTrigger && submitTrigger !== lastSubmitTriggerRef.current) {
         lastSubmitTriggerRef.current = submitTrigger;
-        // Focus the input to allow user to type
-        if (ref && typeof ref !== 'function' && ref.current) {
-          ref.current.focus();
-        }
+        setIsManuallyExpanded(true);
+        // Focus the input to allow user to type (delayed to allow render)
+        requestAnimationFrame(() => {
+          if (ref && typeof ref !== 'function' && ref.current) {
+            ref.current.focus();
+          }
+        });
       }
     }, [submitTrigger, ref]);
     
@@ -155,10 +180,75 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       }
     }, [historyIndex]);
 
+    // Auto-expand and focus when user starts typing while collapsed
+    // The textarea is always in the DOM (sr-only when collapsed),
+    // so we just need to detect the first keystroke and expand.
+    useEffect(() => {
+      if (!isCollapsed) return;
+      
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === 'Escape' || e.key === 'Tab') return;
+        
+        // Any printable key or Enter: expand and focus the (already-rendered) textarea
+        if (e.key.length === 1 || (e.key === 'Enter' && !e.shiftKey)) {
+          if (e.key === 'Enter') e.preventDefault();
+          setIsManuallyExpanded(true);
+          // Focus immediately — textarea is already in the DOM
+          if (ref && typeof ref !== 'function' && ref.current) {
+            ref.current.focus();
+          }
+        }
+      };
+      
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isCollapsed, ref]);
+
+    const expandInput = () => {
+      setIsManuallyExpanded(true);
+      requestAnimationFrame(() => {
+        if (ref && typeof ref !== 'function' && ref.current) {
+          ref.current.focus();
+        }
+      });
+    };
+
+    // GSAP morph animation for the input container
+    const morphRef = useRef<HTMLDivElement>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const ANIM_DURATION = 0.4;
+    // Active states (processing/interrupted) get narrow width; normal expanded gets 50%
+    const isActiveState = isProcessing || conversationStatus === 'interrupted';
+    const expandedWidth = isActiveState ? '25%' : '50%';
+    const expandedMarginRight = isActiveState ? '6rem' : '25%';
+
+    // Set initial GSAP state on mount (no React style prop to avoid conflicts)
+    useGSAP(() => {
+      if (!morphRef.current) return;
+      gsap.set(morphRef.current, { width: '142px', marginRight: '6rem' });
+    }, { dependencies: [] });
+
+    useGSAP(() => {
+      if (!morphRef.current) return;
+      setIsAnimating(true);
+
+      gsap.to(morphRef.current, {
+        width: isCollapsed ? '142px' : expandedWidth,
+        minWidth: isCollapsed ? '0px' : '320px',
+        marginRight: isCollapsed ? '6rem' : expandedMarginRight,
+        duration: ANIM_DURATION,
+        ease: 'power2.inOut',
+        onComplete: () => {
+          setIsAnimating(false);
+        },
+      });
+    }, { dependencies: [isCollapsed, isActiveState, conversationStatus] });
+
     return (
-      <div className="flex relative flex-col justify-center items-center w-full pt-2 px-6 overflow-visible gap-4">
-        <div className="flex relative justify-center items-center w-full overflow-visible gap-4">
-          {/* Feedback Panel or Resume Prompt */}
+      <div className="w-full min-h-[72px] overflow-hidden flex items-center">
+        {/* Feedback panels - fills available space left of input */}
+        <div className="flex-1 flex justify-center items-endgap-4  pointer-events-auto min-w-0">
           <AnimatePresence mode="wait">
           {(isFeedbackMode && activeFeedbackRequest) ? (
             (() => {
@@ -170,7 +260,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                   animate={{ width: 'auto', opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="mb-4 flex justify-center items-center overflow-hidden whitespace-nowrap"
+                  className="flex justify-center items-center overflow-hidden whitespace-nowrap"
                 >
                   <FeedbackPanel
                     prompt={prompt}
@@ -189,7 +279,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
               animate={{ width: 'auto', opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="mb-4 flex justify-center items-center overflow-hidden whitespace-nowrap"
+              className="flex justify-center items-center overflow-hidden whitespace-nowrap"
             >
               <FeedbackPanel
                 prompt="Agent turn was interrupted. Would you like to resume?"
@@ -208,17 +298,12 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             </motion.div>
           ) : null}
           </AnimatePresence>
-        {/* MessageInput */}
-        <motion.div
-          animate={{
-            width: isFeedbackMode || conversationStatus === 'interrupted' ? '60%' : '70%',
-          }}
-          transition={{
-            type: 'spring',
-            stiffness: 300,
-            damping: 30,
-            duration: 1,
-          }}
+        </div>
+
+        {/* Morphing container: GSAP-driven width + marginRight animation */}
+        <div
+          ref={morphRef}
+          className="pointer-events-auto flex-shrink-0"
         >
           <MessageInput
             ref={ref}
@@ -231,8 +316,10 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             isResponding={isResponding}
             placeholder={isFeedbackMode ? 'Provide feedback...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
+            collapsed={isCollapsed}
+            onExpand={expandInput}
+            isAnimating={isAnimating}
           />
-        </motion.div>
         </div>
       </div>
     );

@@ -35,12 +35,7 @@ interface AgentPlaygroundProps {
   initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-const playgroundRenderCount = { current: 0 };
-
 export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialEvents }: AgentPlaygroundProps) {
-  playgroundRenderCount.current++;
-  console.log('[AgentPlayground] RENDER #' + playgroundRenderCount.current);
-
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
   useHydrateStore({ initialTools, initialWorkflows });
   

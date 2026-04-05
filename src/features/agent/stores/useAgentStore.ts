@@ -55,6 +55,7 @@ function mergeComponent(
   return {
     ...existing,
     ...incoming,
+    type: existing.type,  // First event establishes type; merges must not overwrite
     role: (incoming.role === 'system' && existing.role !== 'system')
       ? existing.role
       : incoming.role,

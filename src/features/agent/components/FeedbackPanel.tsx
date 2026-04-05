@@ -10,6 +10,7 @@ import type { FeedbackAction } from '../types';
 import { FeedbackActionButton } from './FeedbackActionButton';
 import { cn } from '@/lib/utils';
 import { useEffect, useCallback } from 'react';
+import { LiquidGlassCard } from '@/components/ui/liquid-weather-glass';
 
 interface FeedbackPanelProps {
   prompt?: string;
@@ -65,12 +66,20 @@ export function FeedbackPanel({
   }, [handleKeyDown]);
 
   return (
-    <div className="flex flex-col gap-2 w-fit">
+    <LiquidGlassCard
+      draggable={false}
+      blurIntensity="xl"
+      shadowIntensity="sm"
+      glowIntensity="xs"
+      borderRadius="16px"
+      className="w-fit"
+    >
+      <div className="flex items-center gap-3 px-5 py-3">
       {/* Prompt text */}
       {prompt && (
-        <div className="flex justify-center items-center text-sm font-medium text-foreground">
+        <span className="text-sm font-medium text-foreground whitespace-nowrap">
           {prompt}
-        </div>
+        </span>
       )}
       
       {/* Action buttons */}
@@ -78,7 +87,7 @@ export function FeedbackPanel({
         className={cn(
           "flex gap-3",
           layout === 'vertical' && "flex-col",
-          layout === 'horizontal' && "flex-row flex-wrap justify-center",
+          layout === 'horizontal' && "flex-row flex-wrap",
           layout === 'grid' && "grid grid-cols-2"
         )}
       >
@@ -92,6 +101,7 @@ export function FeedbackPanel({
           />
         ))}
       </div>
-    </div>
+      </div>
+    </LiquidGlassCard>
   );
 }

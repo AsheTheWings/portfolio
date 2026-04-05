@@ -100,10 +100,10 @@ export function ComponentControls({
           onClick={onSubmitEdit}
           disabled={!isValidForSubmit}
           className={`
-            p-1 rounded-md scale-[1.1]
+            mx-2 px-1 rounded scale-[1.2]
             transition-all duration-200
             ${isValidForSubmit 
-              ? 'text-cyan-400 dark:text-cyan-400 hover:text-cyan-300 hover:scale-[1.3] dark:hover:text-cyan-300 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/10' 
+              ? 'text-cyan-400 dark:text-cyan-400 hover:text-cyan-300 hover:scale-[1.3] dark:hover:text-cyan-300 hover:bg-cyan-500/5 dark:hover:bg-cyan-500/5' 
               : 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
             }
           `}

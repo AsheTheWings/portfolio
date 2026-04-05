@@ -36,6 +36,7 @@ export function FeedbackActionButton({ action, onClick, disabled, fullWidth = tr
       size="sm"
       disabled={disabled}
       className={cn(
+        "rounded-xl",
         fullWidth ? "w-full px-2 justify-start" : "justify-start"
       )}
     >

@@ -298,8 +298,14 @@ export function ToolCall() {
                   className="json-highlight border border-input rounded-md overflow-hidden h-full code-editor-container transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
-                      // Enter: submit edit
+                      // Enter: sync to store then submit (blur won't fire before submit)
                       e.preventDefault();
+                      if (validateArgumentsJson(editingArguments)) {
+                        try {
+                          const parsed = JSON.parse(editingArguments);
+                          onUpdateEditingData({ arguments: parsed });
+                        } catch { /* validated above */ }
+                      }
                       handleSubmit();
                     }
                     // Shift+Enter: allow default behavior (new line)
@@ -361,8 +367,14 @@ export function ToolCall() {
                     onChange={(e) => onUpdateEditingData({ result: e.target.value })}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
-                        // Enter: submit edit
+                        // Enter: sync args to store then submit
                         e.preventDefault();
+                        if (editingArguments && validateArgumentsJson(editingArguments)) {
+                          try {
+                            const parsed = JSON.parse(editingArguments);
+                            onUpdateEditingData({ arguments: parsed });
+                          } catch { /* validated above */ }
+                        }
                         handleSubmit();
                       }
                       // Shift+Enter: allow default behavior (new line)
