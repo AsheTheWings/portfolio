@@ -118,6 +118,7 @@ const initialState = {
   preferredTranslationLanguage: null as string | null,
   translationCache: {} as Record<string, Record<string, string>>,
   activeTranslations: {} as Record<string, string | null>,
+  translatingComponents: new Set<string>(),
   
   // Pending library items (asset or folder IDs) for message attachment
   pendingLibraryItemIds: [] as string[],
@@ -400,6 +401,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   resetAllTranslations: () => {
     set({ activeTranslations: {} });
+  },
+
+  setComponentTranslating: (componentId: string, translating: boolean) => {
+    set((state) => {
+      const next = new Set(state.translatingComponents);
+      if (translating) next.add(componentId);
+      else next.delete(componentId);
+      return { translatingComponents: next };
+    });
   },
 
   // Pending library items actions

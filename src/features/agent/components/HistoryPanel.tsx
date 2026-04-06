@@ -31,9 +31,9 @@ import { useAgent } from '../hooks/useAgent';
 interface AgentSessionRow {
   id: string;
   title?: string;
-  agent_name: string;
-  event_count: number;
-  turns_count: number;
+  agentName: string;
+  eventCount: number;
+  turnsCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,7 +84,7 @@ export function HistoryPanel() {
     // Agent name filter
     if (agentNameFilter.trim()) {
       filtered = filtered.filter(
-        (session) => session.agent_name === agentNameFilter.trim()
+        (session) => session.agentName === agentNameFilter.trim()
       );
     }
 
@@ -279,9 +279,9 @@ export function HistoryPanel() {
                     
                     {/* Metadata */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[0.65rem] text-muted-foreground leading-tight">
-                      <span className="truncate max-w-[80px]">{session.agent_name}</span>
+                      <span className="truncate max-w-[80px]">{session.agentName}</span>
                       <span>•</span>
-                      <span className="whitespace-nowrap">{session.turns_count} {session.turns_count === 1 ? 'turn' : 'turns'}</span>
+                      <span className="whitespace-nowrap">{session.turnsCount} {session.turnsCount === 1 ? 'turn' : 'turns'}</span>
                       <span>•</span>
                       <span className="whitespace-nowrap" title={`Created: ${formatDate(session.createdAt)}`}>
                         Created {formatRelativeTime(session.createdAt)}

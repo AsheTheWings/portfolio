@@ -10,10 +10,10 @@ import useSWR from 'swr';
 export interface AgentSessionRow {
   id: string;
   title?: string;
-  title_locked?: boolean;
-  agent_name: string;
-  event_count: number;
-  turns_count: number;
+  titleLocked?: boolean;
+  agentName: string;
+  eventCount: number;
+  turnsCount: number;
   createdAt: string;
   updatedAt: string;
   userId: string;

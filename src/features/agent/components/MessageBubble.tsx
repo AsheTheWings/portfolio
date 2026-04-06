@@ -199,11 +199,11 @@ export const MessageBubble = React.memo(function MessageBubble() {
       {hasContent && (
         <div
           className={`
-            session-component px-4 py-3 rounded-2xl relative
+            session-component rounded-2xl relative
             ${
               isUser
-                ? 'max-w-[56%] bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md'
-                : 'w-[76%] text-foreground rounded-tl-md'
+                ? 'max-w-[56%] px-4 py-3 bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md'
+                : 'text-foreground rounded-tl-md'
             }
           `}
         >

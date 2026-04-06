@@ -259,7 +259,7 @@ export function AgentSessionComponentWrapper({
         {showControls && activePanel !== 'debug' && (
           <div 
             data-controls
-            className={`absolute z-99 w-[100px] ${componentRole === 'user' ? 'right-[-6.4rem]' : 'left-[-6.4rem]'}`}
+            className={`absolute z-99 w-[100px] ${componentRole === 'user' ? 'right-[-6.8rem]' : 'left-[-6.8rem]'}`}
           >
             <ComponentControls
               componentId={componentId}

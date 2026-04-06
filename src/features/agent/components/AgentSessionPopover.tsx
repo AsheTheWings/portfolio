@@ -40,12 +40,16 @@ export function AgentSessionPopover({
   const [localAgentName, setLocalAgentName] = useState('');
   const [localTitleLocked, setLocalTitleLocked] = useState(false);
   
-  // Sync local state with fetched metadata
+  // Sync local state with fetched metadata (reset on session change)
   useEffect(() => {
     if (metadata) {
       setLocalTitle(metadata.title || '');
       setLocalAgentName(metadata.agentName || 'assistant');
       setLocalTitleLocked(metadata.titleLocked || false);
+    } else {
+      setLocalTitle('');
+      setLocalAgentName('');
+      setLocalTitleLocked(false);
     }
   }, [metadata]);
 
@@ -79,7 +83,7 @@ export function AgentSessionPopover({
 
   return (
     <div className="flex items-center gap-2 w-[200px]">
-      <Popover>
+      <Popover modal>
         <PopoverTrigger asChild>
           <button className="text-xs text-foreground font-light hover:text-primary transition-colors cursor-pointer flex-1 text-left">
             Session ID: {displaySessionId}
@@ -134,7 +138,8 @@ export function AgentSessionPopover({
               />
             </div>
 
-            {/* Counts (Read-only) */}
+            {/* Counts (Read-only) — only shown for persistent sessions */}
+            {propPersistSession && (
             <div className="flex gap-4">
               <div className="flex flex-col gap-1">
                 <Label className="text-xs text-muted-foreground">Turns</Label>
@@ -145,6 +150,7 @@ export function AgentSessionPopover({
                 <span className="text-sm font-medium">{metadata?.eventCount ?? 0}</span>
               </div>
             </div>
+            )}
 
             {/* Session Flags */}
             <div className="flex flex-col gap-2">

@@ -594,6 +594,7 @@ export interface AgentState {
   preferredTranslationLanguage: string | null;
   translationCache: Record<string, Record<string, string>>;
   activeTranslations: Record<string, string | null>;
+  translatingComponents: Set<string>;
   
   // Pending library items (asset or folder IDs) for message attachment
   pendingLibraryItemIds: string[];
@@ -663,6 +664,7 @@ export interface AgentState {
   cacheTranslation: (componentId: string, language: string, text: string) => void;
   setActiveTranslation: (componentId: string, language: string | null) => void;
   resetAllTranslations: () => void;
+  setComponentTranslating: (componentId: string, translating: boolean) => void;
   
   // Pending library items actions
   addPendingLibraryItems: (ids: string[]) => void;

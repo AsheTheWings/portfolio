@@ -56,10 +56,10 @@ export function useAgentSessionMetadata(sessionId?: string): UseAgentSessionMeta
     return {
       id: session.id,
       title: session.title || null,
-      titleLocked: session.title_locked || false,
-      agentName: session.agent_name,
-      turnCount: session.turns_count,
-      eventCount: session.event_count,
+      titleLocked: session.titleLocked || false,
+      agentName: session.agentName,
+      turnCount: session.turnsCount,
+      eventCount: session.eventCount,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };

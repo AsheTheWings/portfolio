@@ -51,10 +51,9 @@ const LANGUAGES = [
 interface TranslateButtonProps {
   componentId: string;
   originalText: string;
-  position: 'left' | 'right';  // Based on role
 }
 
-export function TranslateButton({ componentId, originalText, position }: TranslateButtonProps) {
+export function TranslateButton({ componentId, originalText }: TranslateButtonProps) {
   const [open, setOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [panelElement, setPanelElement] = useState<HTMLElement | null>(null);
@@ -67,12 +66,12 @@ export function TranslateButton({ componentId, originalText, position }: Transla
   const setPreferredTranslationLanguage = useAgentStore((s) => s.setPreferredTranslationLanguage);
   const cacheTranslation = useAgentStore((s) => s.cacheTranslation);
   const setActiveTranslation = useAgentStore((s) => s.setActiveTranslation);
+  const setComponentTranslating = useAgentStore((s) => s.setComponentTranslating);
 
-  // Get portal target based on position
+  // Get portal target (always left panel — agent messages only)
   useEffect(() => {
-    const panelId = position === 'left' ? 'chat-left-panel' : 'chat-right-panel';
-    setPanelElement(document.getElementById(panelId));
-  }, [position]);
+    setPanelElement(document.getElementById('chat-left-panel'));
+  }, []);
 
   // Update button position when open changes
   useEffect(() => {
@@ -122,6 +121,7 @@ export function TranslateButton({ componentId, originalText, position }: Transla
 
     // Fetch translation
     setIsTranslating(true);
+    setComponentTranslating(componentId, true);
     try {
       const response = await fetch('/api/agent/translate', {
         method: 'POST',
@@ -146,6 +146,7 @@ export function TranslateButton({ componentId, originalText, position }: Transla
       console.error('Translation error:', error);
     } finally {
       setIsTranslating(false);
+      setComponentTranslating(componentId, false);
     }
   };
 
@@ -170,10 +171,7 @@ export function TranslateButton({ componentId, originalText, position }: Transla
   const languagePanel = open && panelElement ? createPortal(
     <div
       data-translate-panel
-      className={cn(
-        'absolute w-[160px] bg-popover border border-border rounded-md shadow-md z-999',
-        position === 'left' ? 'right-0' : 'left-0'
-      )}
+      className={cn('absolute right-2 w-[160px] bg-popover border border-border rounded-md shadow-md z-999')}
       style={{ top: buttonTop }}
     >
       <Command>
@@ -213,8 +211,8 @@ export function TranslateButton({ componentId, originalText, position }: Transla
         className={cn(
           'p-1 rounded-md transition-all duration-200 cursor-pointer',
           isActive
-            ? 'text-emerald-500 dark:text-emerald-400 opacity-100'
-            : 'text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100',
+            ? 'text-emerald-500 dark:text-emerald-400'
+            : 'text-slate-400 dark:text-slate-500',
           !isTranslating && 'hover:text-emerald-500 hover:scale-110 dark:hover:text-emerald-400',
           !isTranslating && 'hover:bg-slate-200/50 dark:hover:bg-slate-700/50',
           isTranslating && 'cursor-wait'

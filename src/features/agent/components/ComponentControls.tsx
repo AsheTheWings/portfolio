@@ -46,7 +46,7 @@ const HOVER_BUTTON_CLASS = `
   hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
   hover:bg-slate-200/50 dark:hover:bg-slate-700/50
   transition-all duration-200
-  opacity-0 group-hover:opacity-100 cursor-pointer
+  cursor-pointer
 `;
 
 export function ComponentControls({
@@ -83,7 +83,8 @@ export function ComponentControls({
   const canShowBranches = controls?.branch && branches.length > 0;
   const canShowEdit = controls?.edit;
   const canShowRevert = controls?.revert && !isLastComponent;
-  const canShowTranslate = controls?.translate && componentType === 'message';
+  const canShowTranslate = controls?.translate && componentType === 'message' && componentRole === 'agent';
+  const isTranslating = useAgentStore((s) => s.translatingComponents.has(componentId));
   const hasAnyControls = canShowDebug || canShowEdit || canShowRevert || canShowBranches || canShowTranslate;
 
   if (!hasAnyControls) return null;
@@ -172,8 +173,8 @@ export function ComponentControls({
         )}
       </div>
 
-      {/* Hover-only buttons */}
-      <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0 ${reverseClass}`}>
+      {/* Hover-only buttons (stay visible during translation) */}
+      <div className={`flex items-center gap-1 ${isTranslating ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200 delay-300 group-hover:delay-0 ${reverseClass}`}>
         {/* Edit button */}
         {canShowEdit && (
           <button
@@ -225,7 +226,6 @@ export function ComponentControls({
           <TranslateButton
             componentId={componentId}
             originalText={message || ''}
-            position={isAgentRole ? 'left' : 'right'}
           />
         )}
       </div>
