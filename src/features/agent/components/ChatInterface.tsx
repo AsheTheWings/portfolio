@@ -74,7 +74,7 @@ export function ChatInterface() {
         {/* 3-Column Grid: Left Panel | Chat | Right Panel */}
         <div className="grid grid-cols-[1fr_60vw_1fr] min-h-full">
           {/* Left Panel - Portal target for agent-side content */}
-          <div id="chat-left-panel" className="relative lg:border-2 border-red-500" />
+          <div id="chat-left-panel" className="relative" />
           
           {/* Center - Chat Content (pb-24 clears the floating InteractionArea overlay) */}
           <div className="flex flex-col gap-4 py-4 pb-8">
@@ -127,7 +127,7 @@ export function ChatInterface() {
           </div>
           
           {/* Right Panel - Portal target for user-side content */}
-          <div id="chat-right-panel" className="relative border-2 border-red-500" />
+          <div id="chat-right-panel" className="relative" />
         </div>
         {/* InteractionArea - always visible at bottom of scroll viewport */}
         <div className="absolute px-auto w-full bottom-8 z-10 pointer-events-none">

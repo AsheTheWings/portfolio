@@ -41,6 +41,7 @@ interface ItemContextMenuProps {
   isSystemFolder?: boolean;
   isFolder?: boolean;
   isMultiSelection?: boolean;
+  isLocked?: boolean;
 }
 
 /**
@@ -62,7 +63,9 @@ export function ItemContextMenu({
   isSystemFolder = false,
   isFolder = false,
   isMultiSelection = false,
+  isLocked = false,
 }: ItemContextMenuProps) {
+  const isMutationDisabled = isSystemFolder || isLocked;
   return (
     <ContextMenu onOpenChange={(open) => open && onSelect?.()}>
       <ContextMenuTrigger asChild>
@@ -72,7 +75,7 @@ export function ItemContextMenu({
         {!isMultiSelection && (
           <ContextMenuItem 
             onClick={onRename}
-            disabled={isSystemFolder}
+            disabled={isMutationDisabled}
             className="gap-2"
           >
             <PencilLine className="w-4 h-4" />
@@ -94,7 +97,7 @@ export function ItemContextMenu({
         )}
         <ContextMenuItem 
           onClick={onCut} 
-          disabled={isSystemFolder}
+          disabled={isMutationDisabled}
           className="gap-2"
         >
           <Scissors className="w-4 h-4" />
@@ -102,7 +105,7 @@ export function ItemContextMenu({
         </ContextMenuItem>
         <ContextMenuItem 
           onClick={onPaste}
-          disabled={!canPaste}
+          disabled={!canPaste || isLocked}
           className="gap-2"
         >
           <ClipboardPaste className="w-4 h-4" />
@@ -123,7 +126,7 @@ export function ItemContextMenu({
         <ContextMenuSeparator />
         <ContextMenuItem 
           onClick={onDelete}
-          disabled={isSystemFolder}
+          disabled={isMutationDisabled}
           className="gap-2 text-destructive focus:text-destructive"
         >
           <Trash2 className="w-4 h-4 text-red-500" />
@@ -140,6 +143,7 @@ interface GridContextMenuProps {
   onPaste: () => void;
   onCreateFolder: () => void;
   canPaste: boolean;
+  isLocked?: boolean;
 }
 
 /**
@@ -151,6 +155,7 @@ export function GridContextMenu({
   onPaste,
   onCreateFolder,
   canPaste,
+  isLocked = false,
 }: GridContextMenuProps) {
   return (
     <ContextMenu>
@@ -167,13 +172,17 @@ export function GridContextMenu({
         <ContextMenuSeparator />
         <ContextMenuItem 
           onClick={onPaste}
-          disabled={!canPaste}
+          disabled={!canPaste || isLocked}
           className="gap-2"
         >
           <ClipboardPaste className="w-4 h-4" />
           Paste
         </ContextMenuItem>
-        <ContextMenuItem onClick={onCreateFolder} className="gap-2">
+        <ContextMenuItem 
+          onClick={onCreateFolder} 
+          disabled={isLocked}
+          className="gap-2"
+        >
           <FolderPlus className="w-4 h-4" />
           Create Folder
         </ContextMenuItem>

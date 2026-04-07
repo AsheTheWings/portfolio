@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, memo, useEffect } from 'react';
-import Image from 'next/image';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Check, X, AlertCircle, RefreshCw, FileText } from 'lucide-react';
 import type { Asset } from '../types';
@@ -38,7 +38,7 @@ function AssetCardComponent({
 }: AssetCardProps) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [imageSrc, setImageSrc] = useState<string>('');
-  const [useUnoptimized, setUseUnoptimized] = useState(false);
+
 
   // Determine file type from either asset or uploading file
   const getFileType = (): 'image' | 'video' | 'document' => {
@@ -191,14 +191,9 @@ function AssetCardComponent({
   };
 
   const handleImageError = () => {
-    if (!useUnoptimized) {
-      setUseUnoptimized(true);
-      return;
-    }
     if (!imageSrc && asset.thumbnailUrl && asset.url && asset.thumbnailUrl !== asset.url && !isVideo) {
       // Only try fallback for images, not videos
       setImageSrc(asset.url);
-      setUseUnoptimized(false);
       return;
     }
     setStatus('error');
@@ -236,16 +231,14 @@ function AssetCardComponent({
         </div>
       )}
 
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={getImageSrc()}
         alt={asset.altText || asset.fileName}
         className={`
-          w-full h-full object-cover transition-opacity duration-300 pointer-events-none
+          absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none
           ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}
         `}
-        fill
-        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 20vw, 15vw"
-        unoptimized={useUnoptimized}
         loading="lazy"
         draggable={false}
         onLoad={() => setStatus('loaded')}

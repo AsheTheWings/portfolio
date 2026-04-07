@@ -12,7 +12,7 @@ import { AgentHome } from './AgentHome';
 import { verifyToken, getTokenCookie } from '@/features/authentication/lib/cookies';
 import { fetchAgentServerData } from '@/features/agent/lib/server-data';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SESSION_ID_RE = /^[A-Za-z0-9_-]{16,36}$/;
 
 export default async function Home() {
   const payload = await verifyToken();
@@ -21,7 +21,7 @@ export default async function Home() {
   if (payload) {
     const cookieStore = await cookies();
     const lastSessionId = cookieStore.get('timeline_last_session')?.value;
-    if (lastSessionId && UUID_RE.test(lastSessionId)) {
+    if (lastSessionId && SESSION_ID_RE.test(lastSessionId)) {
       redirect(`/${lastSessionId}`);
     }
   }

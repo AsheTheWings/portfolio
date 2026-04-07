@@ -160,7 +160,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ currentSessionId });
   },
 
-  setAgentConfig: (agentConfig) => {
+  setAgentConfig: (agentConfigOrUpdater) => {
+    // Resolve functional updater
+    const agentConfig = typeof agentConfigOrUpdater === 'function'
+      ? agentConfigOrUpdater(get().agentConfig)
+      : agentConfigOrUpdater;
+
     if (!agentConfig) {
       set({ agentConfig: null });
       return;

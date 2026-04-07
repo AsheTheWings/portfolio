@@ -240,6 +240,13 @@ export function Library({
   const allFolders = useLibraryStore((state) => state.allFolders);
   const toggleSelection = useLibraryStore((state) => state.toggleSelection);
 
+  // Derive locked state of current folder
+  const currentFolderIsLocked = React.useMemo(() => {
+    if (!currentFolderId) return false;
+    const folder = allFolders.find((f) => f.id === currentFolderId);
+    return folder?.isLocked === true;
+  }, [currentFolderId, allFolders]);
+
   // Grid columns for keyboard navigation
   const { columns: gridColumns } = useGridColumns();
   
@@ -492,6 +499,7 @@ export function Library({
               isSystemFolder={folder.isSystem}
               isFolder
               isMultiSelection={selectedIds.size > 1 && selectedIds.has(folder.id)}
+              isLocked={folder.isLocked || currentFolderIsLocked}
             >
               {children}
             </ItemContextMenu>
@@ -516,6 +524,7 @@ export function Library({
               canPaste={canPaste}
               itemPath={asset.storagePath}
               isMultiSelection={selectedIds.size > 1}
+              isLocked={currentFolderIsLocked}
             >
               {children}
             </ItemContextMenu>
@@ -587,6 +596,7 @@ export function Library({
             onPaste={() => handlePaste()}
             onCreateFolder={() => handlers.setShowCreateFolderDialog(true)}
             canPaste={canPaste}
+            isLocked={currentFolderIsLocked}
           >
             {gridContent}
           </GridContextMenu>

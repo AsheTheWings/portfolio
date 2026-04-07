@@ -20,6 +20,7 @@ import { SideBySideInterface } from './SideBySideInterface';
 import { BackgroundJobInterface } from './BackgroundJobInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
+import { AgentsHub } from './AgentsHub';
 import type { AgentSessionComponent, Tool, WorkflowSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
@@ -107,6 +108,9 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   
   // Separate input state for each interface to preserve on mode switch
   const [sideBySideInput, setSideBySideInput] = useState('');
+  
+  // Agents Hub overlay
+  const [showAgentsHub, setShowAgentsHub] = useState(false);
   
   // Preserve scroll positions for each interface (like browser back/forward)
   const scrollPositions = useRef<{ chat: number; 'side-by-side': number }>({
@@ -308,11 +312,17 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
         onAgentConfigClick={handleConfigurationsClick}
         onHistoryClick={handleHistoryClick}
         onConfigClick={handleSettingsClick}
+        onAgentsHubClick={() => setShowAgentsHub((v) => !v)}
         isProcessing={isProcessing}
         uiMode={uiMode}
       />
 
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col relative">
+        {/* Agents Hub overlay */}
+        {showAgentsHub && (
+          <AgentsHub onClose={() => setShowAgentsHub(false)} />
+        )}
+
         {/* Conditional rendering based on background job mode */}
         {showBackgroundJobUI && selectedJobId ? (
           <BackgroundJobInterface jobId={selectedJobId} onBack={() => selectJob(null)} />

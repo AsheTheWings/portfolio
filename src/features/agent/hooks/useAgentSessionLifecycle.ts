@@ -138,6 +138,12 @@ export function useAgentSessionLifecycle() {
       store.selectJob(null);
       store.setConversationStatus('healthy');
       store.setError(null);
+      // Strip agent identity so the next session starts fresh (keeps model/config settings)
+      store.setAgentConfig((prev) => {
+        if (!prev?.agentIdentity) return prev;
+        const { agentIdentity: _, ...rest } = prev;
+        return rest as typeof prev;
+      });
       saveCurrentAgentSessionId(null);
       console.log('[SessionLifecycle] clearAgentSession() complete — store reset');
     },

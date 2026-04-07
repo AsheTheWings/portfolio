@@ -15,7 +15,7 @@ import { useAgentConnection } from './useAgentConnection';
 import { saveCurrentAgentSessionId } from '../utils/agent-storage';
 import type { WireAgentSessionEvent } from '../types/protocol';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SESSION_ID_RE = /^[A-Za-z0-9_-]{16,36}$/;
 
 interface UseAgentSessionRoutingOptions {
   /** Session ID from URL (undefined if on base route) */
@@ -60,7 +60,7 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
     const resolveSession = async () => {
       if (urlSessionId) {
         // Validate UUID format — non-UUID paths should not trigger session load
-        if (!UUID_RE.test(urlSessionId)) {
+        if (!SESSION_ID_RE.test(urlSessionId)) {
           navigateToAgentSession(null);
           return;
         }

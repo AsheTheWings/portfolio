@@ -112,3 +112,72 @@ export async function translateText(
   const data = await json<{ translatedText: string }>(res);
   return data.translatedText;
 }
+
+// ============================================================
+// Agents (Saved Agent Presets)
+// ============================================================
+
+export interface SavedAgent {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  avatarImage: string | null;
+  color: string | null;
+  agentConfig: AgentConfig;
+  isPublic: boolean;
+  isConfigurable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchAgents(): Promise<SavedAgent[]> {
+  const res = await fetch(`${BASE}/agents`, { credentials: 'include' });
+  const data = await json<{ agents: SavedAgent[] }>(res);
+  return data.agents;
+}
+
+export async function fetchAgent(agentId: string): Promise<SavedAgent> {
+  const res = await fetch(`${BASE}/agents/${agentId}`, { credentials: 'include' });
+  const data = await json<{ agent: SavedAgent }>(res);
+  return data.agent;
+}
+
+export async function createAgent(data: {
+  name: string;
+  description?: string;
+  agentConfig: AgentConfig;
+  isPublic?: boolean;
+  isConfigurable?: boolean;
+}): Promise<SavedAgent> {
+  const res = await fetch(`${BASE}/agents`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const result = await json<{ agent: SavedAgent }>(res);
+  return result.agent;
+}
+
+export async function updateAgent(
+  agentId: string,
+  updates: { name?: string; description?: string; isPublic?: boolean; isConfigurable?: boolean },
+): Promise<SavedAgent> {
+  const res = await fetch(`${BASE}/agents/${agentId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  const result = await json<{ agent: SavedAgent }>(res);
+  return result.agent;
+}
+
+export async function deleteAgent(agentId: string): Promise<void> {
+  const res = await fetch(`${BASE}/agents/${agentId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  await json<{ success: boolean }>(res);
+}

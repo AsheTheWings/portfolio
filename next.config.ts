@@ -4,21 +4,7 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001";
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-        pathname: '/storage/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.asheservices.online',
-      },
-      {
-        protocol: 'https',
-        hostname: 'img.asheservices.online',
-      },
-    ],
+    unoptimized: true,
   },
   async rewrites() {
     return [

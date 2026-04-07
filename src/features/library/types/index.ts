@@ -17,6 +17,7 @@ export interface Folder {
   path: string;
   depth: number;
   isSystem: boolean;
+  isLocked: boolean;
   assetsCount: number;
   createdAt: string;
   updatedAt: string;

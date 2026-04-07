@@ -182,7 +182,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
 
     // Auto-expand and focus when user starts typing while collapsed
     // The textarea is always in the DOM (sr-only when collapsed),
-    // so we just need to detect the first keystroke and expand.
+    // so we detect the first keystroke, expand, and inject the character.
     useEffect(() => {
       if (!isCollapsed) return;
       
@@ -193,11 +193,20 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
         // Any printable key or Enter: expand and focus the (already-rendered) textarea
         if (e.key.length === 1 || (e.key === 'Enter' && !e.shiftKey)) {
           if (e.key === 'Enter') e.preventDefault();
+          
+          // Capture the character — it won't reach the textarea natively
+          // because keydown was dispatched to window, not the textarea
+          const char = e.key.length === 1 ? e.key : '';
+          
           setIsManuallyExpanded(true);
-          // Focus immediately — textarea is already in the DOM
-          if (ref && typeof ref !== 'function' && ref.current) {
-            ref.current.focus();
-          }
+          
+          // Inject character and focus after React re-renders the visible textarea
+          requestAnimationFrame(() => {
+            if (ref && typeof ref !== 'function' && ref.current) {
+              if (char) ref.current.setValue(char);
+              ref.current.focus();
+            }
+          });
         }
       };
       

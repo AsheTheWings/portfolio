@@ -5,7 +5,7 @@
  */
 
 import { memo, MouseEvent } from 'react';
-import { Folder, Home, X } from 'lucide-react';
+import { Folder, Home, X, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Folder as FolderType } from '../types';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,7 @@ export const FolderCard = memo(function FolderCard({
 }: FolderCardProps) {
   const isPickerMode = mode === 'picker';
   const isHome = folder.isSystem && folder.name === 'home';
+  const isLocked = folder.isLocked === true;
   const isUploading = uploadProgress && uploadProgress.total > uploadProgress.completed;
   // Use completed/total as percentage
   const completionPercent = uploadProgress ? Math.round((uploadProgress.completed / uploadProgress.total) * 100) : 0;
@@ -96,6 +97,13 @@ export const FolderCard = memo(function FolderCard({
         <span className="text-[10px] text-muted-foreground mt-0.5">
           Default
         </span>
+      )}
+
+      {/* Lock indicator */}
+      {isLocked && (
+        <div className="absolute top-2 right-2 text-muted-foreground">
+          <Lock className="w-3.5 h-3.5" />
+        </div>
       )}
 
       {/* Upload progress indicator */}

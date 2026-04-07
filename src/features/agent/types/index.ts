@@ -98,8 +98,18 @@ export interface ModelSpec {
   supportsStreaming?: boolean;
 }
 
+// Identity of the saved agent the session is based on
+export interface AgentIdentity {
+  id: string;
+  isOwner: boolean;
+  isConfigurable: boolean;
+}
+
 // Agent configuration (per-call settings)
 export interface AgentConfig {
+  // Agent reference (when using a saved agent)
+  agentIdentity?: AgentIdentity;
+  
   // Provider and model selection
   provider: string;
   model: string;
@@ -604,7 +614,7 @@ export interface AgentState {
 
   // Session management
   setCurrentAgentSessionId: (sessionId: string | null) => void;
-  setAgentConfig: (config: AgentConfig | null) => void;
+  setAgentConfig: (config: AgentConfig | null | ((prev: AgentConfig | null) => AgentConfig | null)) => void;
   
   // Tool management
   setToolsPool: (tools: Tool[]) => void;

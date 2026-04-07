@@ -2,6 +2,7 @@
 
 /**
  * Quick Access Header - Agent playground header with session info and controls
+ * Shows selected agent name + avatar when an agent is active, otherwise session info.
  * Self-contained: gets uiMode from store
  */
 
@@ -9,6 +10,7 @@ import { Switch } from '@/features/shared/components/shadcn/switch';
 import { Toggle } from '@/features/shared/components/shadcn/toggle';
 import { AgentSessionPopover } from './AgentSessionPopover';
 import { useAgent } from '../hooks/useAgent';
+import { useAgentsQuery } from '../hooks/useAgentsQuery';
 
 export function QuickAccessHeader() {
   const {
@@ -22,15 +24,23 @@ export function QuickAccessHeader() {
     uiMode,
     setUiMode,
   } = useAgent();
+
+  const { agents } = useAgentsQuery();
+  const selectedAgent = agentConfig?.agentIdentity?.id
+    ? agents.find((a) => a.id === agentConfig.agentIdentity!.id) ?? null
+    : null;
   
   return (
-    <div className="h-[36px] z-10 flex items-center justify-start gap-8 px-6">
-      {/* Session Information */}
-      <AgentSessionPopover
-        sessionId={currentSessionId || undefined}
-        persistAgentSession={persistAgentSession}
-        ephemeral={ephemeral}
-      />
+    <div className="h-[42px] z-10 flex items-center justify-start gap-8 px-6">
+      {/* Agent identity or session info — fixed width slot */}
+      <div className="w-[140px] flex-shrink-0">
+        <AgentSessionPopover
+          sessionId={currentSessionId || undefined}
+          persistAgentSession={persistAgentSession}
+          ephemeral={ephemeral}
+          selectedAgent={selectedAgent}
+        />
+      </div>
 
       {/* Flags Section */}
       <div className="flex items-center gap-4">
