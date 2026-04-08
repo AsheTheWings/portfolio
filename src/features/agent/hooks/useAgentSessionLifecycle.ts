@@ -69,6 +69,18 @@ export function useAgentSessionLifecycle() {
         store.hydrateFromEvents(events);
         console.log('[SessionLifecycle] hydration complete, components:', useAgentStore.getState().sessionComponents.length);
 
+        // Restore agents from the last user-turn-completed event
+        const lastUserTurn = [...events].reverse().find(e => e.type === 'user-turn-completed');
+        if (lastUserTurn) {
+          const data = lastUserTurn.data as { agents?: import('../types').Agent[] };
+          console.log('[SessionLifecycle] last user-turn-completed agents:', data.agents?.map(a => a.agentId));
+          if (data.agents && data.agents.length > 0) {
+            store.setAgents(data.agents);
+          }
+        } else {
+          console.log('[SessionLifecycle] no user-turn-completed event found — keeping current agents');
+        }
+
         // Extract user messages for history navigation
         const userMessages = events
           .filter((e) => e.type === 'user-turn-completed' && (e.data as { message?: string }).message)
@@ -138,14 +150,9 @@ export function useAgentSessionLifecycle() {
       store.selectJob(null);
       store.setConversationStatus('healthy');
       store.setError(null);
-      // Strip agent identity so the next session starts fresh (keeps model/config settings)
-      store.setAgentConfig((prev) => {
-        if (!prev?.agentIdentity) return prev;
-        const { agentIdentity: _, ...rest } = prev;
-        return rest as typeof prev;
-      });
+      // Preserve agents in store and localStorage — user keeps their agent setup for next session
       saveCurrentAgentSessionId(null);
-      console.log('[SessionLifecycle] clearAgentSession() complete — store reset');
+      console.log('[SessionLifecycle] clearAgentSession() complete — store reset (agents preserved)');
     },
     [send]
   );

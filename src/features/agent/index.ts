@@ -7,6 +7,7 @@
 
 export * from './types';
 export { useAgent } from './hooks/useAgent';
+export { useAcquiredAgentsQuery } from './hooks/useAcquiredAgentsQuery';
 export { McpClient } from './lib/mcp-client';
 
 // UI components (can be used standalone or inline)
@@ -14,7 +15,7 @@ export { AgentPlayground } from './components/AgentPlayground';
 export { ChatInterface } from './components/ChatInterface';
 export { SideBySideInterface } from './components/SideBySideInterface';
 export { ToolsBar } from './components/ToolsBar';
-export { AgentConfigPanel } from './components/AgentConfigPanel';
+export { AgentsConfigPanel } from './components/AgentsConfigPanel';
 export { SettingsPanel } from './components/SettingsPanel';
 export { HistoryPanel } from './components/HistoryPanel';
 
@@ -29,4 +30,4 @@ export { useHydrateStore } from './hooks/useHydrateStore';
 
 // Configuration utilities
 export { loadMcpConfig, saveMcpConfig, loadToolPreferences, saveToolPreferences, getDefaultMcpConfig } from './utils/mcp-config';
-export { loadAgentConfig, saveAgentConfig, clearAgentConfig, saveCurrentAgentSessionId } from './utils/agent-storage';
+export { loadAgents, saveAgents, clearAgents, saveCurrentAgentSessionId } from './utils/agent-storage';

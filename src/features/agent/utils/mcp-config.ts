@@ -5,8 +5,8 @@
 
 import type { McpConfig } from '../types';
 
-const MCP_CONFIG_KEY = 'timeline:mcp:config';
-const TOOL_PREFERENCES_KEY = 'timeline:tools:preferences';
+const MCP_CONFIG_KEY = 'timeline:agent:mcpConfig';
+const TOOL_PREFERENCES_KEY = 'timeline:agent:toolPreferences';
 
 /**
  * Default MCP configuration

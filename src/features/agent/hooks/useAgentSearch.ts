@@ -1,0 +1,35 @@
+'use client';
+
+/**
+ * useAgentSearch — Lazy SWR hook for discovering agents by name/description.
+ *
+ * Searches owned + public agents via the backend search endpoint.
+ * Only fetches when a non-empty query is provided (lazy activation).
+ * Used by AgentsHub for the search/discovery feature.
+ */
+
+import useSWR from 'swr';
+import { searchAgents } from '../lib/agent-api';
+import type { SavedAgent } from '../types';
+
+function buildKey(query: string | null): string | null {
+  if (!query || query.trim().length === 0) return null;
+  return `/api/agent/agents/search?q=${encodeURIComponent(query.trim())}`;
+}
+
+export function useAgentSearch(query: string | null) {
+  const { data: results = [], error, isLoading, isValidating } = useSWR<SavedAgent[]>(
+    buildKey(query),
+    () => searchAgents(query!.trim()),
+    {
+      dedupingInterval: 1_000,
+      keepPreviousData: true,
+    },
+  );
+
+  return {
+    results,
+    error: error?.message ?? null,
+    isSearching: isLoading || isValidating,
+  };
+}

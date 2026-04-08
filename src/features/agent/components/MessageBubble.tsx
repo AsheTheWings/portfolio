@@ -12,7 +12,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 import { MentionHighlightedText } from './MentionHighlightedText';
-import { useControls } from '../contexts/AgentSessionComponentContext';
+import { useAgentSessionComponent } from '../contexts/AgentSessionComponentContext';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
 import { JobActionBar } from '../tools/agent-job/JobActionBar';
 import { useAgentStore } from '../stores/useAgentStore';
@@ -29,7 +29,7 @@ export const MessageBubble = React.memo(function MessageBubble() {
     editingData,
     onUpdateEditingData,
     onSubmitEdit,
-  } = useControls();
+  } = useAgentSessionComponent();
   
   // Translation state
   const activeLanguage = useAgentStore((s) => s.activeTranslations[id]);

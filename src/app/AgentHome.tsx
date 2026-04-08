@@ -23,7 +23,7 @@ interface AgentHomeProps {
 }
 
 export function AgentHome({ initialUser, initialTools, initialWorkflows, initialEvents }: AgentHomeProps) {
-  const { user, isAuthenticated, setUser } = useAuthStore();
+  const { user, isAuthenticated, _hydrated, setUser } = useAuthStore();
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
 
@@ -34,8 +34,10 @@ export function AgentHome({ initialUser, initialTools, initialWorkflows, initial
     }
   }, [initialUser, user, setUser]);
 
-  const effectiveUser = user ?? initialUser;
-  const effectiveAuth = isAuthenticated || !!initialUser;
+  // Once the store has been hydrated (setUser called), it's authoritative.
+  // This ensures logout() immediately deauths even if stale SSR initialUser is still in props.
+  const effectiveUser = _hydrated ? user : (user ?? initialUser);
+  const effectiveAuth = _hydrated ? isAuthenticated : (isAuthenticated || !!initialUser);
 
   if (!effectiveAuth || !effectiveUser) {
     return <AuthGate />;

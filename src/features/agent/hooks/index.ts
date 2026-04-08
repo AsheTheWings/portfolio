@@ -8,3 +8,5 @@ export { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
 export { useAgentSessionMetadata } from './useAgentSessionMetadata';
 export { useWsEventIngestion } from './useWsEventIngestion';
 export { useAgentConnection } from './useAgentConnection';
+export { useAcquiredAgentsQuery, revalidateAcquiredAgents } from './useAcquiredAgentsQuery';
+export { useAgentSearch } from './useAgentSearch';

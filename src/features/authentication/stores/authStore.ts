@@ -10,6 +10,7 @@ import type { UserPublic } from '../types';
 interface AuthState {
   user: UserPublic | null;
   isAuthenticated: boolean;
+  _hydrated: boolean;
   
   // Actions
   setUser: (user: UserPublic | null) => void;
@@ -21,10 +22,11 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
+      _hydrated: false,
 
       setUser: (user) =>
         set(
-          { user, isAuthenticated: !!user },
+          { user, isAuthenticated: !!user, _hydrated: true },
           false,
           'auth/setUser'
         ),

@@ -49,9 +49,5 @@ export function useAgentSessionComponent(): AgentSessionComponentContextValue {
   return context;
 }
 
-// Backward compat aliases (to be removed)
-export const ControlsContext = AgentSessionComponentContext;
-export const useControls = useAgentSessionComponent;
-
 export { AgentSessionComponentContext };
 export type { AgentSessionComponentContextValue };

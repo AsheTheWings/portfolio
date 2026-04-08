@@ -10,7 +10,7 @@
 
 import React from 'react';
 import type { AgentSessionComponent, RenderContext } from '../types';
-import { AgentConfigPanel } from './AgentConfigPanel';
+import { AgentsConfigPanel } from './AgentsConfigPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { HistoryPanel } from './HistoryPanel';
 import { AssetPickerPanel } from './AssetPickerPanel';
@@ -176,7 +176,7 @@ function resolveSystemPanel(
   let panelContent: React.ReactNode;
   switch (type) {
     case 'config-panel':
-      panelContent = <AgentConfigPanel />;
+      panelContent = <AgentsConfigPanel />;
       break;
     case 'settings-panel':
       panelContent = <SettingsPanel />;

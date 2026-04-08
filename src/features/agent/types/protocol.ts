@@ -7,7 +7,7 @@
  * frontend types (AgentSessionEvent, AgentSessionComponent, etc.).
  */
 
-import type { AgentConfig, AgentMetadata } from './index';
+import type { Agent, AgentMetadata } from './index';
 
 // ============================================================
 // Wire Event (JSON-serialized AgentSessionEvent from backend)
@@ -58,7 +58,7 @@ export interface WsUserMessageMessage {
   sessionId?: string;
   data: {
     message: string;
-    agentConfig?: AgentConfig;
+    agents: Agent[];             // Ordered agent configs, [0] = active
     libraryItemIds?: string[];
     metadata?: Record<string, unknown>;
   };

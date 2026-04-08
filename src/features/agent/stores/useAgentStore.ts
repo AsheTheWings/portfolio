@@ -10,10 +10,13 @@ import type {
   AgentState,
   AgentSessionComponent,
   AgentSessionEvent,
+  Agent,
+  AgentConfig,
+  SavedAgent,
 } from '../types';
-import { createDefaultAgentConfig, getModelSpec, hasCapability } from '../services/models-registry';
+import { createDefaultAgentConfig, getModelSpec, hasCapability, createAssistantAgent } from '../services/models-registry';
 import { ModelCapability } from '../types';
-import { saveAgentConfig } from '../utils/agent-storage';
+import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents } from '../utils/toAgentSessionComponent';
 
 /**
@@ -72,9 +75,50 @@ function mergeComponent(
   };
 }
 
+/**
+ * Enforce business rules on agent config to maintain invariants.
+ * Extracted from setAgentConfig for reuse by multi-agent actions.
+ */
+function enforceConfigInvariants(
+  config: AgentConfig, 
+  currentConfig: AgentConfig | null, 
+  toolsPool: import('../types').Tool[]
+): AgentConfig {
+  const finalConfig = { ...config };
+  
+  // Rule 1: If model doesn't support thinking, disable enableThinking
+  const supportsThinking = hasCapability(finalConfig.model, ModelCapability.THINKING);
+  if (!supportsThinking) {
+    finalConfig.enableThinking = false;
+  }
+  
+  // Rule 2: includeThoughtsInResponse requires enableThinking
+  if (!finalConfig.enableThinking) {
+    finalConfig.includeThoughtsInResponse = false;
+    finalConfig.includeThoughtsInContext = false;
+  }
+  
+  // Rule 3: Can't combine MCP tools with native tools
+  if (finalConfig.enableTools) {
+    finalConfig.selectedNativeTools = [];
+  }
+  
+  // Rule 4: Auto-populate availableTools when enabling tools
+  if (finalConfig.enableTools && !currentConfig?.enableTools) {
+    finalConfig.availableTools = toolsPool;
+  } else if (!finalConfig.enableTools) {
+    finalConfig.availableTools = [];
+  }
+  
+  return finalConfig;
+}
+
 const initialState = {
   currentSessionId: null as string | null,
-  agentConfig: createDefaultAgentConfig(),
+  agents: [createAssistantAgent()] as Agent[],
+  
+  // Acquired agents library
+  acquiredAgents: {} as Record<string, SavedAgent>,
   
   // Hydration state
   _hydrated: false,
@@ -160,50 +204,119 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ currentSessionId });
   },
 
+  // Acquired agents management
+  setAcquiredAgents: (agents: SavedAgent[]) => {
+    const map: Record<string, SavedAgent> = {};
+    for (const agent of agents) {
+      map[agent.id] = agent;
+    }
+    set({ acquiredAgents: map });
+  },
+
+  getAcquiredAgent: (id: string) => {
+    return get().acquiredAgents[id];
+  },
+
+  // Multi-agent management
+  setAgents: (incoming: Agent[]) => {
+    console.log('[AgentStore] setAgents called', {
+      incomingIds: incoming.map(a => a.agentId),
+      caller: new Error().stack?.split('\n')[2]?.trim(),
+    });
+    // Deduplicate by agentId (keep first occurrence)
+    const seen = new Set<string>();
+    let agents = incoming.filter(a => {
+      if (seen.has(a.agentId)) return false;
+      seen.add(a.agentId);
+      return true;
+    });
+    if (agents.length !== incoming.length) {
+      console.warn('[AgentStore] setAgents deduplicated', {
+        before: incoming.map(a => a.agentId),
+        after: agents.map(a => a.agentId),
+      });
+    }
+    // Invariant: 'none' (assistant) must always be present
+    const hasNone = agents.some(a => a.agentId === 'none');
+    if (!hasNone) {
+      console.log('[AgentStore] setAgents prepending none (was missing)');
+      agents = [createAssistantAgent(), ...agents];
+    }
+    console.log('[AgentStore] setAgents final', agents.map(a => a.agentId));
+    saveAgents(agents);
+    set({ agents });
+  },
+
+  addAgent: (agentId: string, config: AgentConfig) => {
+    const currentAgents = get().agents;
+    if (currentAgents.some(a => a.agentId === agentId)) return;
+    get().setAgents([...currentAgents, { agentId, config }]);
+  },
+
+  removeAgent: (agentId: string) => {
+    if (agentId === 'none') return; // Cannot remove assistant
+    const currentAgents = get().agents;
+    get().setAgents(currentAgents.filter(a => a.agentId !== agentId));
+  },
+
+  toggleAgent: (agentId: string, config: AgentConfig) => {
+    const currentAgents = get().agents;
+    const isPresent = currentAgents.some(a => a.agentId === agentId);
+    if (isPresent) {
+      get().removeAgent(agentId);
+    } else {
+      get().addAgent(agentId, config);
+    }
+  },
+
+  updateFrontAgentConfig: (configOrUpdater) => {
+    const currentAgents = get().agents;
+    if (currentAgents.length === 0) return;
+    
+    const currentConfig = currentAgents[0].config;
+    const rawConfig = typeof configOrUpdater === 'function'
+      ? configOrUpdater(currentConfig)
+      : configOrUpdater;
+    
+    // Enforce business rules
+    const finalConfig = enforceConfigInvariants(rawConfig, currentConfig, get().toolsPool);
+    
+    const updated = [...currentAgents];
+    updated[0] = { ...updated[0], config: finalConfig };
+    saveAgents(updated);
+    set({ agents: updated });
+  },
+
+  setFrontAgent: (agentId: string) => {
+    const currentAgents = get().agents;
+    const idx = currentAgents.findIndex(a => a.agentId === agentId);
+    if (idx <= 0) return; // Already front or not found
+    const updated = [...currentAgents];
+    const [agent] = updated.splice(idx, 1);
+    updated.unshift(agent);
+    saveAgents(updated);
+    set({ agents: updated });
+  },
+
+  /** @deprecated Compat shim — updates agents[0].config */
   setAgentConfig: (agentConfigOrUpdater) => {
-    // Resolve functional updater
+    const currentAgents = get().agents;
+    const currentConfig = currentAgents[0]?.config ?? createDefaultAgentConfig();
+    
     const agentConfig = typeof agentConfigOrUpdater === 'function'
-      ? agentConfigOrUpdater(get().agentConfig)
+      ? agentConfigOrUpdater(currentConfig)
       : agentConfigOrUpdater;
 
-    if (!agentConfig) {
-      set({ agentConfig: null });
-      return;
-    }
+    if (!agentConfig) return;
 
-    // Enforce business rules to maintain config invariants
-    const finalConfig = { ...agentConfig };
-    const currentConfig = get().agentConfig;
-    const toolsPool = get().toolsPool;
+    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool);
     
-    // Rule 1: If model doesn't support thinking, disable enableThinking
-    const supportsThinking = hasCapability(finalConfig.model, ModelCapability.THINKING);
-    if (!supportsThinking) {
-      finalConfig.enableThinking = false;
-    }
+    const updated = currentAgents.length > 0
+      ? [{ ...currentAgents[0], config: finalConfig }, ...currentAgents.slice(1)]
+      : [{ agentId: 'none', config: finalConfig }];
     
-    // Rule 2: includeThoughtsInResponse requires enableThinking
-    if (!finalConfig.enableThinking) {
-      finalConfig.includeThoughtsInResponse = false;
-      finalConfig.includeThoughtsInContext = false;
-    }
-    
-    // Rule 3: Can't combine MCP tools with native tools
-    if (finalConfig.enableTools) {
-      finalConfig.selectedNativeTools = [];
-    }
-    
-    // Rule 4: Auto-populate availableTools when enabling tools
-    if (finalConfig.enableTools && !currentConfig?.enableTools) {
-      finalConfig.availableTools = toolsPool;
-    } else if (!finalConfig.enableTools) {
-      finalConfig.availableTools = [];
-    }
-    
-    // Persist to localStorage
-    saveAgentConfig(finalConfig);
-    
-    set({ agentConfig: finalConfig });
+    saveAgents(updated);
+    set({ agents: updated });
   },
 
   // Tool management

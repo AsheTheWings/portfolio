@@ -14,6 +14,7 @@ import type {
   AgentSessionMetadata,
   AgentConfig,
   ModelSpec,
+  SavedAgent,
 } from '../types';
 
 // ============================================================
@@ -117,20 +118,6 @@ export async function translateText(
 // Agents (Saved Agent Presets)
 // ============================================================
 
-export interface SavedAgent {
-  id: string;
-  userId: string;
-  name: string;
-  description: string | null;
-  avatarImage: string | null;
-  color: string | null;
-  agentConfig: AgentConfig;
-  isPublic: boolean;
-  isConfigurable: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export async function fetchAgents(): Promise<SavedAgent[]> {
   const res = await fetch(`${BASE}/agents`, { credentials: 'include' });
   const data = await json<{ agents: SavedAgent[] }>(res);
@@ -176,6 +163,53 @@ export async function updateAgent(
 
 export async function deleteAgent(agentId: string): Promise<void> {
   const res = await fetch(`${BASE}/agents/${agentId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  await json<{ success: boolean }>(res);
+}
+
+// ============================================================
+// Agent Acquisitions
+// ============================================================
+
+/**
+ * Fetch all acquired agents (owned + explicitly acquired public agents).
+ * Used by session restore and AgentConfigPanel dropdown.
+ */
+export async function fetchAcquiredAgents(): Promise<SavedAgent[]> {
+  const res = await fetch(`${BASE}/agents/acquired`, { credentials: 'include' });
+  const data = await json<{ agents: SavedAgent[] }>(res);
+  return data.agents;
+}
+
+/**
+ * Search agents by name/description (owned + public).
+ * Used for agent discovery in AgentsHub.
+ */
+export async function searchAgents(query: string, limit = 20, offset = 0): Promise<SavedAgent[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) });
+  const res = await fetch(`${BASE}/agents/search?${params}`, { credentials: 'include' });
+  const data = await json<{ agents: SavedAgent[] }>(res);
+  return data.agents;
+}
+
+/**
+ * Acquire (subscribe to) a public agent.
+ */
+export async function acquireAgent(agentId: string): Promise<void> {
+  const res = await fetch(`${BASE}/agents/${agentId}/acquire`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  await json<{ success: boolean }>(res);
+}
+
+/**
+ * Release (unsubscribe from) an acquired agent.
+ */
+export async function releaseAgent(agentId: string): Promise<void> {
+  const res = await fetch(`${BASE}/agents/${agentId}/acquire`, {
     method: 'DELETE',
     credentials: 'include',
   });

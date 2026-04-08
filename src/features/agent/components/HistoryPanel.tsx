@@ -239,7 +239,7 @@ export function HistoryPanel() {
         )}
 
         {!isLoading && !isError && filteredAgentSessions.length === 0 && (
-          <div className="flex justify-center items-center text-center text-xs text-muted-foreground">
+          <div className="flex-1 flex justify-center items-center text-center text-xs text-muted-foreground">
             No sessions found
           </div>
         )}

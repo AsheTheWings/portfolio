@@ -45,14 +45,14 @@ export function useAgentSessionBranching() {
 
     store.cancelEdit();
 
-    const agentConfig = store.agentConfig ?? undefined;
+    const frontConfig = store.agents[0]?.config ?? undefined;
 
     send({
       type: 'edit_component',
       sessionId,
       componentId: editingComponentId,
       updatedData,
-      configOverride: agentConfig as unknown as Record<string, unknown> | undefined,
+      configOverride: frontConfig as unknown as Record<string, unknown> | undefined,
     });
   }, [send]);
 

@@ -14,6 +14,9 @@ export { useAuthStore } from './stores/authStore';
 // Components
 export { AuthGate } from './components/AuthGate';
 
+// Client-side API
+export { logoutUser } from './lib/auth-client';
+
 // Server-side cookie helpers (only import in server components / route handlers)
 export {
   setTokenCookie,

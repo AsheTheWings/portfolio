@@ -10,7 +10,7 @@
  */
 
 import { useCallback } from 'react';
-import type { ToolEffectsEvent, AgentConfig, AgentSessionComponent } from '../types';
+import type { ToolEffectsEvent, AgentSessionComponent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 
 export function useToolEffects() {
@@ -26,20 +26,10 @@ export function useToolEffects() {
 
     // Handle updateConfig effect
     if (toolEffects.updateConfig) {
-      const currentConfig = store.agentConfig || {};
-      const updatedConfig: AgentConfig = {
-        ...currentConfig,
-        ...toolEffects.updateConfig,
-      } as AgentConfig;
-      
-      store.setAgentConfig(updatedConfig);
-
-      // Persist to localStorage
-      try {
-        localStorage.setItem('agentConfig', JSON.stringify(updatedConfig));
-      } catch (err) {
-        console.warn('Failed to persist config to localStorage:', err);
-      }
+      store.updateFrontAgentConfig(prev => ({
+        ...prev,
+        ...toolEffects.updateConfig!,
+      }));
     }
 
     // Handle userActions effect — backend pauses the agent loop;

@@ -12,7 +12,9 @@ import { useAgentCall } from './useAgentCall';
 export function useAgent() {
   // Granular state selectors
   const currentSessionId = useAgentStore((state) => state.currentSessionId);
-  const agentConfig = useAgentStore((state) => state.agentConfig);
+  const agents = useAgentStore((state) => state.agents);
+  // Derived: front agent's config for backward compat
+  const agentConfig = useAgentStore((state) => state.agents[0]?.config ?? null);
   const sessionComponents = useAgentStore((state) => state.sessionComponents);
   const persistAgentSession = useAgentStore((state) => state.persistAgentSession);
   const ephemeral = useAgentStore((state) => state.ephemeral);
@@ -59,6 +61,9 @@ export function useAgent() {
   // Action selectors
   const setCurrentAgentSessionId = useAgentStore((state) => state.setCurrentAgentSessionId);
   const setAgentConfig = useAgentStore((state) => state.setAgentConfig);
+  const setAgents = useAgentStore((state) => state.setAgents);
+  const updateFrontAgentConfig = useAgentStore((state) => state.updateFrontAgentConfig);
+  const setFrontAgent = useAgentStore((state) => state.setFrontAgent);
   const upsertComponent = useAgentStore((state) => state.upsertComponent);
   const clearComponents = useAgentStore((state) => state.clearComponents);
   const removeComponent = useAgentStore((state) => state.removeComponent);
@@ -85,7 +90,13 @@ export function useAgent() {
     currentSessionId,
     setCurrentAgentSessionId,
     
-    // Configuration
+    // Configuration (multi-agent)
+    agents,
+    setAgents,
+    updateFrontAgentConfig,
+    setFrontAgent,
+    
+    // Compat: front agent config
     agentConfig,
     setAgentConfig,
     

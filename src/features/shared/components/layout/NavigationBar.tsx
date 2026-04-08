@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatedThemeToggler } from '@/features/shared/components/shadcn/animated-theme-toggler';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, LogOut } from 'lucide-react';
 
 export interface NavItem {
   href: string;
@@ -21,6 +21,7 @@ export interface PlatformSwitchConfig {
 interface NavigationBarProps {
   items: NavItem[];
   platformSwitch: PlatformSwitchConfig;
+  onLogout?: () => void;
 }
 
 function NavButton({ href, icon, title, active }: { href: string; icon: React.ReactNode; title: string; active: boolean }) {
@@ -50,7 +51,7 @@ function NavButton({ href, icon, title, active }: { href: string; icon: React.Re
   );
 }
 
-export function NavigationBar({ items, platformSwitch }: NavigationBarProps) {
+export function NavigationBar({ items, platformSwitch, onLogout }: NavigationBarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -103,6 +104,28 @@ export function NavigationBar({ items, platformSwitch }: NavigationBarProps) {
           duration={500}
         />
       </div>
+
+      {/* Logout */}
+      {onLogout && (
+        <button
+          onClick={onLogout}
+          className="
+            w-12 h-12 rounded-full
+            bg-surface-1 border border-border-subtle
+            text-muted-foreground hover:text-destructive
+            shadow-depth-md hover:shadow-depth-lg
+            transition-all duration-200
+            flex items-center justify-center
+            group
+            active:scale-95
+          "
+          title="Log out"
+        >
+          <div className="transform transition-transform duration-200 group-hover:scale-110">
+            <LogOut className="w-5 h-5" />
+          </div>
+        </button>
+      )}
     </div>
   );
 }

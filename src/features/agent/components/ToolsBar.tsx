@@ -9,7 +9,6 @@
 import React from 'react';
 import IconSend from '@/features/shared/icons/IconSend';
 import { useUserInput } from '../hooks/useUserInput';
-import { useAgentStore } from '../stores/useAgentStore';
 
 interface ToolsBarProps {
   onNewSessionClick?: () => void;
@@ -95,10 +94,6 @@ function AgentsIcon({ className }: { className?: string }) {
 
 export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick, onHistoryClick, onAgentsHubClick, inputValue = '', isProcessing = false, uiMode = 'chat' }: ToolsBarProps) {
   const { submitUserInput } = useUserInput();
-  const isAgentConfigurable = useAgentStore((s) => {
-    const identity = s.agentConfig?.agentIdentity;
-    return !identity || identity.isOwner || identity.isConfigurable;
-  });
   
   const canSend = inputValue.trim().length > 0 && !isProcessing;
   const isSending = isProcessing;
@@ -134,8 +129,7 @@ export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick,
         </div>
       </button>
 
-      {/* Agent Config Button (hidden when non-configurable agent selected) */}
-      {isAgentConfigurable && (
+      {/* Agent Config Button */}
       <button
         onClick={onAgentConfigClick}
         className="
@@ -154,7 +148,6 @@ export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick,
           <SlidersIcon className="w-5 h-5" />
         </div>
       </button>
-      )}
 
       {/* History Button */}
       <button

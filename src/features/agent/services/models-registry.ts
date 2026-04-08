@@ -6,6 +6,7 @@
 
 import type { 
   AgentConfig, 
+  Agent, 
   NativeTool, 
   ModelSpec, 
   ModelCapability 
@@ -535,6 +536,17 @@ export function createDefaultAgentConfig(
     maxConcurrentTools: 5,
     enableWorkflows: true,
     selectedWorkflows: ['agentJob'],
+  };
+}
+
+/**
+ * Create the built-in 'Assistant' agent (agentId: 'none').
+ * Used when no saved agent is selected.
+ */
+export function createAssistantAgent(modelId?: string): Agent {
+  return {
+    agentId: 'none',
+    config: createDefaultAgentConfig(modelId),
   };
 }
 

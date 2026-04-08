@@ -21,22 +21,23 @@ import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
 import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionMetadata } from '../hooks/useAgentSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
-import { createAgent, type SavedAgent } from '../lib/agent-api';
+import { createAgent } from '../lib/agent-api';
+import type { SavedAgent } from '../types';
+import { isLightColor } from '../utils/color';
 
 interface AgentSessionPopoverProps {
   sessionId?: string;
   persistAgentSession?: boolean;
   ephemeral?: boolean;
-  selectedAgent?: SavedAgent | null;
 }
 
 export function AgentSessionPopover({
   sessionId,
   persistAgentSession: propPersistSession = true,
   ephemeral: propEphemeral = false,
-  selectedAgent,
 }: AgentSessionPopoverProps) {
-  const { setPersistAgentSession, setEphemeral } = useAgent();
+  const { setPersistAgentSession, setEphemeral, agents } = useAgent();
+  const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
   const { metadata, updateTitle, updateAgentName, updateTitleLocked } = useAgentSessionMetadata(sessionId);
   
   const [localTitle, setLocalTitle] = useState('');
@@ -85,32 +86,80 @@ export function AgentSessionPopover({
     <Popover modal onOpenChange={(open) => { if (!open) setShowExportForm(false); }}>
       <PopoverTrigger asChild>
         <button className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity cursor-pointer">
-          {selectedAgent ? (
-            <>
-              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 relative" style={{ backgroundColor: selectedAgent.color ?? '#E2E8F0' }}>
-                {selectedAgent.avatarImage ? (
-                  <img
-                    src={selectedAgent.avatarImage}
-                    alt={selectedAgent.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-xs font-semibold" style={{ color: (() => { const hex = (selectedAgent.color ?? '#E2E8F0').replace('#', ''); const lum = (0.299 * parseInt(hex.substring(0, 2), 16) + 0.587 * parseInt(hex.substring(2, 4), 16) + 0.114 * parseInt(hex.substring(4, 6), 16)) / 255; return lum > 0.6 ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)'; })() }}>
-                      {selectedAgent.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <span className="text-xs font-medium text-foreground truncate">
-                {selectedAgent.name}
-              </span>
-            </>
-          ) : (
-            <span className="text-xs text-foreground font-light">
-              Session: {displaySessionId}
-            </span>
-          )}
+          {(() => {
+            // Resolve agent display info
+            const rawAgentInfos = agents.map(a => {
+              if (a.agentId === 'none') {
+                return { name: 'Assistant', color: '#E2E8F0', avatarImage: null as string | null, agentId: a.agentId };
+              }
+              const saved = acquiredAgentsMap[a.agentId];
+              return {
+                name: saved?.name ?? a.agentId,
+                color: saved?.color ?? '#E2E8F0',
+                avatarImage: saved?.avatarImage ?? null,
+                agentId: a.agentId,
+              };
+            });
+
+            // Filter out 'none' agent when it's not the only one
+            const agentInfos = rawAgentInfos.length > 1 
+              ? rawAgentInfos.filter(a => a.agentId !== 'none')
+              : rawAgentInfos;
+
+            const firstName = agentInfos[0]?.name ?? 'Assistant';
+            const othersCount = agentInfos.length - 1;
+            
+            // Build display name: "John", "John and Jane", or "John and 2 others"
+            let displayName: string;
+            if (othersCount === 0) {
+              displayName = firstName;
+            } else if (othersCount === 1) {
+              const secondName = agentInfos[1]?.name ?? 'Assistant';
+              displayName = `${firstName} and ${secondName}`;
+            } else {
+              displayName = `${firstName} and ${othersCount} others`;
+            }
+
+            // Stacked avatars (up to 3)
+            const stackedAgents = agentInfos.slice(0, 3);
+
+            return (
+              <>
+                <div className="flex items-center flex-shrink-0">
+                  {stackedAgents.map((info, i) => {
+                    const textColor = isLightColor(info.color) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
+                    return (
+                      <div
+                        key={i}
+                        className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 relative outline outline-2 outline-background"
+                        style={{
+                          backgroundColor: info.color,
+                          marginLeft: i > 0 ? '-8px' : 0,
+                          zIndex: stackedAgents.length - i,
+                        }}
+                      >
+                        {info.avatarImage ? (
+                          <img src={info.avatarImage} alt={info.name} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span 
+                              className="text-xs font-bold antialiased"
+                              style={{ color: textColor, textRendering: 'optimizeLegibility' }}
+                            >
+                              {info.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <span className="text-xs font-medium text-foreground truncate">
+                  {displayName}
+                </span>
+              </>
+            );
+          })()}
         </button>
       </PopoverTrigger>
       <PopoverContent 
@@ -266,7 +315,7 @@ function ExportAgentForm({ onBack }: { onBack: () => void }) {
   const [isConfigurable, setIsConfigurable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const agentConfig = useAgentStore((s) => s.agentConfig);
+  const agentConfig = useAgentStore((s) => s.agents[0]?.config ?? null);
 
   const handleSave = async () => {
     if (!name.trim() || !agentConfig) return;

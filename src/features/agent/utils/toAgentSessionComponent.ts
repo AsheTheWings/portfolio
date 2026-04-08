@@ -128,6 +128,7 @@ export function toAgentSessionComponents(event: AgentSessionEvent): AgentSession
     hideComponent: !!isBackground && componentType !== 'message',
     data: {
       ...eventData,
+      agentId: event.agentId,
       sessionEvents: [event],
     },
   };

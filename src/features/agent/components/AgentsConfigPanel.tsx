@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
-import { Wrench, ArrowLeft, Pen } from 'lucide-react';
+import { Wrench, ArrowLeft, Pen, ChevronDown, Check } from 'lucide-react';
 import {
   Card,
   CardHeader,
@@ -19,6 +19,13 @@ import {
   Input,
   Textarea,
   Slider,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
@@ -28,6 +35,7 @@ import { createDefaultAgentConfig, MODEL_REGISTRY, getModelSpec, hasCapability }
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { McpConfigCardContent } from './McpConfigCardContent';
+import { isLightColor } from '../utils/color';
 
 export function AgentsConfigPanel() {
   // Store state
@@ -199,8 +207,30 @@ export function AgentsConfigPanel() {
             <div>
               {/* Agent Selection */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                <Label htmlFor="agent-select">Agent</Label>
-                  <div className="flex flex-col gap-1">
+                <Label>Agent</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                        style={{ backgroundColor: acquiredAgent?.color ?? '#E2E8F0' }}
+                      >
+                        {acquiredAgent?.avatarImage ? (
+                          <img src={acquiredAgent.avatarImage} alt={acquiredAgent.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className={`text-[10px] font-semibold ${isLightColor(acquiredAgent?.color ?? '#E2E8F0') ? 'text-gray-900/80' : 'text-white/80'}`}>
+                            {(acquiredAgent?.name ?? 'A').charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <span className="flex-1 text-left truncate">{acquiredAgent?.name ?? 'Assistant'}</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
                     {configurableAgents.map((a) => {
                       const saved = a.agentId !== 'none' ? acquiredAgentsMap[a.agentId] : undefined;
                       const name = saved?.name ?? 'Assistant';
@@ -209,55 +239,64 @@ export function AgentsConfigPanel() {
                       const isActive = a.agentId === frontAgent?.agentId;
 
                       return (
-                        <button
+                        <DropdownMenuItem
                           key={a.agentId}
                           onClick={() => { if (!isActive) setFrontAgent(a.agentId); }}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
-                            isActive
-                              ? 'bg-primary/10 border border-primary/30'
-                              : 'hover:bg-surface-2 border border-transparent'
-                          }`}
+                          className="flex items-center gap-2"
                         >
                           <div
-                            className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                            className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                             style={{ backgroundColor: color }}
                           >
                             {avatarImage ? (
                               <img src={avatarImage} alt={name} className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-xs font-semibold text-white/80">
+                              <span className={`text-[10px] font-semibold ${isLightColor(color) ? 'text-gray-900/80' : 'text-white/80'}`}>
                                 {name.charAt(0).toUpperCase()}
                               </span>
                             )}
                           </div>
-                          <span className={`text-sm truncate ${isActive ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                            {name}
-                          </span>
-                        </button>
+                          <span className="flex-1 truncate">{name}</span>
+                          {isActive && <Check className="w-4 h-4 text-primary" />}
+                        </DropdownMenuItem>
                       );
                     })}
-                  </div>
-                </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
               {/* Model Selection */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
-                <Label htmlFor="model">Model</Label>
-                <select
-                  id="model"
-                  value={config.model}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring [&>option]:bg-background [&>option]:dark:bg-zinc-900 [&>option]:text-foreground [&>option]:dark:text-zinc-200"
-                >
-                  {Object.entries(modelsByProvider).map(([provider, models]) => (
-                    <optgroup key={provider} label={providerLabels[provider] || provider}>
-                      {models.map((model) => (
-                        <option key={model.id} value={model.id} className="bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-200">
-                          {model.displayName || model.id}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <Label>Model</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <span className="flex-1 text-left truncate">{selectedModelSpec?.displayName || config.model}</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-80 overflow-y-auto">
+                    {Object.entries(modelsByProvider).map(([provider, models], idx) => (
+                      <DropdownMenuGroup key={provider}>
+                        {idx > 0 && <DropdownMenuSeparator />}
+                        <DropdownMenuLabel>{providerLabels[provider] || provider}</DropdownMenuLabel>
+                        {models.map((model) => (
+                          <DropdownMenuItem
+                            key={model.id}
+                            onClick={() => handleModelChange(model.id)}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="flex-1 truncate">{model.displayName || model.id}</span>
+                            {config.model === model.id && <Check className="w-4 h-4 text-primary" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <p className="text-xs text-muted-foreground">
                   Max tokens: {selectedModelSpec?.maxTokens?.toLocaleString() || 'Unknown'}
                 </p>

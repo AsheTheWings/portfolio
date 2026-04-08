@@ -8,7 +8,7 @@
  */
 
 import { useAgentStore } from '../stores/useAgentStore';
-import type { AgentSessionEvent, AgentConfig, ToolEffectsData } from '../types';
+import type { AgentSessionEvent, ToolEffectsData } from '../types';
 
 export function processLiveEvent(event: AgentSessionEvent) {
   const store = useAgentStore.getState();
@@ -21,11 +21,10 @@ export function processLiveEvent(event: AgentSessionEvent) {
     const { toolEffects } = event.data as ToolEffectsData;
     if (toolEffects && Object.keys(toolEffects).length > 0) {
       if (toolEffects.updateConfig) {
-        const current = useAgentStore.getState().agentConfig || {};
-        useAgentStore.getState().setAgentConfig({
-          ...current,
+        useAgentStore.getState().updateFrontAgentConfig(prev => ({
+          ...prev,
           ...toolEffects.updateConfig,
-        } as AgentConfig);
+        }));
       }
       if (toolEffects.userActions) {
         useAgentStore.getState().setActiveFeedbackRequest({

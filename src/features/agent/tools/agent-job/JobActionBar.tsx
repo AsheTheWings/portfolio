@@ -8,11 +8,11 @@
  */
 
 import { Eye, Ban } from 'lucide-react';
-import { useControls } from '../../contexts/AgentSessionComponentContext';
+import { useAgentSessionComponent } from '../../contexts/AgentSessionComponentContext';
 import { useJobActions } from './useJobActions';
 
 export function JobActionBar() {
-  const { componentId, data } = useControls();
+  const { componentId, data } = useAgentSessionComponent();
   const { showViewActions, showTerminate, onViewActions, onTerminate } = useJobActions({
     componentId,
     jobId: data.jobId,

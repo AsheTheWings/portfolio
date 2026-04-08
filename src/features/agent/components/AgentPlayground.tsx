@@ -14,6 +14,7 @@ import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { useWsEventIngestion } from '../hooks/useWsEventIngestion';
 import { useAgentConnection } from '../hooks/useAgentConnection';
 import { useAgentStore } from '../stores/useAgentStore';
+import { useAcquiredAgentsQuery } from '../hooks/useAcquiredAgentsQuery';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { ChatInterface } from './ChatInterface';
 import { SideBySideInterface } from './SideBySideInterface';
@@ -39,6 +40,9 @@ interface AgentPlaygroundProps {
 export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialEvents }: AgentPlaygroundProps) {
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
   useHydrateStore({ initialTools, initialWorkflows });
+  
+  // Fetch acquired agents (owned + subscribed) and push into store
+  useAcquiredAgentsQuery();
   
   // Sync session ID between URL, localStorage, and store
   useAgentSessionRouting({ urlSessionId: sessionId, initialEvents });

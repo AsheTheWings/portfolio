@@ -10,7 +10,6 @@ import { Switch } from '@/features/shared/components/shadcn/switch';
 import { Toggle } from '@/features/shared/components/shadcn/toggle';
 import { AgentSessionPopover } from './AgentSessionPopover';
 import { useAgent } from '../hooks/useAgent';
-import { useAgentsQuery } from '../hooks/useAgentsQuery';
 
 export function QuickAccessHeader() {
   const {
@@ -20,25 +19,19 @@ export function QuickAccessHeader() {
     setPersistAgentSession,
     setEphemeral,
     agentConfig,
-    setAgentConfig,
+    updateFrontAgentConfig,
     uiMode,
     setUiMode,
   } = useAgent();
-
-  const { agents } = useAgentsQuery();
-  const selectedAgent = agentConfig?.agentIdentity?.id
-    ? agents.find((a) => a.id === agentConfig.agentIdentity!.id) ?? null
-    : null;
   
   return (
     <div className="h-[42px] z-10 flex items-center justify-start gap-8 px-6">
       {/* Agent identity or session info — fixed width slot */}
-      <div className="w-[140px] flex-shrink-0">
+      <div className="w-[200px] flex-shrink-0">
         <AgentSessionPopover
           sessionId={currentSessionId || undefined}
           persistAgentSession={persistAgentSession}
           ephemeral={ephemeral}
-          selectedAgent={selectedAgent}
         />
       </div>
 
@@ -71,7 +64,7 @@ export function QuickAccessHeader() {
             checked={agentConfig?.stream ?? true}
             onCheckedChange={(checked) => {
               if (agentConfig) {
-                setAgentConfig({ ...agentConfig, stream: checked });
+                updateFrontAgentConfig({ ...agentConfig, stream: checked });
               }
             }}
             aria-label="Toggle streaming mode"
@@ -87,7 +80,7 @@ export function QuickAccessHeader() {
             checked={agentConfig?.includeThoughtsInResponse ?? true}
             onCheckedChange={(checked) => {
               if (agentConfig) {
-                setAgentConfig({ ...agentConfig, includeThoughtsInResponse: checked });
+                updateFrontAgentConfig({ ...agentConfig, includeThoughtsInResponse: checked });
               }
             }}
             aria-label="Toggle thoughts display"

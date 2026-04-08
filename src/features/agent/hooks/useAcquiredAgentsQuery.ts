@@ -1,0 +1,54 @@
+'use client';
+
+/**
+ * useAcquiredAgentsQuery — SWR-based hook for the user's acquired agents.
+ *
+ * Fetches owned + explicitly acquired public agents.
+ * Pushes results into the Zustand store (single source of truth).
+ * Should be called at page level so agents are available on load.
+ */
+
+import useSWR, { mutate as swrMutate } from 'swr';
+import { fetchAcquiredAgents } from '../lib/agent-api';
+import type { SavedAgent } from '../types';
+import { useAgentStore } from '../stores/useAgentStore';
+
+const ACQUIRED_AGENTS_SWR_KEY = '/api/agent/agents/acquired';
+
+/**
+ * Trigger a revalidation of the acquired agents cache.
+ * Call after mutations (acquire, release, delete) to refresh the store.
+ */
+export function revalidateAcquiredAgents(): void {
+  swrMutate(ACQUIRED_AGENTS_SWR_KEY);
+}
+
+async function fetcher(): Promise<SavedAgent[]> {
+  return fetchAcquiredAgents();
+}
+
+export function useAcquiredAgentsQuery() {
+  const setAcquiredAgents = useAgentStore((s) => s.setAcquiredAgents);
+
+  const { data: agents = [], error, isLoading, isValidating, mutate } = useSWR<SavedAgent[]>(
+    ACQUIRED_AGENTS_SWR_KEY,
+    fetcher,
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5_000,
+      keepPreviousData: true,
+      onSuccess: (data) => {
+        setAcquiredAgents(data);
+      },
+    },
+  );
+
+  return {
+    agents,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  };
+}

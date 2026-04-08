@@ -40,7 +40,7 @@ export function useAgentCall() {
       sessionId: store.currentSessionId ?? undefined,
       data: {
         message,
-        agentConfig: store.agentConfig ?? undefined,
+        agents: store.agents.map(a => ({ agentId: a.agentId, config: a.config })),
         libraryItemIds,
       },
     });

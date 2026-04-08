@@ -1,57 +1,69 @@
 /**
  * Agent Configuration Management
- * LocalStorage utilities for AgentConfig persistence
+ * LocalStorage utilities for Agent[] persistence
  */
 
-import type { AgentConfig } from '../types';
-import { createDefaultAgentConfig } from '../services/models-registry';
+import type { Agent } from '../types';
+import { createDefaultAgentConfig, createAssistantAgent } from '../services/models-registry';
 
-const AGENT_CONFIG_KEY = 'timeline:agent:config';
+const AGENTS_KEY = 'timeline:agent:agents';
+
+// ============================================================
+// agents[] persistence
+// ============================================================
 
 /**
- * Load agent config from localStorage
- * Returns default config if not found or invalid
+ * Load agents array from localStorage.
+ * Returns [defaultAgent] if nothing stored.
  */
-export function loadAgentConfig(): AgentConfig {
+export function loadAgents(): Agent[] {
   try {
-    const stored = localStorage.getItem(AGENT_CONFIG_KEY);
-    
-    if (!stored) {
-      return createDefaultAgentConfig();
+    const stored = localStorage.getItem(AGENTS_KEY);
+    if (stored) {
+      const agents = JSON.parse(stored) as Agent[];
+      if (Array.isArray(agents) && agents.length > 0) {
+        // Merge each config with defaults to ensure all fields exist
+        const merged = agents.map(a => ({
+          agentId: a.agentId,
+          config: { ...createDefaultAgentConfig(), ...a.config },
+        }));
+        // Invariant: ensure 'none' (assistant) always exists
+        if (!merged.some(a => a.agentId === 'none')) {
+          console.log('[AgentStorage] loadAgents: prepending none (was missing)', merged.map(a => a.agentId));
+          merged.unshift(createAssistantAgent());
+        }
+        console.log('[AgentStorage] loadAgents:', merged.map(a => a.agentId));
+        return merged;
+      }
     }
 
-    const config = JSON.parse(stored) as AgentConfig;
-    
-    // Merge with defaults to ensure all fields exist
-    return {
-      ...createDefaultAgentConfig(),
-      ...config,
-    };
+    console.log('[AgentStorage] loadAgents: nothing stored, returning default');
+    return [createAssistantAgent()];
   } catch (err) {
-    console.error('Failed to load agent config:', err);
-    return createDefaultAgentConfig();
+    console.error('Failed to load agents:', err);
+    return [createAssistantAgent()];
   }
 }
 
 /**
- * Save agent config to localStorage
+ * Save agents array to localStorage
  */
-export function saveAgentConfig(config: AgentConfig): void {
+export function saveAgents(agents: Agent[]): void {
   try {
-    localStorage.setItem(AGENT_CONFIG_KEY, JSON.stringify(config));
+    localStorage.setItem(AGENTS_KEY, JSON.stringify(agents));
   } catch (err) {
-    console.error('Failed to save agent config:', err);
+    console.error('Failed to save agents:', err);
   }
 }
 
 /**
- * Clear agent config from localStorage
+ * Clear agents from localStorage
  */
-export function clearAgentConfig(): void {
+export function clearAgents(): void {
   try {
-    localStorage.removeItem(AGENT_CONFIG_KEY);
+    localStorage.removeItem(AGENTS_KEY);
   } catch (err) {
-    console.error('Failed to clear agent config:', err);
+    console.error('Failed to clear agents:', err);
   }
 }
 
@@ -64,7 +76,7 @@ export interface UIFlags {
   ephemeral: boolean;
 }
 
-const UI_FLAGS_PREFIX = 'timeline:ui-flags';
+const UI_FLAGS_PREFIX = 'timeline:agent:uiFlags';
 
 /**
  * Load UI flags for a specific interface mode
