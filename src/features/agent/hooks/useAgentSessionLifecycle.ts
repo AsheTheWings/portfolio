@@ -47,7 +47,6 @@ export function useAgentSessionLifecycle() {
 
       try {
         store.setError(null);
-        console.log('[SessionLifecycle] loadAgentSession START', { sessionId: sessionId.slice(0, 8), hasInitialEvents: !!initialEvents });
 
         // 1. Get events FIRST — before clearing store to avoid empty-state flash
         //    (await breaks React's batch, so fetch before any store mutations)
@@ -65,20 +64,15 @@ export function useAgentSessionLifecycle() {
         saveCurrentAgentSessionId(sessionId);
         store.clearActiveFeedbackRequest();
 
-        console.log('[SessionLifecycle] hydrating from', events.length, 'events');
         store.hydrateFromEvents(events);
-        console.log('[SessionLifecycle] hydration complete, components:', useAgentStore.getState().sessionComponents.length);
 
         // Restore agents from the last user-turn-completed event
         const lastUserTurn = [...events].reverse().find(e => e.type === 'user-turn-completed');
         if (lastUserTurn) {
           const data = lastUserTurn.data as { agents?: import('../types').Agent[] };
-          console.log('[SessionLifecycle] last user-turn-completed agents:', data.agents?.map(a => a.agentId));
           if (data.agents && data.agents.length > 0) {
             store.setAgents(data.agents);
           }
-        } else {
-          console.log('[SessionLifecycle] no user-turn-completed event found — keeping current agents');
         }
 
         // Extract user messages for history navigation
@@ -128,8 +122,6 @@ export function useAgentSessionLifecycle() {
       const store = useAgentStore.getState();
       const sessionId = store.currentSessionId;
 
-      console.log(`[SessionLifecycle] clearAgentSession() — sessionId=${sessionId ?? '(none)'} delete=${opts?.delete ?? false}`);
-
       if (sessionId) {
         // Unsubscribe from live events
         send({ type: 'unsubscribe', sessionId });
@@ -151,7 +143,6 @@ export function useAgentSessionLifecycle() {
       store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session
       saveCurrentAgentSessionId(null);
-      console.log('[SessionLifecycle] clearAgentSession() complete — store reset (agents preserved)');
     },
     [send]
   );

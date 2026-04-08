@@ -29,15 +29,12 @@ export function loadAgents(): Agent[] {
         }));
         // Invariant: ensure 'none' (assistant) always exists
         if (!merged.some(a => a.agentId === 'none')) {
-          console.log('[AgentStorage] loadAgents: prepending none (was missing)', merged.map(a => a.agentId));
           merged.unshift(createAssistantAgent());
         }
-        console.log('[AgentStorage] loadAgents:', merged.map(a => a.agentId));
         return merged;
       }
     }
 
-    console.log('[AgentStorage] loadAgents: nothing stored, returning default');
     return [createAssistantAgent()];
   } catch (err) {
     console.error('Failed to load agents:', err);

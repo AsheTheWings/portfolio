@@ -52,12 +52,10 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
   const client = clientRef.current;
 
   useEffect(() => {
-    console.log('[AgentConnection] Provider MOUNT — connecting WS client');
     const unsub = client.onStateChange(setConnectionState);
     client.connect();
 
     return () => {
-      console.log('[AgentConnection] Provider cleanup — disconnecting WS client');
       unsub();
       // Use disconnect() instead of destroy() to survive React Strict Mode
       // double-invoke (mount → cleanup → remount). The client stays alive

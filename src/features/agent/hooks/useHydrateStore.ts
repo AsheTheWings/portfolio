@@ -22,7 +22,6 @@ export function useHydrateStore({ initialTools, initialWorkflows }: HydrateOptio
     if (isHydrated) return;
   
     const savedAgents = loadAgents();
-    console.log('[HydrateStore] loaded agents from storage:', savedAgents.map(a => a.agentId));
     
     // Route through setAgents for invariant enforcement ('none' always present)
     useAgentStore.getState().setAgents(savedAgents);

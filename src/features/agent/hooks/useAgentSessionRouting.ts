@@ -43,7 +43,6 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
   const navigateToAgentSession = useCallback((sessionId: string | null) => {
     const targetPath = sessionId ? `/${sessionId}` : '/';
     if (window.location.pathname !== targetPath) {
-      console.log('[SessionRouting] history.replaceState', { from: window.location.pathname, to: targetPath });
       window.history.replaceState(null, '', targetPath);
     }
   }, []);
@@ -84,7 +83,6 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
           saveCurrentAgentSessionId(urlSessionId);
           lastSyncedSessionRef.current = urlSessionId;
           send({ type: 'subscribe', sessionId: urlSessionId });
-          console.log(`[SessionRouting] Session already loaded — re-subscribing to ${urlSessionId}`);
         }
       }
       // No URL session on base route → server redirect handles this via cookie.
@@ -113,10 +111,8 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
     // When the user sends the next message the backend will create a new session
     // and session_created will update the URL via this same effect.
     if (currentSessionId) {
-      console.log(`[SessionRouting] Navigating to session: ${currentSessionId}`);
       navigateToAgentSession(currentSessionId);
     } else {
-      console.log('[SessionRouting] Navigating to base route (new session)');
       navigateToAgentSession(null);
     }
   }, [currentSessionId, navigateToAgentSession]);

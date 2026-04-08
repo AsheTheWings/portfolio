@@ -215,10 +215,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Multi-agent management
   setAgents: (incoming: Agent[]) => {
-    console.log('[AgentStore] setAgents called', {
-      incomingIds: incoming.map(a => a.agentId),
-      caller: new Error().stack?.split('\n')[2]?.trim(),
-    });
     // Deduplicate by agentId (keep first occurrence)
     const seen = new Set<string>();
     let agents = incoming.filter(a => {
@@ -227,18 +223,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return true;
     });
     if (agents.length !== incoming.length) {
-      console.warn('[AgentStore] setAgents deduplicated', {
-        before: incoming.map(a => a.agentId),
-        after: agents.map(a => a.agentId),
-      });
     }
     // Invariant: 'none' (assistant) must always be present
     const hasNone = agents.some(a => a.agentId === 'none');
     if (!hasNone) {
-      console.log('[AgentStore] setAgents prepending none (was missing)');
       agents = [createAssistantAgent(), ...agents];
     }
-    console.log('[AgentStore] setAgents final', agents.map(a => a.agentId));
     saveAgents(agents);
     set({ agents });
   },

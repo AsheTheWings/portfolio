@@ -75,15 +75,12 @@ export class AgentWsClient {
 
   async connect(): Promise<void> {
     if (this.destroyed) {
-      console.warn('[WS-Client] connect() aborted — client is destroyed');
       return;
     }
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('[WS-Client] connect() skipped — already open/connecting');
       return;
     }
 
-    console.log('[WS-Client] connect() starting — fetching ticket...');
     this.setState('connecting');
 
     const generation = ++this.connectGeneration;
@@ -95,7 +92,6 @@ export class AgentWsClient {
 
       // Abort if disconnect/destroy was called during the fetch
       if (generation !== this.connectGeneration || this.destroyed) {
-        console.log('[WS-Client] connect() aborted after ticket fetch — stale generation or destroyed');
         return;
       }
 
@@ -107,7 +103,6 @@ export class AgentWsClient {
       }
       const data = await res.json();
       ticket = data.ticket;
-      console.log('[WS-Client] connect() ticket obtained — opening WebSocket...');
     } catch (err) {
       if (generation !== this.connectGeneration || this.destroyed) return;
       console.error('[WS-Client] connect() ticket fetch threw:', err);
@@ -120,7 +115,6 @@ export class AgentWsClient {
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
-      console.log(`[WS-Client] WebSocket OPEN — draining ${this.messageQueue.length} queued messages, resubscribing ${this.activeSubscriptions.size} sessions`);
       this.reconnectAttempt = 0;
       this.setState('connected');
       this.drainQueue();
@@ -137,7 +131,6 @@ export class AgentWsClient {
     };
 
     ws.onclose = (event) => {
-      console.log(`[WS-Client] WebSocket CLOSED code=${event.code} reason=${event.reason || '(none)'} destroyed=${this.destroyed} queueLen=${this.messageQueue.length}`);
       this.ws = null;
       if (!this.destroyed && event.code !== 1000) {
         // Unexpected close — reconnect
@@ -166,7 +159,6 @@ export class AgentWsClient {
   }
 
   destroy(): void {
-    console.log(`[WS-Client] destroy() called — queueLen=${this.messageQueue.length} subs=${this.activeSubscriptions.size}`);
     this.destroyed = true;
     this.disconnect();
     this.handlers.clear();
@@ -186,10 +178,8 @@ export class AgentWsClient {
     if (msg.type === 'unsubscribe') this.activeSubscriptions.delete(msg.sessionId);
 
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log(`[WS-Client] SEND ⬆ type=${msg.type} sessionId=${'sessionId' in msg ? msg.sessionId ?? '(none)' : 'N/A'} | ws=OPEN`);
       this.ws.send(JSON.stringify(msg));
     } else {
-      console.warn(`[WS-Client] QUEUED type=${msg.type} sessionId=${'sessionId' in msg ? msg.sessionId ?? '(none)' : 'N/A'} | ws=${this.ws?.readyState ?? 'null'} state=${this.state} destroyed=${this.destroyed} queueLen=${this.messageQueue.length + 1}`);
       this.messageQueue.push(msg);
     }
   }
