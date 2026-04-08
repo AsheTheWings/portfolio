@@ -18,7 +18,7 @@ function ProductivityIcon({ className }: { className?: string }) {
 }
 
 const TIMELINE_NAV_ITEMS: NavItem[] = [
-  { href: '/', icon: <IconAiLab02 size="20" />, title: 'Agent', isActive: (p) => p === '/' || /^\/[a-f0-9-]+$/.test(p) },
+  { href: '/', icon: <IconAiLab02 size="20" />, title: 'Agent', isActive: (p) => p === '/' || /^\/[A-Za-z0-9_-]{16,36}$/.test(p) },
   { href: '/library', icon: <IconLibrary size="20" />, title: 'Library', isActive: (p) => p === '/library' || p.startsWith('/library/') },
   { href: '/productivity', icon: <ProductivityIcon className="w-5 h-5" />, title: 'Productivity', isActive: (p) => p === '/productivity' || p.startsWith('/productivity/') },
 ];

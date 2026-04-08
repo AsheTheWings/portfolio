@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/features/shared";
 import { AuthProvider } from "@/features/authentication";
@@ -22,27 +23,34 @@ export const metadata: Metadata = {
   description: "Multi domain Web platform with agentic capabilities",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read theme from cookie at request time — no flash on SSR
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('timeline_theme')?.value as 'dark' | 'light' | 'system' | undefined;
+  const ssrTheme = themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
+
   return (
-    <html lang="en" suppressHydrationWarning className="h-full overflow-hidden">
+    <html lang="en" suppressHydrationWarning className={`h-full overflow-hidden ${ssrTheme ?? ''}`}>
       <head>
+        {/* Fallback: resolve theme on first visit (no cookie yet) or system preference */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
-                  var theme = localStorage.getItem('timeline_theme') || 'system';
-                  const resolvedTheme = theme === 'system' 
+                  var el = document.documentElement;
+                  if (el.classList.contains('dark') || el.classList.contains('light')) return;
+                  var c = document.cookie.match(/(?:^|;)\\s*timeline_theme=([^;]*)/);
+                  var theme = (c && c[1]) || 'system';
+                  var resolved = theme === 'system'
                     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
                     : theme;
-                  document.documentElement.classList.remove('light', 'dark');
-                  document.documentElement.classList.add(resolvedTheme);
+                  el.classList.add(resolved);
                 } catch (e) {
-                  document.documentElement.classList.remove('light', 'dark');
                   document.documentElement.classList.add('dark');
                 }
               })();

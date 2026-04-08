@@ -37,7 +37,7 @@ function NavButton({ href, icon, title, active }: { href: string; icon: React.Re
           : 'bg-surface-1 border border-border-subtle text-foreground hover:text-foreground'
         }
         shadow-depth-md hover:shadow-depth-lg
-        transition-all duration-200
+        transition-[transform,box-shadow] duration-200
         flex items-center justify-center
         group
         active:scale-95

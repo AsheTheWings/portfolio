@@ -18,7 +18,17 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'timeline_theme';
+const COOKIE_KEY = 'timeline_theme';
+const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year
+
+function setCookie(key: string, value: string) {
+  document.cookie = `${key}=${value};path=/;max-age=${COOKIE_MAX_AGE};samesite=lax`;
+}
+
+function readCookie(key: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
+  return match ? match[1] : null;
+}
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') return 'dark';
@@ -34,16 +44,27 @@ function resolveTheme(theme: Theme): ResolvedTheme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
+    // Initialize from cookie or DOM class to match SSR
+    if (typeof document !== 'undefined') {
+      if (document.documentElement.classList.contains('light')) return 'light';
+      if (document.documentElement.classList.contains('dark')) return 'dark';
+    }
+    return 'dark';
+  });
 
-  // Load theme from localStorage on mount
+  // Load theme from cookie on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    const stored = readCookie(COOKIE_KEY) as Theme | null;
     if (stored && ['dark', 'light', 'system'].includes(stored)) {
       setThemeState(stored);
-      setResolvedTheme(resolveTheme(stored));
+      const resolved = resolveTheme(stored);
+      setResolvedTheme(resolved);
+      setCookie(COOKIE_KEY, resolved);
     } else {
-      setResolvedTheme(getSystemTheme());
+      const systemResolved = getSystemTheme();
+      setResolvedTheme(systemResolved);
+      setCookie(COOKIE_KEY, systemResolved);
     }
   }, []);
 
@@ -53,7 +74,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
-      setResolvedTheme(e.matches ? 'dark' : 'light');
+      const resolved = e.matches ? 'dark' : 'light';
+      setResolvedTheme(resolved);
+      setCookie(COOKIE_KEY, resolved);
     };
 
     mediaQuery.addEventListener('change', handler);
@@ -69,8 +92,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    setResolvedTheme(resolveTheme(newTheme));
-    localStorage.setItem(STORAGE_KEY, newTheme);
+    const resolved = resolveTheme(newTheme);
+    setResolvedTheme(resolved);
+    setCookie(COOKIE_KEY, resolved);
   };
 
   return (

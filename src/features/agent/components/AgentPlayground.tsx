@@ -5,7 +5,7 @@
  * Provides 90vw container, ToolsBar, and UI mode rendering
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
@@ -104,53 +104,8 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   const hasShownInitialConfig = useAgentStore((s) => s._hasShownInitialConfig);
   const markInitialConfigShown = useAgentStore((s) => s.markInitialConfigShown);
   
-  // Separate input state for each interface to preserve on mode switch
-  const [sideBySideInput, setSideBySideInput] = useState('');
-  
   // Agents Hub overlay
   const [showAgentsHub, setShowAgentsHub] = useState(false);
-  
-  // Preserve scroll positions for each interface (like browser back/forward)
-  const scrollPositions = useRef<{ chat: number; 'side-by-side': number }>({
-    chat: 0,
-    'side-by-side': 0,
-  });
-  
-  // Preserve carousel slide position for side-by-side interface
-  const [carouselSlideIndex, setCarouselSlideIndex] = useState<number | null>(null);
-  
-  // Track the previous UI mode to save its scroll before unmounting
-  const prevUiMode = useRef<'chat' | 'side-by-side'>(uiMode);
-  
-  // Save and restore scroll position when UI mode changes
-  useEffect(() => {
-    // Only act when mode actually changed (not on initial mount)
-    const modeChanged = prevUiMode.current !== uiMode;
-    
-    if (modeChanged) {
-      // Save scroll position of the PREVIOUS mode before switching
-      const container = document.querySelector('.interface-scroll-container');
-      if (container) {
-        scrollPositions.current[prevUiMode.current] = container.scrollTop;
-      }
-    }
-    
-    // Update previous mode tracker
-    prevUiMode.current = uiMode;
-    
-    // Skip restore on initial mount — only restore when switching modes
-    if (!modeChanged) return;
-    
-    // Restore scroll position for the NEW mode after animation completes
-    const timer = setTimeout(() => {
-      const newContainer = document.querySelector('.interface-scroll-container');
-      if (newContainer) {
-        newContainer.scrollTop = scrollPositions.current[uiMode];
-      }
-    }, 250); // Wait for animation to complete
-    
-    return () => clearTimeout(timer);
-  }, [uiMode]);
   
   // Show config panel only on first ever load with empty session and no URL session
   // (URL session means we're about to load events — don't flash config panel)
@@ -348,11 +303,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
                   className="flex-1 overflow-hidden"
                 >
-                  <SideBySideInterface 
-                    onInputChange={setSideBySideInput}
-                    initialSlideIndex={carouselSlideIndex}
-                    onSlideIndexChange={setCarouselSlideIndex}
-                  />
+                  <SideBySideInterface />
                 </motion.div>
               )}
             </AnimatePresence>
