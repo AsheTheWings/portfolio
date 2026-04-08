@@ -33,13 +33,6 @@ export function useAgent() {
   const uiMode = useAgentStore((state) => state.uiMode);
   const setUiMode = useAgentStore((state) => state.setUiMode);
   
-  // Background job UI
-  const selectedJobId = useAgentStore((state) => state.selectedJobId);
-  const selectJob = useAgentStore((state) => state.selectJob);
-  const activeJob = useAgentStore((state) => state.activeJob);
-  const setActiveJob = useAgentStore((state) => state.setActiveJob);
-  const getLastComponentByJob = useAgentStore((state) => state.getLastComponentByJob);
-  
   // Editing
   const editingComponentId = useAgentStore((state) => state.editingComponentId);
   const editingData = useAgentStore((state) => state.editingData);
@@ -121,13 +114,6 @@ export function useAgent() {
     // UI mode
     uiMode,
     setUiMode,
-    
-    // Background job UI
-    selectedJobId,
-    selectJob,
-    activeJob,
-    setActiveJob,
-    getLastComponentByJob,
     
     // Editing
     editingComponentId,

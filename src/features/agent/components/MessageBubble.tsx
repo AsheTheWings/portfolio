@@ -14,7 +14,6 @@ import { MarkdownContent } from './MarkdownContent';
 import { MentionHighlightedText } from './MentionHighlightedText';
 import { useAgentSessionComponent } from '../contexts/AgentSessionComponentContext';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
-import { JobActionBar } from '../tools/agent-job/JobActionBar';
 import { useAgentStore } from '../stores/useAgentStore';
 import { parseLibraryPaths } from '../utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@/features/library';
@@ -259,9 +258,6 @@ export const MessageBubble = React.memo(function MessageBubble() {
               />
             </div>
           )}
-          
-          {/* Job action buttons (floating, appears on last component for job) */}
-          <JobActionBar />
         </div>
       )}
     </div>

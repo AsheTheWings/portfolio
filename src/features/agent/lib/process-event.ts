@@ -2,7 +2,7 @@
  * Shared live event processor.
  *
  * Handles a single WS session_event: upserts the component, applies tool
- * effects (config, feedback, active job), and derives conversation status.
+ * effects (config, feedback), and derives conversation status.
  *
  * Used by both useWsEventIngestion (live path) and loadAgentSession (buffer replay).
  */
@@ -32,9 +32,6 @@ export function processLiveEvent(event: AgentSessionEvent) {
           userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
         });
         useAgentStore.getState().setConversationStatus('waitingFeedback');
-      }
-      if (toolEffects.setActiveJob) {
-        useAgentStore.getState().setActiveJob(toolEffects.setActiveJob.job);
       }
     }
   }

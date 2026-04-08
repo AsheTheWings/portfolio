@@ -46,7 +46,6 @@ export function ToolCall() {
   // Derived: executing if we have tool call but no result yet
   const isExecuting = Boolean(server && toolResult === undefined);
   
-  const isBackground = !!(data as { isBackground?: boolean }).isBackground;
   const [isExpanded, setIsExpanded] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,11 +208,10 @@ export function ToolCall() {
   }, [resultContent, isStringResult]);
 
   // Click outside to collapse (allow clicks on all session components and control buttons)
-  // Disabled in background mode - tool calls stay expanded for monitoring
   useChatClickAway(containerRef, {
     mode: 'expansion',
     enabled: isExpanded,
-    disabled: isBackground,
+    disabled: false,
     onClickAway: () => {
       setIsExpanded(false);
     },

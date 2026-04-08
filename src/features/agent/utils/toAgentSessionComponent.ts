@@ -36,15 +36,13 @@ const EVENT_TO_COMPONENT_TYPE: Partial<Record<AgentSessionEvent['type'], AgentSe
 
 /**
  * Get controls for an event type
- * - isBackground: no controls (background components don't show buttons)
  * - Chunks: no controls (still streaming)
  * - Metadata updates (agent-turn-completed, branch): undefined to preserve existing
  * - model-thought-completed: debug only
  * - Message events: full controls + translate
  * - Everything else: full controls (edit, revert, branch, debug)
  */
-function getControls(eventType: AgentSessionEvent['type'], isBackground?: boolean): AgentSessionComponentControls | undefined {
-  if (isBackground) return undefined;
+function getControls(eventType: AgentSessionEvent['type']): AgentSessionComponentControls | undefined {
   if (eventType.includes('-chunk')) return undefined;
   
   // Metadata update events: preserve existing controls
@@ -115,7 +113,6 @@ export function toAgentSessionComponents(event: AgentSessionEvent): AgentSession
   // crosses into the component data bag. All event data fields are declared in
   // AgentSessionComponentData; the assertion bridges the structural mismatch.
   const eventData = event.data as unknown as AgentSessionComponentData;
-  const isBackground = eventData.isBackground;
   const isStreaming = event.type.includes('-chunk');
   
   // Main component for this event
@@ -124,8 +121,7 @@ export function toAgentSessionComponents(event: AgentSessionEvent): AgentSession
     role: getRole(event),
     type: componentType,
     isStreaming,
-    controls: getControls(event.type, isBackground),
-    hideComponent: !!isBackground && componentType !== 'message',
+    controls: getControls(event.type),
     data: {
       ...eventData,
       agentId: event.agentId,

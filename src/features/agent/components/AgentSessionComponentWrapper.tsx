@@ -34,7 +34,7 @@ interface AgentSessionComponentWrapperProps {
   componentRole?: 'user' | 'agent' | 'system';
   componentType?: AgentSessionComponentType;
   
-  // Full data object (includes isBackground, jobId for domain context)
+  // Full data object for domain context
   data: AgentSessionComponent['data'];
   
   // Streaming state

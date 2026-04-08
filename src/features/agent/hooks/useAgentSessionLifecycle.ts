@@ -147,7 +147,6 @@ export function useAgentSessionLifecycle() {
       store.clearComponents();
       store.clearUserMessagesHistory();
       store.clearActiveFeedbackRequest();
-      store.selectJob(null);
       store.setConversationStatus('healthy');
       store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session

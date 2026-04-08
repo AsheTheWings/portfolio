@@ -2,7 +2,7 @@
  * useToolEffects - Process UI-side effects from tool executions
  * 
  * Effect Distribution:
- * - Backend handles: setBackgroundMode, setActiveJob, appendTurnInstructions, activateWorkflow
+ * - Backend handles: appendTurnInstructions, activateWorkflow
  * - UI handles: updateConfig, sessionComponent, userActions
  * 
  * userActions triggers feedback mode via setActiveFeedbackRequest.
@@ -39,11 +39,6 @@ export function useToolEffects() {
         componentId,
         userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
       });
-    }
-
-    // Sync active job to store (Session handles event stamping, store provides UI state)
-    if (toolEffects.setActiveJob) {
-      store.setActiveJob(toolEffects.setActiveJob.job);
     }
 
     // Other session-handled effects (appendTurnInstructions, activateWorkflow)

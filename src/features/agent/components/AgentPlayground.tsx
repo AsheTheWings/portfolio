@@ -18,7 +18,6 @@ import { useAcquiredAgentsQuery } from '../hooks/useAcquiredAgentsQuery';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { ChatInterface } from './ChatInterface';
 import { SideBySideInterface } from './SideBySideInterface';
-import { BackgroundJobInterface } from './BackgroundJobInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
@@ -96,12 +95,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     currentSessionId,
     uiMode,
     setUiMode,
-    selectedJobId,
-    selectJob,
   } = useAgent();
-  
-  // Show BackgroundJobInterface when a job is selected
-  const showBackgroundJobUI = selectedJobId !== null;
   
   // Derive isProcessing from conversationStatus
   const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
@@ -327,11 +321,8 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
           <AgentsHub onClose={() => setShowAgentsHub(false)} />
         )}
 
-        {/* Conditional rendering based on background job mode */}
-        {showBackgroundJobUI && selectedJobId ? (
-          <BackgroundJobInterface jobId={selectedJobId} onBack={() => selectJob(null)} />
-        ) : (
-          <>
+        {/* Conditional rendering based on UI mode */}
+        <>
             {/* Quick Access Header */}
             <QuickAccessHeader />
 
@@ -366,7 +357,6 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
               )}
             </AnimatePresence>
           </>
-        )}
       </div>
     </div>
   );

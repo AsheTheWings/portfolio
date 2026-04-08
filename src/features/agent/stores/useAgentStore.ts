@@ -154,10 +154,6 @@ const initialState = {
   // Feedback mode
   activeFeedbackRequest: null as AgentState['activeFeedbackRequest'],
   
-  // Job UI state
-  selectedJobId: null as string | null,
-  activeJob: null as { jobId: string; title: string } | null,
-  
   // Translation state
   preferredTranslationLanguage: null as string | null,
   translationCache: {} as Record<string, Record<string, string>>,
@@ -470,25 +466,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   clearActiveFeedbackRequest: () => {
     set({ activeFeedbackRequest: null });
-  },
-
-  // Background job UI actions
-  selectJob: (jobId: string | null) => {
-    set({ selectedJobId: jobId });
-  },
-
-  setActiveJob: (job: { jobId: string; title: string } | null) => {
-    set({ activeJob: job });
-  },
-
-  getLastComponentByJob: () => {
-    const map: Record<string, string> = {};
-    for (const c of get().sessionComponents) {
-      if (c.data.jobId && !c.hideComponent) {
-        map[c.data.jobId] = c.id;
-      }
-    }
-    return map;
   },
 
   // Translation actions

@@ -22,12 +22,6 @@ import { AgentSessionComponentWrapper } from './AgentSessionComponentWrapper';
 import { isTextFeedback } from '../utils/toAgentSessionComponent';
 
 // Tool-owned components
-import { 
-  AgentJobCreation, 
-  AgentJobDashboard,
-  AgentJobSummary,
-  AgentJobOperation 
-} from '../tools/agent-job';
 import { SystemCall } from '../tools/system-call';
 
 /**
@@ -48,18 +42,8 @@ export function resolveComponent(
 
   // Mode-specific filtering
   if (context.mode === 'chat' || context.mode === 'sideBySide') {
-    // Foreground mode: exclude hidden components (they go to background job interface)
+    // Foreground mode: exclude hidden components
     if (hideComponent) {
-      return null;
-    }
-  } else if (context.mode === 'backgroundJob-dashboard') {
-    // Dashboard view: only agent-job-dashboard components
-    if (type !== 'agent-job-dashboard' || !hideComponent) {
-      return null;
-    }
-  } else if (context.mode === 'backgroundJob-actions') {
-    // Actions panel: only background tool-call and agent-thoughts
-    if (!hideComponent || !(type === 'agent-thoughts' || type === 'tool-call')) {
       return null;
     }
   }
@@ -71,13 +55,13 @@ export function resolveComponent(
 
   // Early return for thoughts visibility check
   if (type === 'agent-thoughts') {
-    if (!context.includeThoughtsInResponse && context.mode !== 'backgroundJob-actions') {
+    if (!context.includeThoughtsInResponse) {
       return null;
     }
   }
 
   // Determine rendering mode
-  const isChatMode = context.mode === 'chat' || context.mode === 'backgroundJob-actions';
+  const isChatMode = context.mode === 'chat';
   const showControls = isChatMode;
 
   // Resolve child component based on type
@@ -126,18 +110,6 @@ function resolveChild(
 
     case 'system-call':
       return <SystemCall data={data} />;
-
-    case 'agent-job-creation':
-      return <AgentJobCreation data={data as any} />;
-
-    case 'agent-job-dashboard':
-      return <AgentJobDashboard data={data as any} />;
-
-    case 'agent-job-summary':
-      return <AgentJobSummary data={data as any} />;
-
-    case 'agent-job-operation':
-      return <AgentJobOperation data={data as any} />;
 
     case 'tool-call':
       return isChatMode ? (

@@ -49,21 +49,20 @@ export function AgentThoughts({ maxLines = 6 }: AgentThoughtsProps) {
 
   // Auto-collapse when streaming transitions to complete (only if it was auto-expanded)
   useEffect(() => {
-    if (!isStreaming && isExpanded && wasAutoExpanded.current && !hasAutoCollapsed.current && !data.isBackground) {
+    if (!isStreaming && isExpanded && wasAutoExpanded.current && !hasAutoCollapsed.current) {
       hasAutoCollapsed.current = true;
       const timer = setTimeout(() => {
         setIsExpanded(false);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isStreaming, isExpanded, data.isBackground]);
+  }, [isStreaming, isExpanded]);
 
   // Click outside to collapse
-  const isBackground = !!data.isBackground;
   useChatClickAway(containerRef, {
     mode: 'expansion',
     enabled: isExpanded,
-    disabled: isBackground,
+    disabled: false,
     onClickAway: () => {
       setIsExpanded(false);
       wasAutoExpanded.current = false;
@@ -129,7 +128,7 @@ export function AgentThoughts({ maxLines = 6 }: AgentThoughtsProps) {
               scrollbar-inner
             "
             style={{
-              maxHeight: isBackground ? undefined : `${maxLines * 1.5}rem`,
+              maxHeight: `${maxLines * 1.5}rem`,
             }}
           >
           {isStreaming ? (
