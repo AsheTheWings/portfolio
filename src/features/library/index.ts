@@ -80,7 +80,3 @@ export { useLibraryPathBrowser } from './hooks/useLibraryPathBrowser';
 
 // Utils
 export { extractVideoThumbnail, createThumbnailFile } from './utils';
-
-// NOTE: Server-side services (AssetService, FolderService, TagService, StorageService)
-// must be imported directly from their files to avoid bundling server code into client:
-// import { AssetService } from '@/features/library/services/asset.service';

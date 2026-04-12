@@ -2,7 +2,7 @@
 
 /**
  * HTTP Client for Next.js API Routes
- * Auth is handled automatically via HTTP-only cookies (Supabase SSR)
+ * Auth is handled automatically via HTTP-only cookies
  */
 
 const API_URL = '/api';  // Local Next.js API routes
@@ -46,7 +46,7 @@ export class HttpClient {
 
   /**
    * Build headers
-   * Note: Auth is handled automatically via HTTP-only cookies (Supabase SSR)
+   * Note: Auth is handled automatically via HTTP-only cookies
    */
   private getHeaders(): HeadersInit {
     return {

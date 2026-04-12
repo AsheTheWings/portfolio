@@ -74,7 +74,7 @@ export interface Tag {
   updatedAt: string;
 }
 
-// Supabase join response types
+// Join response types
 export interface AssetItemTagJoin {
   assetTags: Tag;
 }
