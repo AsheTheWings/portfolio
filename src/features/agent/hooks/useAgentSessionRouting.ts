@@ -35,6 +35,8 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
   const lastSyncedSessionRef = useRef<string | null>(null);
   // Track if component has mounted (for hydration safety)
   const mountedRef = useRef(false);
+  // Capture initial events in ref to avoid deps churn
+  const initialEventsRef = useRef(initialEvents);
 
   /**
    * Navigate to session URL using history.replaceState to avoid
@@ -66,7 +68,7 @@ export function useAgentSessionRouting({ urlSessionId, initialEvents }: UseAgent
         // URL has session ID → load it if not already loaded
         if (currentSessionId !== urlSessionId) {
           try {
-            await loadAgentSession(urlSessionId, initialEvents ?? undefined);
+            await loadAgentSession(urlSessionId, initialEventsRef.current ?? undefined);
             saveCurrentAgentSessionId(urlSessionId);
             lastSyncedSessionRef.current = urlSessionId;
           } catch (error) {

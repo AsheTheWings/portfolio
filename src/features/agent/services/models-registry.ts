@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-namespace */
 /**
  * Models Registry - Provider-specific model definitions and capabilities
  * Centralizes all model specifications, native tools, and provider metadata
@@ -18,38 +17,39 @@ import { ModelCapability as MC } from '../types';
 // Google/Gemini Provider
 // ============================================================
 
-export namespace Google {
-  export const NATIVE_TOOLS = {
-    GOOGLE_SEARCH: {
-      id: 'googleSearch',
-      name: 'Google Search',
-      provider: 'google',
-      description: 'Search the web with Google',
-    },
-    CODE_EXECUTION: {
-      id: 'codeExecution',
-      name: 'Code Execution',
-      provider: 'google',
-      description: 'Execute Python code in a sandboxed environment',
-    },
-    URL_CONTEXT: {
-      id: 'urlContext',
-      name: 'URL Context',
-      provider: 'google',
-      description: 'Fetch and analyze content from URLs',
-    },
-  } as const;
+const GoogleNativeTools = {
+  GOOGLE_SEARCH: {
+    id: 'googleSearch',
+    name: 'Google Search',
+    provider: 'google',
+    description: 'Search the web with Google',
+  },
+  CODE_EXECUTION: {
+    id: 'codeExecution',
+    name: 'Code Execution',
+    provider: 'google',
+    description: 'Execute Python code in a sandboxed environment',
+  },
+  URL_CONTEXT: {
+    id: 'urlContext',
+    name: 'URL Context',
+    provider: 'google',
+    description: 'Fetch and analyze content from URLs',
+  },
+} as const;
 
-  export const MODELS: Record<string, ModelSpec> = {
+export const Google = {
+  NATIVE_TOOLS: GoogleNativeTools,
+  MODELS: {
     'gemini-2.5-flash': {
       id: 'gemini-2.5-flash',
       provider: 'google',
       displayName: 'Gemini 2.5 Flash',
       capabilities: [MC.THINKING, MC.VISION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
-        NATIVE_TOOLS.CODE_EXECUTION,
-        NATIVE_TOOLS.URL_CONTEXT,
+        GoogleNativeTools.GOOGLE_SEARCH,
+        GoogleNativeTools.CODE_EXECUTION,
+        GoogleNativeTools.URL_CONTEXT,
       ],
       maxTokens: 1114291,
       supportsStreaming: true,
@@ -60,9 +60,9 @@ export namespace Google {
       displayName: 'Gemini 2.5 Flash Lite',
       capabilities: [MC.VISION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
-        NATIVE_TOOLS.CODE_EXECUTION,
-        NATIVE_TOOLS.URL_CONTEXT,
+        GoogleNativeTools.GOOGLE_SEARCH,
+        GoogleNativeTools.CODE_EXECUTION,
+        GoogleNativeTools.URL_CONTEXT,
       ],
       maxTokens: 1114291,
       supportsStreaming: true,
@@ -73,9 +73,9 @@ export namespace Google {
       displayName: 'Gemini 2.5 Pro',
       capabilities: [MC.THINKING, MC.VISION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
-        NATIVE_TOOLS.CODE_EXECUTION,
-        NATIVE_TOOLS.URL_CONTEXT,
+        GoogleNativeTools.GOOGLE_SEARCH,
+        GoogleNativeTools.CODE_EXECUTION,
+        GoogleNativeTools.URL_CONTEXT,
       ],
       maxTokens: 1114291,
       supportsStreaming: true,
@@ -86,9 +86,9 @@ export namespace Google {
       displayName: 'Gemini 2.0 Flash',
       capabilities: [MC.VISION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
-        NATIVE_TOOLS.CODE_EXECUTION,
-        NATIVE_TOOLS.URL_CONTEXT,
+        GoogleNativeTools.GOOGLE_SEARCH,
+        GoogleNativeTools.CODE_EXECUTION,
+        GoogleNativeTools.URL_CONTEXT,
       ],
       maxTokens: 1056768,
       supportsStreaming: true,
@@ -100,9 +100,9 @@ export namespace Google {
       displayName: 'Gemini 3 Pro (Preview)',
       capabilities: [MC.THINKING, MC.VISION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
-        NATIVE_TOOLS.CODE_EXECUTION,
-        NATIVE_TOOLS.URL_CONTEXT,
+        GoogleNativeTools.GOOGLE_SEARCH,
+        GoogleNativeTools.CODE_EXECUTION,
+        GoogleNativeTools.URL_CONTEXT,
       ],
       maxTokens: 1048576,
       supportsStreaming: true,
@@ -113,7 +113,7 @@ export namespace Google {
       displayName: 'Gemini 3 Pro Image (Preview)',
       capabilities: [MC.THINKING, MC.VISION, MC.IMAGE_GENERATION, MC.TOOL_CALLING],
       nativeTools: [
-        NATIVE_TOOLS.GOOGLE_SEARCH,
+        GoogleNativeTools.GOOGLE_SEARCH,
       ],
       maxTokens: 65536,
       supportsStreaming: true,
@@ -128,36 +128,37 @@ export namespace Google {
       maxTokens: 32768,
       supportsStreaming: true,
     },
-  };
-}
+  } satisfies Record<string, ModelSpec>,
+} as const;
 
 // ============================================================
 // OpenAI Provider (Future)
 // ============================================================
 
-export namespace OpenAI {
-  export const NATIVE_TOOLS = {
-    FILE_SEARCH: {
-      id: 'file_search',
-      name: 'File Search',
-      provider: 'openai',
-      description: 'Search through uploaded files and documents',
-    },
-    CODE_INTERPRETER: {
-      id: 'code_interpreter',
-      name: 'Code Interpreter',
-      provider: 'openai',
-      description: 'Run Python code and access files',
-    },
-  } as const;
+const OpenAINativeTools = {
+  FILE_SEARCH: {
+    id: 'file_search',
+    name: 'File Search',
+    provider: 'openai',
+    description: 'Search through uploaded files and documents',
+  },
+  CODE_INTERPRETER: {
+    id: 'code_interpreter',
+    name: 'Code Interpreter',
+    provider: 'openai',
+    description: 'Run Python code and access files',
+  },
+} as const;
 
-  export const MODELS: Record<string, ModelSpec> = {
+export const OpenAI = {
+  NATIVE_TOOLS: OpenAINativeTools,
+  MODELS: {
     'gpt-4o': {
       id: 'gpt-4o',
       provider: 'openai',
       displayName: 'GPT-4o',
       capabilities: [MC.VISION],
-      nativeTools: [NATIVE_TOOLS.FILE_SEARCH, NATIVE_TOOLS.CODE_INTERPRETER],
+      nativeTools: [OpenAINativeTools.FILE_SEARCH, OpenAINativeTools.CODE_INTERPRETER],
       maxTokens: 16384,
       supportsStreaming: true,
     },
@@ -166,21 +167,20 @@ export namespace OpenAI {
       provider: 'openai',
       displayName: 'GPT-4o Mini',
       capabilities: [MC.VISION],
-      nativeTools: [NATIVE_TOOLS.FILE_SEARCH, NATIVE_TOOLS.CODE_INTERPRETER],
+      nativeTools: [OpenAINativeTools.FILE_SEARCH, OpenAINativeTools.CODE_INTERPRETER],
       maxTokens: 16384,
       supportsStreaming: true,
     },
-  };
-}
+  } satisfies Record<string, ModelSpec>,
+} as const;
 
 // ============================================================
 // Anthropic Provider (Future)
 // ============================================================
 
-export namespace Anthropic {
-  export const NATIVE_TOOLS = {} as const;
-
-  export const MODELS: Record<string, ModelSpec> = {
+export const Anthropic = {
+  NATIVE_TOOLS: {} as const,
+  MODELS: {
     'claude-3-5-sonnet': {
       id: 'claude-3-5-sonnet',
       provider: 'anthropic',
@@ -190,17 +190,16 @@ export namespace Anthropic {
       maxTokens: 8192,
       supportsStreaming: true,
     },
-  };
-}
+  } satisfies Record<string, ModelSpec>,
+} as const;
 
 // ============================================================
 // Fireworks AI Provider
 // ============================================================
 
-export namespace Fireworks {
-  export const NATIVE_TOOLS = {} as const;
-
-  export const MODELS: Record<string, ModelSpec> = {
+export const Fireworks = {
+  NATIVE_TOOLS: {} as const,
+  MODELS: {
     // -- DeepSeek --
     'accounts/fireworks/models/deepseek-r1': {
       id: 'accounts/fireworks/models/deepseek-r1',
@@ -447,8 +446,8 @@ export namespace Fireworks {
       maxTokens: 262144,
       supportsStreaming: true,
     },
-  };
-}
+  } satisfies Record<string, ModelSpec>,
+} as const;
 
 // ============================================================
 // Unified Registry

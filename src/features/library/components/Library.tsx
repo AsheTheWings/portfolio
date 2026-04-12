@@ -162,7 +162,6 @@ export function Library({
   initialNavigation,
   initialPath,
   mode = 'default',
-  onSelectionConfirm,
   className,
   // Override props
   overrideAssets,

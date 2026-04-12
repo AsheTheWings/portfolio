@@ -10,7 +10,6 @@ import type { FeedbackAction } from '../types';
 import { FeedbackActionButton } from './FeedbackActionButton';
 import { cn } from '@/lib/utils';
 import { useEffect, useCallback } from 'react';
-import { LiquidGlassCard } from '@/components/ui/liquid-weather-glass';
 
 interface FeedbackPanelProps {
   prompt?: string;
@@ -66,14 +65,7 @@ export function FeedbackPanel({
   }, [handleKeyDown]);
 
   return (
-    <LiquidGlassCard
-      draggable={false}
-      blurIntensity="xl"
-      shadowIntensity="sm"
-      glowIntensity="xs"
-      borderRadius="16px"
-      className="w-fit"
-    >
+    <div className="w-fit rounded-2xl border border-border/50 bg-muted/60 backdrop-blur-xl shadow-sm">
       <div className="flex items-center gap-3 px-5 py-3">
       {/* Prompt text */}
       {prompt && (
@@ -102,6 +94,6 @@ export function FeedbackPanel({
         ))}
       </div>
       </div>
-    </LiquidGlassCard>
+    </div>
   );
 }

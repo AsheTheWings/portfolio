@@ -13,12 +13,6 @@ import { SessionCard } from '@/features/productivity/components/SessionCard';
 import { httpClient } from '@/features/shared/utils/http-client';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from '@/features/shared/components/shadcn';
 
 async function fetchActiveSlots(): Promise<Slot[]> {

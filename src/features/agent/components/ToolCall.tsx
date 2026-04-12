@@ -5,7 +5,7 @@
  * Displays tool call execution with declaration and result
  */
 
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Check, X } from 'lucide-react';
 import Editor from 'react-simple-code-editor';
 import { MarkdownContent } from './MarkdownContent';
@@ -84,10 +84,10 @@ export function ToolCall() {
   };
 
   // Check if current state is valid for submission
-  const isValidForSubmit = () => {
+  const isValidForSubmit = useCallback(() => {
     const argsValid = editingArguments ? validateArgumentsJson(editingArguments) : true;
     return argsValid && !jsonError;
-  };
+  }, [editingArguments, jsonError]);
 
   // Communicate validation state changes to parent
   useEffect(() => {
@@ -95,7 +95,7 @@ export function ToolCall() {
       const isValid = isValidForSubmit();
       onValidationChange(isValid);
     }
-  }, [isEditMode, jsonError, editingArguments, onValidationChange]);
+  }, [isEditMode, isValidForSubmit, onValidationChange]);
 
 
   const handleSubmit = () => {
@@ -230,7 +230,7 @@ export function ToolCall() {
 
   // Global collapse listener (Escape)
   useEffect(() => {
-    const onCollapseAll = (_e: Event) => setIsExpanded(false);
+    const onCollapseAll = () => setIsExpanded(false);
     window.addEventListener('agent:collapseAll', onCollapseAll);
     return () => window.removeEventListener('agent:collapseAll', onCollapseAll);
   }, []);

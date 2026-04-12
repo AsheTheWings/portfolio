@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, memo, useEffect } from 'react';
+import { useState, memo } from 'react';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Play, Check, X, AlertCircle, RefreshCw, FileText } from 'lucide-react';
 import type { Asset } from '../types';
 import type { UploadingFile } from './UploadingAssetItem';
@@ -231,7 +231,7 @@ function AssetCardComponent({
         </div>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* Actual image */}
       <img
         src={getImageSrc()}
         alt={asset.altText || asset.fileName}

@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Folder, Image, Video, FileText, File, Loader2, ChevronRight, Search } from 'lucide-react';
+import { Folder, Image as ImageIcon, Video, FileText, File, Loader2, ChevronRight, Search } from 'lucide-react';
 import { useLibraryPathBrowser } from '../hooks/useLibraryPathBrowser';
 import type { LibraryItem, FolderTreeNode } from '../types';
 
@@ -47,7 +47,7 @@ function getItemIcon(item: LibraryItem) {
   }
   switch (item.fileType) {
     case 'image':
-      return <Image className="w-4 h-4 text-blue-500" />;
+      return <ImageIcon className="w-4 h-4 text-blue-500" />;
     case 'video':
       return <Video className="w-4 h-4 text-purple-500" />;
     case 'document':
@@ -100,8 +100,6 @@ export function LibraryPathBrowser({
     isLoading,
     mode,
     navigateToPath,
-    search,
-    showTree,
     reset,
   } = useLibraryPathBrowser({
     query,

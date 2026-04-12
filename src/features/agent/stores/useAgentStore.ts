@@ -14,7 +14,7 @@ import type {
   AgentConfig,
   SavedAgent,
 } from '../types';
-import { createDefaultAgentConfig, getModelSpec, hasCapability, createAssistantAgent } from '../services/models-registry';
+import { createDefaultAgentConfig, hasCapability, createAssistantAgent } from '../services/models-registry';
 import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents } from '../utils/toAgentSessionComponent';

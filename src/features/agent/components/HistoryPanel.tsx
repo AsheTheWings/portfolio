@@ -28,7 +28,7 @@ import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScale
 import { useAgentSessionHistory } from '../hooks/useAgentSessionHistory';
 import { useAgent } from '../hooks/useAgent';
 
-interface AgentSessionRow {
+interface _AgentSessionRow {
   id: string;
   title?: string;
   agentName: string;

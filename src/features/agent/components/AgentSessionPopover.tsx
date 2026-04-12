@@ -22,7 +22,7 @@ import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionMetadata } from '../hooks/useAgentSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
 import { createAgent } from '../lib/agent-api';
-import type { SavedAgent } from '../types';
+import type { SavedAgent as _SavedAgent } from '../types';
 import { isLightColor } from '../utils/color';
 
 interface AgentSessionPopoverProps {
@@ -57,7 +57,7 @@ export function AgentSessionPopover({
     }
   }, [metadata]);
 
-  const displaySessionId = sessionId 
+  const _displaySessionId = sessionId 
     ? `${sessionId.slice(0, 8)}...${sessionId.slice(-4)}`
     : 'No session';
 

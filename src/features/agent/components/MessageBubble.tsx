@@ -39,7 +39,6 @@ export const MessageBubble = React.memo(function MessageBubble() {
   const originalContent = data.message;
   const content = activeLanguage && cachedTranslation ? cachedTranslation : originalContent;
   const role = componentRole || 'agent';
-  const isTranslated = !!activeLanguage && !!cachedTranslation;
   const editingMessage = editingData?.message || '';
   const isUser = role === 'user';
   const editingElRef = React.useRef<HTMLDivElement | null>(null);
@@ -145,7 +144,7 @@ export const MessageBubble = React.memo(function MessageBubble() {
     <div
       contentEditable
       suppressContentEditableWarning
-      onInput={(_e) => {
+      onInput={() => {
         // Keep typing local to the DOM node to avoid re-renders while spamming input
       }}
       onKeyDown={(e) => {

@@ -219,13 +219,26 @@ export function getSessionSlots(
     return [];
   }
 
-  const sessionStart = new Date(lastSlot.start_time);
-
-  return slots
+  // Find contiguous session: walk backwards from last completed slot,
+  // include slots where the gap between consecutive slots < breakThreshold
+  const workloadSlots = slots
     .filter(slot =>
       slot.workload_id === workloadId &&
-      slot.end_time !== null &&
-      new Date(slot.end_time) >= sessionStart
+      slot.end_time !== null
     )
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  const thresholdMs = breakThresholdMinutes * 60 * 1000;
+  const sessionSlots: Slot[] = [];
+
+  for (let i = workloadSlots.length - 1; i >= 0; i--) {
+    sessionSlots.unshift(workloadSlots[i]);
+    if (i > 0) {
+      const prevEnd = new Date(workloadSlots[i - 1].end_time!).getTime();
+      const currStart = new Date(workloadSlots[i].start_time).getTime();
+      if (currStart - prevEnd > thresholdMs) break;
+    }
+  }
+
+  return sessionSlots;
 }

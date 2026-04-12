@@ -60,7 +60,7 @@ export class McpClient {
       // Tool retrieval failure doesn't affect connection status
       try {
         await this.refreshTools();
-      } catch (toolErr: unknown) {
+      } catch (_toolErr: unknown) {
         this.tools = [];
       }
 
@@ -226,11 +226,11 @@ export class McpClient {
         if (this.hostStatus === 'error' || this.hostStatus === 'notConnected') {
           try {
             await this.connect();
-          } catch (reconnectErr: unknown) {
+          } catch (_reconnectErr: unknown) {
             // Auto-reconnection failed, will retry on next health check
           }
         }
-      } catch (err) {
+      } catch (_err) {
         if (this.hostStatus === 'connected') {
           // Clear state first
           this.tools = [];

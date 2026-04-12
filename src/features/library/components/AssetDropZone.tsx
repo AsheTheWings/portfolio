@@ -5,7 +5,6 @@ import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Upload, X, FolderOpen } from 'lucide-react';
 import { Button } from '@/features/shared/components/shadcn/button';
-import { ALLOWED_MIME_TYPES } from '../types';
 
 // Extended File interface with webkitRelativePath (non-standard property)
 interface FileWithRelativePath extends File {

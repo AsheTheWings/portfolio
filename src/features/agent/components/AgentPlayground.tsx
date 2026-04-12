@@ -85,16 +85,12 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     conversationStatus,
     persistAgentSession,
     ephemeral,
-    agentConfig,
     setPersistAgentSession,
     setEphemeral,
     sessionComponents,
     triggerSubmit,
     setScrollToComponentId,
-    setAgentConfig,
-    currentSessionId,
     uiMode,
-    setUiMode,
   } = useAgent();
   
   // Derive isProcessing from conversationStatus
@@ -255,7 +251,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isProcessing, triggerSubmit]);
+  }, [isProcessing, triggerSubmit, editingComponentId, resetAllTranslations]);
 
   return (
     <div className="h-full w-full bg-background text-foreground">

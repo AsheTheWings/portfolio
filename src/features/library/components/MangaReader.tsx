@@ -76,6 +76,35 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
   // Resolved background color
   const resolvedBgColor = bgColor === 'custom' ? customBgColor : BG_COLORS[bgColor];
   
+  // Scroll helpers
+  const scrollToImage = useCallback((index: number) => {
+    const imageEl = imageRefs.current[index];
+    if (imageEl) {
+      imageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setCurrentImageIndex(index);
+    }
+  }, []);
+  
+  // Zoom handlers
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 25, 300));
+    setFitMode('custom');
+  }, []);
+  
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 25, 25));
+    setFitMode('custom');
+  }, []);
+  
+  // Fullscreen
+  const handleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current?.requestFullscreen();
+    }
+  }, []);
+  
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -120,7 +149,7 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, sortedImages.length]);
+  }, [onClose, sortedImages.length, scrollToImage, handleZoomIn, handleZoomOut, handleFullscreen]);
   
   // Auto-focus container for native keyboard scrolling
   useEffect(() => {
@@ -160,30 +189,7 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
   
-  // Scroll helpers
-  const scrollByAmount = useCallback((amount: number) => {
-    containerRef.current?.scrollBy({ top: amount, behavior: 'smooth' });
-  }, []);
-  
-  const scrollToImage = useCallback((index: number) => {
-    const imageEl = imageRefs.current[index];
-    if (imageEl) {
-      imageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setCurrentImageIndex(index);
-    }
-  }, []);
-  
-  // Zoom handlers
-  const handleZoomIn = useCallback(() => {
-    setZoom(prev => Math.min(prev + 25, 300));
-    setFitMode('custom');
-  }, []);
-  
-  const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(prev - 25, 25));
-    setFitMode('custom');
-  }, []);
-  
+  // Zoom fit handlers
   const handleFitWidth = useCallback(() => {
     setFitMode('width');
     setZoom(100);
@@ -192,15 +198,6 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
   const handleFitHeight = useCallback(() => {
     setFitMode('height');
     setZoom(100);
-  }, []);
-  
-  // Fullscreen
-  const handleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      containerRef.current?.requestFullscreen();
-    }
   }, []);
   
   // Image load tracking

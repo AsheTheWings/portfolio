@@ -20,7 +20,6 @@ export function useLibrary() {
   // SWR-based data fetching (syncs to store automatically)
   const { 
     assets, 
-    total, 
     isLoading, 
     error, 
     isValidating,

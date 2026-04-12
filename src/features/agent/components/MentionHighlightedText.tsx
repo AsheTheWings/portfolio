@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { segmentContent, type TextSegment } from '../utils/libraryMentionParser';
+import { segmentContent } from '../utils/libraryMentionParser';
 
 interface MentionHighlightedTextProps {
   content: string;

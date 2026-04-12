@@ -67,7 +67,7 @@ function getWorkloadColor(workloadName: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export function SessionCard({ slot, index, totalSlots, isNewest, isOldest }: SessionCardProps) {
+export function SessionCard({ slot, index, isNewest, isOldest }: SessionCardProps) {
   const colorClass = getWorkloadColor(slot.workload_name);
   const formattedDate = new Date(slot.start_time).toLocaleTimeString('en-US', {
     hour: '2-digit',

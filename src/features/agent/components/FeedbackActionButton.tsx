@@ -26,7 +26,7 @@ interface FeedbackActionButtonProps {
 export function FeedbackActionButton({ action, onClick, disabled, fullWidth = true }: FeedbackActionButtonProps) {
   // Dynamic icon lookup
   const IconComponent = action.icon 
-    ? (Icons[action.icon as keyof typeof Icons] as React.ComponentType<any>)
+    ? (Icons[action.icon as keyof typeof Icons] as React.ComponentType<Record<string, unknown>>)
     : null;
 
   const button = (

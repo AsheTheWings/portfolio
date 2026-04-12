@@ -13,7 +13,7 @@ interface SystemCallProps {
 }
 
 export function SystemCall({ data }: SystemCallProps) {
-  const args = data.arguments as Record<string, any> | undefined;
+  const args = data.arguments as Record<string, unknown> | undefined;
   
   // Extract state key and value from tool arguments
   const stateKey = args ? Object.keys(args)[0] || '' : '';

@@ -16,7 +16,7 @@ import { Library } from './Library';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import { useAssetsByIds } from '../hooks/useAssetsByIds';
 import type { Asset, Folder } from '../types';
-import { Layers, type LucideIcon } from 'lucide-react';
+import { Layers } from 'lucide-react';
 
 export interface LibraryPickerProps {
   /** IDs of items added to context (folders and/or assets) */

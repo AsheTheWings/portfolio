@@ -58,16 +58,13 @@ export function AgentSessionComponentWrapper({
   showControls = true,
   renderContext,
 }: AgentSessionComponentWrapperProps) {
-  // Convenience accessors for internal logic
-  const message = data.message;
-  const thoughts = data.thoughts;
   const sessionEvents = data.sessionEvents;
   
   // Ref for click-away detection
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Get store state and actions
-  const { editingComponentId, editingData, startEdit, updateEditingData, cancelEdit, setPreserveScrollOnSessionChange } = useAgent();
+  const { editingComponentId, startEdit, updateEditingData, cancelEdit, setPreserveScrollOnSessionChange } = useAgent();
   
   // Branching operations
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
@@ -94,15 +91,11 @@ export function AgentSessionComponentWrapper({
     );
   }, [sessionEvents]);
   
-  const isParentLink = !!parentBranch;
-  
   // Check if this component is being edited
   const isEditMode = editingComponentId === componentId;
   const editingDataForThis = useAgentStore((state) => state.editingComponentId === componentId ? state.editingData : undefined);
-  const editingMessage = editingDataForThis?.message || '';
   const [activePanel, setActivePanel] = useState<PanelView>(isEditMode ? 'edit' : 'none');
   const [isShiftHeld, setIsShiftHeld] = useState(false);
-  const [isBranchLoading, setIsBranchLoading] = useState(false);
   const [isValidForSubmit, setIsValidForSubmit] = useState(true);
 
   // Track shift key state and handle escape key globally
@@ -141,7 +134,7 @@ export function AgentSessionComponentWrapper({
   // Debug view clickaway is managed within DebugView
 
   useEffect(() => {
-    const onCollapseAll = (_e: Event) => {
+    const onCollapseAll = () => {
       setActivePanel(prev => (prev === 'edit' ? 'edit' : 'none'));
     };
     window.addEventListener('agent:collapseAll', onCollapseAll);

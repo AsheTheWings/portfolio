@@ -6,10 +6,10 @@
  * Prevents SSR hydration mismatches
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { loadAgents } from '../utils/agent-storage';
-import type { Tool, WorkflowSpec } from '../types';
+import type { Tool, WorkflowSpec, AgentState } from '../types';
 
 interface HydrateOptions {
   initialTools?: Tool[];
@@ -17,21 +17,24 @@ interface HydrateOptions {
 }
 
 export function useHydrateStore({ initialTools, initialWorkflows }: HydrateOptions = {}) {
+  const initialToolsRef = useRef(initialTools);
+  const initialWorkflowsRef = useRef(initialWorkflows);
+
   useEffect(() => {
-    const isHydrated = (useAgentStore.getState() as any)._hydrated;
-    if (isHydrated) return;
+    const state = useAgentStore.getState();
+    if (state._hydrated) return;
   
     const savedAgents = loadAgents();
     
     // Route through setAgents for invariant enforcement ('none' always present)
-    useAgentStore.getState().setAgents(savedAgents);
-    useAgentStore.setState({ _hydrated: true } as any);
+    state.setAgents(savedAgents);
+    useAgentStore.setState({ _hydrated: true } as Partial<AgentState>);
 
-    if (initialTools?.length) {
-      useAgentStore.getState().setToolsPool(initialTools);
+    if (initialToolsRef.current?.length) {
+      useAgentStore.getState().setToolsPool(initialToolsRef.current);
     }
-    if (initialWorkflows?.length) {
-      useAgentStore.getState().setWorkflowsPool(initialWorkflows);
+    if (initialWorkflowsRef.current?.length) {
+      useAgentStore.getState().setWorkflowsPool(initialWorkflowsRef.current);
     }
   }, []);
 }

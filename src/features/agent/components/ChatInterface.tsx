@@ -16,6 +16,7 @@ import React, { useRef } from 'react';
 import type { AgentSessionComponent } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
+import type { MessageInputRef } from './MessageInput';
 import { resolveComponent } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
 
@@ -27,11 +28,10 @@ export function ChatInterface() {
     clearScrollToComponentId,
     ephemeral,
     agentConfig,
-    uiMode,
   } = useAgent();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const messageInputRef = useRef<any>(null);
+  const messageInputRef = useRef<MessageInputRef>(null);
 
   const { isAutoScrollEnabled, showAutoScrollNotification } = useChatScroll({
     scrollContainerRef,

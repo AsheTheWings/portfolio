@@ -7,7 +7,7 @@
  * frontend types (AgentSessionEvent, AgentSessionComponent, etc.).
  */
 
-import type { Agent, AgentMetadata } from './index';
+import type { Agent } from './index';
 
 // ============================================================
 // Wire Event (JSON-serialized AgentSessionEvent from backend)

@@ -5,11 +5,11 @@
  * routes are migrated to the Hono backend.
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import type { UserPublic } from '../types';
 
 /** @deprecated Supabase-specific — kept for productivity routes */
-interface LegacyTokenResponse {
+interface _LegacyTokenResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;

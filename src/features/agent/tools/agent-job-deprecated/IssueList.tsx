@@ -17,7 +17,6 @@ import { CopyButton } from './shared';
 export const IssueItem = ({ issue }: { issue: IssueData }) => {
   const [expanded, setExpanded] = useState(issue.status === 'open');
   const isOpen = issue.status === 'open';
-  const isResolved = issue.status === 'resolved' || issue.status === 'verified';
 
   return (
     <div className={cn(

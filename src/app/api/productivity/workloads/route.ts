@@ -11,7 +11,7 @@ interface CreateWorkloadRequest {
   description?: string;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const user = await AuthHandlers.getCurrentUser();
     const workloads = await ProductivityHandlers.listWorkloads(user.id);

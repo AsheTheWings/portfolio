@@ -107,7 +107,6 @@ interface UseWsEventIngestionOptions {
 
 export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
   const { client } = useAgentConnection();
-  const store = useAgentStore();
   const onAgentSessionCreatedRef = useRef(options?.onAgentSessionCreated);
   onAgentSessionCreatedRef.current = options?.onAgentSessionCreated;
   const onSessionBranchedRef = useRef(options?.onSessionBranched);

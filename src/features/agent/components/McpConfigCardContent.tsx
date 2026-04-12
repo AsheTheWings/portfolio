@@ -14,7 +14,6 @@ import json from 'highlight.js/lib/languages/json';
 
 hljs.registerLanguage('json', json);
 
-import { useAgent } from '../hooks/useAgent';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import type { McpConfig, McpClientStatus } from '../types';
 import { Label } from '@/features/shared/components/shadcn';
@@ -31,7 +30,6 @@ interface McpConfigCardContentProps {
 }
 
 export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
-  const { toolsPool } = useAgent();
   // MCP connection management is Phase 3 — stub as no-ops / not connected
   const connectMcp = async (_config: McpConfig) => { /* Phase 3 */ };
   const disconnectMcp = async () => { /* Phase 3 */ };

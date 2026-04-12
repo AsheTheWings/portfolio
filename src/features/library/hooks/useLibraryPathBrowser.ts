@@ -58,11 +58,149 @@ export function useLibraryPathBrowser({
   const [mode, setMode] = useState<'tree' | 'search'>('tree');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Function definitions (before effects that reference them) ──
+
+  const loadFolderTree = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/library/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'folder_tree' }),
+      });
+      const data: BrowseResult = await res.json();
+      if (data.status === 'success' && data.tree) {
+        setFolderTree(data.tree);
+      }
+    } catch (err) {
+      console.error('Failed to load folder tree:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const navigateToPath = useCallback(async (path: string, filterText: string = '') => {
+    setIsLoading(true);
+    setCurrentPath(path);
+    try {
+      const res = await fetch('/api/library/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_items', path: path || undefined }),
+      });
+      const data: BrowseResult = await res.json();
+      if (data.status === 'success' && data.items) {
+        let itemList = Object.values(data.items);
+        // Filter by text if provided
+        if (filterText) {
+          const lower = filterText.toLowerCase();
+          itemList = itemList.filter(item => 
+            item.name.toLowerCase().includes(lower)
+          );
+        }
+        // Sort: folders first, then by name
+        itemList.sort((a, b) => {
+          if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+        setItems(itemList);
+        setMode('search');
+      }
+    } catch (err) {
+      console.error('Failed to load folder contents:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Find folders matching a query from the folder tree
+   */
+  const findMatchingFolders = useCallback((tree: FolderTreeNode[], query: string): LibraryItem[] => {
+    const results: LibraryItem[] = [];
+    const lower = query.toLowerCase();
+    
+    const traverse = (nodes: FolderTreeNode[]) => {
+      for (const node of nodes) {
+        const nodePath = node.path.replace(/^\/+/, '').replace(/\/+$/, '');
+        if (node.name.toLowerCase().includes(lower)) {
+          results.push({
+            id: node.id,
+            name: node.name,
+            type: 'folder',
+            path: nodePath,
+            createdAt: '',
+            updatedAt: '',
+            assetsCount: node.assetsCount,
+          });
+        }
+        if (node.children.length > 0) {
+          traverse(node.children);
+        }
+      }
+    };
+    traverse(tree);
+    return results;
+  }, []);
+
+  const search = useCallback(async (searchQuery: string) => {
+    setIsLoading(true);
+    try {
+      // Search for matching folders from tree
+      const matchingFolders = findMatchingFolders(folderTree, searchQuery);
+      
+      // Search for matching assets via API
+      const res = await fetch('/api/library/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'search', query: searchQuery }),
+      });
+      const data: BrowseResult = await res.json();
+      
+      // Combine folders + assets (folders first)
+      const assets = data.status === 'success' && data.items ? Object.values(data.items) : [];
+      setItems([...matchingFolders, ...assets]);
+    } catch (err) {
+      console.error('Failed to search library:', err);
+      // Still show matching folders even if API fails
+      setItems(findMatchingFolders(folderTree, searchQuery));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [folderTree, findMatchingFolders]);
+
+  const showTree = useCallback(() => {
+    setMode('tree');
+    setCurrentPath('');
+    setItems([]);
+  }, []);
+
+  const navigateUp = useCallback(async () => {
+    const parts = currentPath.split('/').filter(Boolean);
+    if (parts.length > 0) {
+      parts.pop();
+      const newPath = parts.join('/');
+      await navigateToPath(newPath);
+    } else {
+      showTree();
+    }
+  }, [currentPath, navigateToPath, showTree]);
+
+  const reset = useCallback(() => {
+    setItems([]);
+    setFolderTree([]);
+    setCurrentPath('');
+    setMode('tree');
+    setIsLoading(false);
+  }, []);
+
+  // ── Effects (after all function definitions) ──
+
   // Load folder tree on mount or when opened
   useEffect(() => {
     if (!isOpen) return;
     loadFolderTree();
-  }, [isOpen]);
+  }, [isOpen, loadFolderTree]);
 
   // Handle query changes
   useEffect(() => {
@@ -105,141 +243,7 @@ export function useLibraryPathBrowser({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [query, isOpen, debounceMs]);
-
-  const loadFolderTree = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/library/browse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'folder_tree' }),
-      });
-      const data: BrowseResult = await res.json();
-      if (data.status === 'success' && data.tree) {
-        setFolderTree(data.tree);
-      }
-    } catch (err) {
-      console.error('Failed to load folder tree:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const navigateToPath = useCallback(async (path: string, filterText: string = '') => {
-    setIsLoading(true);
-    setCurrentPath(path);
-    try {
-      const res = await fetch('/api/library/browse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'list_items', path: path || undefined }),
-      });
-      const data: BrowseResult = await res.json();
-      if (data.status === 'success' && data.items) {
-        let itemList = Object.values(data.items);
-        // Filter by text if provided
-        if (filterText) {
-          const lower = filterText.toLowerCase();
-          itemList = itemList.filter(item => 
-            item.name.toLowerCase().includes(lower)
-          );
-        }
-        // Sort: folders first, then by name
-        itemList.sort((a, b) => {
-          if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        });
-        setItems(itemList);
-        setMode('search');
-      }
-    } catch (err) {
-      console.error('Failed to load folder contents:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const navigateUp = useCallback(async () => {
-    const parts = currentPath.split('/').filter(Boolean);
-    if (parts.length > 0) {
-      parts.pop();
-      const newPath = parts.join('/');
-      await navigateToPath(newPath);
-    } else {
-      showTree();
-    }
-  }, [currentPath, navigateToPath]);
-
-  /**
-   * Find folders matching a query from the folder tree
-   */
-  const findMatchingFolders = useCallback((tree: FolderTreeNode[], query: string): LibraryItem[] => {
-    const results: LibraryItem[] = [];
-    const lower = query.toLowerCase();
-    
-    const traverse = (nodes: FolderTreeNode[], parentPath: string = '') => {
-      for (const node of nodes) {
-        const nodePath = node.path.replace(/^\/+/, '').replace(/\/+$/, '');
-        if (node.name.toLowerCase().includes(lower)) {
-          results.push({
-            id: node.id,
-            name: node.name,
-            type: 'folder',
-            path: nodePath,
-            createdAt: '',
-            updatedAt: '',
-            assetsCount: node.assetsCount,
-          });
-        }
-        if (node.children.length > 0) {
-          traverse(node.children, nodePath);
-        }
-      }
-    };
-    traverse(tree);
-    return results;
-  }, []);
-
-  const search = useCallback(async (searchQuery: string) => {
-    setIsLoading(true);
-    try {
-      // Search for matching folders from tree
-      const matchingFolders = findMatchingFolders(folderTree, searchQuery);
-      
-      // Search for matching assets via API
-      const res = await fetch('/api/library/browse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'search', query: searchQuery }),
-      });
-      const data: BrowseResult = await res.json();
-      
-      // Combine folders + assets (folders first)
-      const assets = data.status === 'success' && data.items ? Object.values(data.items) : [];
-      setItems([...matchingFolders, ...assets]);
-    } catch (err) {
-      console.error('Failed to search library:', err);
-      // Still show matching folders even if API fails
-      setItems(findMatchingFolders(folderTree, searchQuery));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [folderTree, findMatchingFolders]);
-
-  const showTree = useCallback(() => {
-    setMode('tree');
-    setCurrentPath('');
-    setItems([]);
-  }, []);
-
-  const reset = useCallback(() => {
-    setItems([]);
-    setFolderTree([]);
-    setCurrentPath('');
-    setMode('tree');
-    setIsLoading(false);
-  }, []);
+  }, [query, isOpen, debounceMs, navigateToPath, search, loadFolderTree]);
 
   return {
     items,

@@ -23,14 +23,14 @@ function truncateImageData(events: AgentSessionEvent[]): AgentSessionEvent[] {
   return events.map(event => {
     if (event.type !== 'user-turn-completed') return event;
     
-    const data = event.data as any;
+    const { data } = event;
     if (!data.encodedImages?.length) return event;
     
     return {
       ...event,
       data: {
         ...data,
-        encodedImages: data.encodedImages.map((img: { mimeType: string; data: string }) => ({
+        encodedImages: data.encodedImages.map((img) => ({
           mimeType: img.mimeType,
           data: img.data.slice(0, 100) + '...[truncated]',
         })),

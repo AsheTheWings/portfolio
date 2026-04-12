@@ -54,10 +54,13 @@ const INITIAL_RECONNECT_DELAY = 1_000;
 // AgentWsClient
 // ============================================================
 
+// Internal type for heterogeneous handler storage (handlers are typed at the public API boundary)
+type AnyMessageHandler = MessageHandler;
+
 export class AgentWsClient {
   private ws: WebSocket | null = null;
   private state: ConnectionState = 'disconnected';
-  private handlers = new Map<string, Set<MessageHandler<any>>>();
+  private handlers = new Map<string, Set<AnyMessageHandler>>();
   private wildcardHandlers = new Set<MessageHandler>();
   private stateListeners = new Set<StateHandler>();
   private messageQueue: WsClientMessage[] = [];
@@ -195,8 +198,8 @@ export class AgentWsClient {
       set = new Set();
       this.handlers.set(type, set);
     }
-    set.add(handler);
-    return () => set!.delete(handler);
+    set.add(handler as AnyMessageHandler);
+    return () => set!.delete(handler as AnyMessageHandler);
   }
 
   /** Subscribe to ALL server messages. Returns unsubscribe fn. */

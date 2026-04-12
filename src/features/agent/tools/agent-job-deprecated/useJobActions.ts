@@ -30,7 +30,7 @@ export function useJobActions({
   jobId,
   isBackground,
 }: UseJobActionsParams): UseJobActionsResult {
-  const { activeJob, selectJob, stopAgent, getLastComponentByJob, sessionComponents } = useAgent();
+  const { activeJob, selectJob, stopAgent, getLastComponentByJob } = useAgent();
 
   // Check if this component is the last one for its job
   // sessionComponents in deps ensures recalculation when components change
@@ -38,7 +38,7 @@ export function useJobActions({
     if (!jobId) return false;
     const lastComponentByJob = getLastComponentByJob();
     return lastComponentByJob[jobId] === componentId;
-  }, [jobId, componentId, getLastComponentByJob, sessionComponents]);
+  }, [jobId, componentId, getLastComponentByJob]);
 
   // Check if this job is currently active
   const isActiveJob = activeJob?.jobId === jobId;

@@ -44,7 +44,7 @@ export function AgentsConfigPanel() {
   // Front agent + config (single source of truth)
   const frontAgent: Agent | undefined = agents[0];
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
-  const acquiredAgent = frontAgent && frontAgent.agentId !== 'none' ? acquiredAgentsMap[frontAgent.agentId] : undefined;
+  const _acquiredAgent = frontAgent && frontAgent.agentId !== 'none' ? acquiredAgentsMap[frontAgent.agentId] : undefined;
 
   // Build configurable agents list for the dropdown
   // Include 'none' (assistant) + owned agents + non-owned agents that are configurable

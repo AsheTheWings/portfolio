@@ -5,7 +5,7 @@
  * Uses selectedIds as single selection state
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import type { Folder, Asset } from '../types';
 
@@ -45,10 +45,10 @@ export function useKeyboardNavigation(
   const isViewerOpen = useLibraryStore((state) => state.isViewerOpen);
 
   // Combine folders and assets into a single navigation list
-  const items: NavigationItem[] = [
+  const items: NavigationItem[] = useMemo(() => [
     ...folders.map(f => ({ id: f.id, type: 'folder' as const })),
     ...assets.map(a => ({ id: a.id, type: 'asset' as const })),
-  ];
+  ], [folders, assets]);
 
   // Get current selected index (first selected item)
   const getCurrentIndex = useCallback(() => {

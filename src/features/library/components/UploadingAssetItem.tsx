@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ImageUp, File as FileIcon, Video, X, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-import { Progress } from '@/features/shared/components/shadcn/progress';
 
 export interface UploadingFile {
   id: string;

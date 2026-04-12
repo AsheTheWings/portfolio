@@ -10,7 +10,7 @@
  * - HTTP-only cookies for persistence (managed server-side)
  */
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import type { UserPublic } from '../types';
 
 interface AuthContextValue {

@@ -5,7 +5,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { StorageService } from './storage.service';
 import { TagService } from './tag.service';
-import type { Asset, Tag, Folder, AssetWithTagsJoin, AssetItemTagJoin, ListAssetsParams, UpdateAssetRequest } from '../types';
+import type { Asset, Folder, AssetWithTagsJoin, AssetItemTagJoin, ListAssetsParams, UpdateAssetRequest } from '../types';
 import { getFileTypeFromMime as getFileType, normalizeName } from '../types';
 
 export class AssetService {

@@ -23,7 +23,6 @@ interface BranchListModalProps {
 }
 
 export function BranchListModal({
-  componentId,
   branches,
   onSelectBranch,
   onClose,
@@ -57,7 +56,7 @@ export function BranchListModal({
 
         {/* Branch list */}
         <div className="max-h-[400px] overflow-y-auto scrollbar-inner">
-          {branches.map((branch, index) => (
+          {branches.map((branch) => (
             <button
               key={branch.branchSessionId}
               onClick={() => {

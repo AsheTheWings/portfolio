@@ -35,7 +35,7 @@ export function BackgroundJobInterface({ jobId, onBack }: BackgroundJobInterface
   // Find job title from agent-job-dashboard component
   const jobTitle = useMemo(() => {
     const jobComponent = jobComponents.find(c => c.type === 'agent-job-dashboard');
-    const job = jobComponent?.data?.job as any;
+    const job = jobComponent?.data?.job as Record<string, unknown>;
     if (job?.title) {
       return job.title;
     }

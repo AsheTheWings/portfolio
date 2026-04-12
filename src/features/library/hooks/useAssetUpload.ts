@@ -20,7 +20,6 @@ export function useAssetUpload() {
   const setError = useLibraryStore((state) => state.setError);
   const addUploadingFile = useLibraryStore((state) => state.addUploadingFile);
   const updateUploadingFile = useLibraryStore((state) => state.updateUploadingFile);
-  const removeUploadingFile = useLibraryStore((state) => state.removeUploadingFile);
 
   /**
    * Upload a file with real-time progress tracking using XMLHttpRequest
@@ -178,7 +177,7 @@ export function useAssetUpload() {
       xhr.open('POST', '/api/library/upload');
       xhr.send(formData);
     });
-  }, [mutate, addUploadingFile, updateUploadingFile, removeUploadingFile, setError, currentFolderId, homeFolder]);
+  }, [mutate, addUploadingFile, updateUploadingFile, setError, currentFolderId, homeFolder]);
 
   /**
    * Upload multiple files in parallel

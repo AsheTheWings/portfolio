@@ -19,13 +19,12 @@ import { useUserInput } from '../hooks/useUserInput';
 
 gsap.registerPlugin(useGSAP);
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface InteractionAreaProps {}
+type InteractionAreaProps = object;
 
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, submitFeedback, resumeAgent, conversationStatus } = useAgent();
+    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, resumeAgent, conversationStatus } = useAgent();
     
     // Collapsed state: auto-collapse when healthy, expand on user interaction
     const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);

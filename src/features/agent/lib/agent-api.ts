@@ -10,7 +10,6 @@
 
 import type {
   AgentSessionEvent,
-  AgentSessionComponent,
   AgentSessionMetadata,
   AgentConfig,
   ModelSpec,

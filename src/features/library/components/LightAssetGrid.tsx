@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Folder, Image, Video, FileText, File, ExternalLink, Copy } from 'lucide-react';
+import { Folder, Image as ImageIcon, Video, FileText, File, ExternalLink, Copy } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -66,7 +66,7 @@ function getItemIcon(item: LightAssetItem, className: string = 'w-6 h-6') {
   }
   switch (item.fileType) {
     case 'image':
-      return <Image className={`${className} text-blue-500`} />;
+      return <ImageIcon className={`${className} text-blue-500`} />;
     case 'video':
       return <Video className={`${className} text-purple-500`} />;
     case 'document':

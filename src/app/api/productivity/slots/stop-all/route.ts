@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthHandlers } from '@/features/authentication/api';
 import { ProductivityHandlers } from '@/features/productivity/api';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const user = await AuthHandlers.getCurrentUser();
     const stoppedSlots = await ProductivityHandlers.stopAllSlots(user.id);

@@ -52,17 +52,17 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
   const client = clientRef.current;
 
   useEffect(() => {
-    const unsub = client.onStateChange(setConnectionState);
-    client.connect();
+    const wsClient = clientRef.current!;
+    const unsub = wsClient.onStateChange(setConnectionState);
+    wsClient.connect();
 
     return () => {
       unsub();
       // Use disconnect() instead of destroy() to survive React Strict Mode
       // double-invoke (mount → cleanup → remount). The client stays alive
       // so the next mount's connect() can reuse it.
-      client.disconnect();
+      wsClient.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

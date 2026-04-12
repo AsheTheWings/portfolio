@@ -10,7 +10,7 @@
  */
 
 import { useCallback } from 'react';
-import type { ToolEffectsEvent, AgentSessionComponent } from '../types';
+import type { ToolEffectsEvent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 
 export function useToolEffects() {

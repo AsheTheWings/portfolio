@@ -53,5 +53,5 @@ export function useChatClickAway(
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [mode, enabled, onClickAway, ref, additionalAllowedSelectors]);
+  }, [mode, enabled, disabled, onClickAway, ref, additionalAllowedSelectors]);
 }

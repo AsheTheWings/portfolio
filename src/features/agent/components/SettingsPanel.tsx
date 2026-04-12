@@ -6,7 +6,7 @@
  * Self-contained: handles its own state and close behavior
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, Label, Input } from '@/features/shared/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
@@ -17,8 +17,8 @@ export function SettingsPanel() {
   const [apiKeys, setApiKeys] = useState<string[]>(['']);
   const { removeComponent, uiMode, setUiMode } = useAgent();
   // MCP is Phase 3 — stub as no-ops / not connected
-  const connectMcp = async (_config: unknown) => { /* Phase 3 */ };
-  const disconnectMcp = async () => { /* Phase 3 */ };
+  const connectMcp = useCallback(async (_config: unknown) => { /* Phase 3 */ }, []);
+  const disconnectMcp = useCallback(async () => { /* Phase 3 */ }, []);
   const mcpHostStatus = 'notConnected' as McpHostStatus;
   const [mcpEnabled, setMcpEnabled] = useState(() => loadMcpConfig().enabled);
   const [mcpPort, setMcpPort] = useState(() => loadMcpConfig().port);
@@ -159,7 +159,7 @@ export function SettingsPanel() {
               <MuiCheckbox
                 id="mcp-enabled-settings"
                 checked={mcpEnabled}
-                onChange={(e) => {
+                onChange={() => {
                   handleMcpEnabledToggle();
                 }}
                 size="small"
