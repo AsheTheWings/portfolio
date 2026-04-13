@@ -39,11 +39,11 @@ interface _AgentSessionRow {
 }
 
 export function HistoryPanel() {
-  const { loadAgentSession, removeComponent, currentSessionId, uiMode } = useAgent();
+  const { loadAgentSession, removeComponent, currentSessionId, uiInterface } = useAgent();
   const [loadingAgentSessionId, setLoadingAgentSessionId] = useState<string | null>(null);
 
   // Chat mode = standalone (centered card), side-by-side = inline
-  const isStandalone = uiMode === 'chat';
+  const isStandalone = uiInterface === 'chat';
 
   const handleClose = () => {
     removeComponent('history-panel');

@@ -13,15 +13,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import Markdown from 'markdown-to-jsx';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import { useAgentSessionComponent } from '../contexts/AgentSessionComponentContext';
 
 interface AgentThoughtsProps {
   maxLines?: number;
+  thoughts?: string;
+  isStreaming?: boolean;
 }
 
-export function AgentThoughts({ maxLines = 6 }: AgentThoughtsProps) {
-  const { data, isStreaming } = useAgentSessionComponent();
-  const thoughts = data.thoughts || '';
+export function AgentThoughts({ maxLines = 6, thoughts: propThoughts, isStreaming: propIsStreaming }: AgentThoughtsProps) {
+  const thoughts = propThoughts || '';
+  const isStreaming = propIsStreaming ?? false;
   
   const [isExpanded, setIsExpanded] = useState(false);
   const thoughtsRef = useRef<HTMLDivElement>(null);

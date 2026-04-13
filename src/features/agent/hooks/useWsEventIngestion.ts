@@ -4,7 +4,7 @@
  * useWsEventIngestion - Central WS event handler
  *
  * Listens to all server→client WS messages and routes them:
- * - session_event    → processLiveEvent (handles catch-up + live events uniformly)
+ * - session_event    → store.appendEvent (handles catch-up + live events uniformly)
  * - session_created  → store.setCurrentAgentSessionId + URL update
  * - agent_status     → store.setConversationStatus
  * - session_branched → navigation to new branch session
@@ -13,14 +13,13 @@
  * Background tab optimization:
  * When the browser tab is hidden, incoming session_event messages are buffered
  * instead of processed immediately. On tab return, chunk events are collapsed
- * by componentId (merging incremental text) before replay. This avoids the
+ * by type+agentId (merging incremental text) before replay. This avoids the
  * freeze caused by processing hundreds of individual chunk updates at once.
  */
 
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
-import { processLiveEvent } from '../lib/process-event';
 import { toastError } from '@/features/shared/components/FeedbackMessage';
 import type { AgentSessionEvent } from '../types';
 import type {
@@ -44,9 +43,14 @@ function wireToAgentSessionEvent(wire: WireAgentSessionEvent): AgentSessionEvent
   } as unknown as AgentSessionEvent;
 }
 
+/** Collapse key: type + agentId. Correctly handles parallel agents. */
+function chunkKey(event: AgentSessionEvent): string {
+  return `${event.type}:${event.agentId ?? 'none'}`;
+}
+
 /**
  * Collapse a buffer of events: merge consecutive chunk events for the same
- * componentId+type into a single event with concatenated text. Non-chunk
+ * type+agentId into a single event with concatenated text. Non-chunk
  * events pass through as-is.
  *
  * Preserves event ordering relative to non-chunk boundaries. Example:
@@ -61,6 +65,7 @@ function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
 
   const collapsed: AgentSessionEvent[] = [];
   let pendingChunk: AgentSessionEvent | null = null;
+  let pendingKey: string | null = null;
 
   for (const event of buffer) {
     if (!CHUNK_TYPES.has(event.type)) {
@@ -68,17 +73,15 @@ function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
       if (pendingChunk) {
         collapsed.push(pendingChunk);
         pendingChunk = null;
+        pendingKey = null;
       }
       collapsed.push(event);
       continue;
     }
 
-    // Chunk event — merge if same componentId + type as pending
-    if (
-      pendingChunk &&
-      pendingChunk.componentId === event.componentId &&
-      pendingChunk.type === event.type
-    ) {
+    // Chunk event — merge if same type+agentId as pending
+    const key = chunkKey(event);
+    if (pendingChunk && pendingKey === key) {
       // Merge text into pending chunk
       const dataKey = event.type === 'model-message-chunk' ? 'message' : 'thoughts';
       const pendingData = pendingChunk.data as unknown as Record<string, unknown>;
@@ -87,10 +90,11 @@ function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
       // Take latest metadata
       pendingData.metadata = eventData.metadata;
     } else {
-      // Different component/type — flush pending, start new
+      // Different key — flush pending, start new
       if (pendingChunk) collapsed.push(pendingChunk);
       // Clone to avoid mutating the original event later
       pendingChunk = { ...event, data: { ...event.data } } as AgentSessionEvent;
+      pendingKey = key;
     }
   }
 
@@ -133,8 +137,12 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const collapsed = collapseBuffer(eventBuffer.current);
       eventBuffer.current = [];
 
+      const store = useAgentStore.getState();
       for (const event of collapsed) {
-        processLiveEvent(event);
+        if (event.type === 'user-turn-completed') {
+          window.dispatchEvent(new Event('agent:collapseAll'));
+        }
+        store.appendEvent(event);
       }
     };
 
@@ -151,7 +159,11 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         return;
       }
 
-      processLiveEvent(event);
+      // Dispatch collapse before ingesting new user turn
+      if (event.type === 'user-turn-completed') {
+        window.dispatchEvent(new Event('agent:collapseAll'));
+      }
+      useAgentStore.getState().appendEvent(event);
     });
 
     const unsubCreated = client.on('session_created', (msg: WsAgentSessionCreatedMessage) => {
@@ -172,12 +184,14 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         // useAgentSessionLifecycle which detects this same condition.
         useAgentStore.getState().setConversationStatus('interrupted');
       } else if (msg.status === 'resuming') {
-        // Remove stale streaming components before agent resumes
-        if (msg.deletedComponentIds?.length) {
+        // Re-derive components after backend cleanup
+        if (msg.deletedEventIds?.length) {
           const store = useAgentStore.getState();
-          for (const cid of msg.deletedComponentIds) {
-            store.removeComponent(cid);
-          }
+          // Filter out deleted events and re-derive components
+          const remaining = store.agentSessionEvents.filter(
+            e => !msg.deletedEventIds!.includes(e.eventId)
+          );
+          store.hydrateFromEvents(remaining);
         }
       } else if (msg.status === 'error') {
         useAgentStore.getState().setConversationStatus('interrupted');
@@ -208,8 +222,9 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       if (eventBuffer.current.length > 0) {
         const collapsed = collapseBuffer(eventBuffer.current);
         eventBuffer.current = [];
+        const cleanupStore = useAgentStore.getState();
         for (const event of collapsed) {
-          processLiveEvent(event);
+          cleanupStore.appendEvent(event);
         }
       }
     };

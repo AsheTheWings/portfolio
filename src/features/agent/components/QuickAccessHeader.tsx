@@ -3,7 +3,7 @@
 /**
  * Quick Access Header - Agent playground header with session info and controls
  * Shows selected agent name + avatar when an agent is active, otherwise session info.
- * Self-contained: gets uiMode from store
+ * Self-contained: gets uiInterface from store
  */
 
 import { Switch } from '@/features/shared/components/shadcn/switch';
@@ -20,8 +20,8 @@ export function QuickAccessHeader() {
     setEphemeral,
     agentConfig,
     updateFrontAgentConfig,
-    uiMode,
-    setUiMode,
+    uiInterface,
+    setUiInterface,
   } = useAgent();
   
   return (
@@ -94,8 +94,8 @@ export function QuickAccessHeader() {
         <div className="flex gap-1">
           {/* Chat Layout Icon - Thin Rectangle */}
           <Toggle
-            pressed={uiMode === 'chat'}
-            onPressedChange={() => setUiMode('chat')}
+            pressed={uiInterface === 'chat'}
+            onPressedChange={() => setUiInterface('chat')}
             size="sm"
             aria-label="Chat layout"
             className="h-6 px-1 min-w-6 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
@@ -105,12 +105,12 @@ export function QuickAccessHeader() {
             </svg>
           </Toggle>
 
-          {/* Side-by-Side Layout Icon - Rectangle with Divider */}
+          {/* Flat Layout Icon - Rectangle with Divider */}
           <Toggle
-            pressed={uiMode === 'side-by-side'}
-            onPressedChange={() => setUiMode('side-by-side')}
+            pressed={uiInterface === 'flat'}
+            onPressedChange={() => setUiInterface('flat')}
             size="sm"
-            aria-label="Side-by-side layout"
+            aria-label="Flat layout"
             className="h-6 px-1 min-w-6 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
           >
             <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -18,7 +18,7 @@ interface ToolsBarProps {
   onAgentsHubClick?: () => void;
   inputValue?: string;
   isProcessing?: boolean;
-  uiMode?: 'chat' | 'side-by-side';
+  uiInterface?: 'chat' | 'flat';
 }
 
 function PlusIcon({ className }: { className?: string }) {
@@ -92,7 +92,7 @@ function AgentsIcon({ className }: { className?: string }) {
   );
 }
 
-export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick, onHistoryClick, onAgentsHubClick, inputValue = '', isProcessing = false, uiMode = 'chat' }: ToolsBarProps) {
+export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick, onHistoryClick, onAgentsHubClick, inputValue = '', isProcessing = false, uiInterface = 'chat' }: ToolsBarProps) {
   const { submitUserInput } = useUserInput();
   
   const canSend = inputValue.trim().length > 0 && !isProcessing;
@@ -105,7 +105,7 @@ export function ToolsBar({ onNewSessionClick, onAgentConfigClick, onConfigClick,
   };
   
   // Only show send button in side-by-side mode (chat mode has its own send button in InteractionArea)
-  const showSendButton = uiMode === 'side-by-side';
+  const showSendButton = uiInterface === 'flat';
 
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3">

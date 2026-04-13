@@ -15,7 +15,7 @@ import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 
 export function SettingsPanel() {
   const [apiKeys, setApiKeys] = useState<string[]>(['']);
-  const { removeComponent, uiMode, setUiMode } = useAgent();
+  const { removeComponent, uiInterface, setUiInterface } = useAgent();
   // MCP is Phase 3 — stub as no-ops / not connected
   const connectMcp = useCallback(async (_config: unknown) => { /* Phase 3 */ }, []);
   const disconnectMcp = useCallback(async () => { /* Phase 3 */ }, []);
@@ -111,9 +111,9 @@ export function SettingsPanel() {
             {/* Chat Layout */}
             <div className="flex-1">
               <button
-                onClick={() => setUiMode('chat')}
+                onClick={() => setUiInterface('chat')}
                 className={`w-full p-4 rounded-lg border-2 transition-all ${
-                  uiMode === 'chat'
+                  uiInterface === 'chat'
                     ? 'border-primary bg-primary/5'
                     : 'border-border hover:border-primary/50'
                 }`}
@@ -128,12 +128,12 @@ export function SettingsPanel() {
               </button>
             </div>
 
-            {/* Side-by-Side Layout */}
+            {/* Flat Layout */}
             <div className="flex-1">
               <button
-                onClick={() => setUiMode('side-by-side')}
+                onClick={() => setUiInterface('flat')}
                 className={`w-full p-4 rounded-lg border-2 transition-all ${
-                  uiMode === 'side-by-side'
+                  uiInterface === 'flat'
                     ? 'border-primary bg-primary/5'
                     : 'border-border hover:border-primary/50'
                 }`}
@@ -143,8 +143,8 @@ export function SettingsPanel() {
                     <rect x="2" y="2" width="36" height="24" stroke="currentColor" strokeWidth="2" fill="none" />
                     <line x1="20" y1="2" x2="20" y2="26" stroke="currentColor" strokeWidth="2" />
                   </svg>
-                  <span className="text-sm font-medium">Side-by-Side</span>
-                  <span className="text-xs text-muted-foreground text-center">Agent-User split view</span>
+                  <span className="text-sm font-medium">Flat</span>
+                  <span className="text-xs text-muted-foreground text-center">Linear event stream</span>
                 </div>
               </button>
             </div>
@@ -262,7 +262,7 @@ export function SettingsPanel() {
   );
 
   // Chat mode = standalone (centered card), side-by-side = inline
-  const isStandalone = uiMode === 'chat';
+  const isStandalone = uiInterface === 'chat';
 
   const handleClose = () => {
     removeComponent('settings-panel');

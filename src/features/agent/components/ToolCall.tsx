@@ -11,24 +11,33 @@ import Editor from 'react-simple-code-editor';
 import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import { useAgentSessionComponent } from '../contexts/AgentSessionComponentContext';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
+import type { AgentSessionComponentData, EditingData } from '../types';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 
 
 hljs.registerLanguage('json', json);
 
-export function ToolCall() {
-  // Get all data from context
-  const {
-    data,
-    isEditMode,
-    editingData,
-    onUpdateEditingData,
-    onSubmitEdit,
-    onValidationChange,
-  } = useAgentSessionComponent();
+interface ToolCallProps {
+  data?: AgentSessionComponentData;
+  isEditMode?: boolean;
+  editingData?: EditingData | null;
+  onUpdateEditingData?: (data: EditingData) => void;
+  onSubmitEdit?: () => void;
+  onValidationChange?: (isValid: boolean) => void;
+}
+
+export function ToolCall({
+  data: propData,
+  isEditMode = false,
+  editingData,
+  onUpdateEditingData = () => {},
+  onSubmitEdit,
+  onValidationChange,
+}: ToolCallProps) {
+  // Use provided props (empty data fallback for safety)
+  const data = propData || {};
   
   const server = data.server as string | undefined;
   const tool = data.tool as string | undefined;

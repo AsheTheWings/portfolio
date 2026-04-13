@@ -17,7 +17,7 @@ import { useAgent } from '../hooks/useAgent';
 import { LibraryPicker, useLibraryStore, type Asset } from '@/features/library';
 
 export function AssetPickerPanel() {
-  const { removeComponent, uiMode, addPendingLibraryItems, pendingLibraryItemIds, removePendingLibraryItem, clearPendingLibraryItems } = useAgent();
+  const { removeComponent, uiInterface, addPendingLibraryItems, pendingLibraryItemIds, removePendingLibraryItem, clearPendingLibraryItems } = useAgent();
   const selectedIds = useLibraryStore((state) => state.selectedIds);
   const clearSelection = useLibraryStore((state) => state.clearSelection);
   
@@ -77,7 +77,7 @@ export function AssetPickerPanel() {
     removePendingLibraryItem(id);
   }, [removePendingLibraryItem]);
   
-  const isStandalone = uiMode === 'chat';
+  const isStandalone = uiInterface === 'chat';
   
   return (
     <Card className={isStandalone ? "w-md mx-0 pd-0 min-w-[320px] lg:h-[76vh] lg:w-full" : "w-full border-none shadow-none bg-transparent"}>

@@ -60,7 +60,7 @@ export function useAgentSessionLifecycle() {
 
         // 2. All store mutations in one synchronous block (React batches these)
         store.setCurrentAgentSessionId(sessionId);
-        store.clearComponents();
+        store.clearEvents();
         saveCurrentAgentSessionId(sessionId);
         store.clearActiveFeedbackRequest();
 
@@ -136,7 +136,7 @@ export function useAgentSessionLifecycle() {
       }
 
       store.setCurrentAgentSessionId(null);
-      store.clearComponents();
+      store.clearEvents();
       store.clearUserMessagesHistory();
       store.clearActiveFeedbackRequest();
       store.setConversationStatus('healthy');

@@ -29,10 +29,12 @@ export type AgentSessionEventType =
 /** Raw event shape as received over the wire (timestamp is ISO string) */
 export interface WireAgentSessionEvent {
   eventId: string;
-  componentId: string;
   turnId: string;
   type: AgentSessionEventType;
   role: 'user' | 'agent' | 'system';
+  agentId?: string;
+  toolCallEventId?: string;
+  breakpointEventId?: string;  // Branch events only
   sequence: number;
   timestamp: string; // ISO 8601 — converted to Date on ingestion
   data: Record<string, unknown>;
@@ -72,7 +74,7 @@ export interface WsStopAgentMessage {
 export interface WsSubmitFeedbackMessage {
   type: 'submit_feedback';
   sessionId: string;
-  componentId: string;
+  toolCallEventId: string;
   feedbackData: unknown;
 }
 
@@ -91,13 +93,13 @@ export interface WsResumeAgentMessage {
 export interface WsRevertToComponentMessage {
   type: 'revert_to_component';
   sessionId: string;
-  componentId: string;
+  breakpointEventId: string;
 }
 
 export interface WsEditComponentMessage {
   type: 'edit_component';
   sessionId: string;
-  componentId: string;
+  breakpointEventId: string;
   updatedData: Record<string, unknown>;
   configOverride?: Record<string, unknown>;
 }
@@ -133,7 +135,7 @@ export interface WsAgentStatusMessage {
   sessionId: string;
   status: 'completed' | 'aborted' | 'paused' | 'error' | 'resuming';
   error?: string;
-  deletedComponentIds?: string[];
+  deletedEventIds?: string[];
 }
 
 export interface WsExecuteCustomToolMessage {

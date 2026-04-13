@@ -31,7 +31,7 @@ import { McpConfigCardContent } from './McpConfigCardContent';
 
 export function AgentsConfigPanel() {
   // Store state
-  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, workflowsPool, removeComponent, uiMode } = useAgent();
+  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, workflowsPool, removeComponent, uiInterface } = useAgent();
   const userId = useAuthStore((s) => s.user?.id);
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
@@ -84,7 +84,7 @@ export function AgentsConfigPanel() {
   };
 
   // Chat mode = standalone (centered card), side-by-side = inline
-  const isStandalone = uiMode === 'chat';
+  const isStandalone = uiInterface === 'chat';
 
   const handleClose = () => {
     removeComponent('configurations-panel');

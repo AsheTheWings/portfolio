@@ -29,7 +29,7 @@ export function useAgentCall() {
     console.log(`[AgentCall] submitMessage — sessionId=${store.currentSessionId ?? '(none)'} message="${message.slice(0, 60)}..."`);
     
     // Clear system panels when user sends a new message
-    store.removeComponentsByRole('system');
+    store.clearSystemPanels();
     store.setConversationStatus('processing');
     
     // Track in user messages history
@@ -63,7 +63,7 @@ export function useAgentCall() {
    * Submit feedback result to backend via WS
    */
   const submitFeedback = useCallback((
-    componentId: string,
+    toolCallEventId: string,
     feedbackData: Record<string, unknown>
   ) => {
     const sessionId = useAgentStore.getState().currentSessionId;
@@ -75,7 +75,7 @@ export function useAgentCall() {
     send({
       type: 'submit_feedback',
       sessionId,
-      componentId,
+      toolCallEventId,
       feedbackData,
     });
   }, [send]);

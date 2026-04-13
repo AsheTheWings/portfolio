@@ -27,7 +27,7 @@ export type ToolHandler = (
   context: { 
     agentConfig?: AgentConfig; 
     userFeedback?: unknown; 
-    componentId?: string;
+    toolCallEventId?: string;
     metadata?: AgentMetadata;  // Read-only snapshot of turn metadata at call time
     turnId?: string;           // Turn ID from session context
     turnMetadata?: AgentMetadata;  // Turn-scoped metadata for job aggregation
@@ -338,7 +338,7 @@ export interface BranchEventData {
 }
 
 // User feedback result event data (generated when user provides feedback)
-// Links to tool-call via componentId (same as tool-call.eventId)
+// Links to tool-call via toolCallEventId (same as tool-call.eventId)
 export interface UserFeedbackResultData {
   server: string;                                   // Tool server (e.g., 'system-call')
   tool: string;                                     // Tool name (e.g., 'update_state')
@@ -349,7 +349,9 @@ export interface UserFeedbackResultData {
 
 // Session component types
 export type AgentSessionComponentType = 
-| 'message' 
+  | 'message' 
+  | 'user-message'
+  | 'agent-message'
   | 'agent-thoughts' 
   | 'tool-result'
   | 'tool-call' 
@@ -404,6 +406,10 @@ export interface AgentSessionComponentData {
 
   // Tool effects data (spread from ToolEffectsData)
   toolEffects?: ToolEffects;
+
+  // Composite data (agent-message type in chat mode)
+  items?: AgentSessionComponent[];
+  hasResponse?: boolean;
 }
 
 // Session component (UI display)
@@ -417,18 +423,15 @@ export interface AgentSessionComponent {
   data: AgentSessionComponentData;
 }
 
-// Render context for component resolver
-export interface RenderContext {
-  mode: 'chat' | 'sideBySide';
-  includeThoughtsInResponse?: boolean;
-}
+// UI interface mode — determines component derivation strategy
+export type UIInterface = 'chat' | 'flat';
 
 // Session event base fields
 interface AgentSessionEventBase {
   eventId: string;              // Unique per event
-  componentId: string;          // Linking ID for related events
   turnId: string;               // Turn ID - shared between user turn and all subsequent agent events
   agentId?: string;             // Which agent produced this event ('none' = assistant, UUID = saved agent)
+  toolCallEventId?: string;     // Links tool-result/tool-effects/user-feedback-result to originating tool-call's eventId
   role: 'user' | 'agent' | 'system'; // Event owner role
   sequence: number;
   timestamp: Date;              // When event was created
@@ -487,6 +490,7 @@ export interface UserTurnCompletedEvent extends AgentSessionEventBase {
 
 export interface BranchEvent extends AgentSessionEventBase {
   type: 'branch';
+  breakpointEventId?: string;   // Links branch to the event it was created from
   data: BranchEventData;
 }
 
@@ -512,7 +516,7 @@ export type EditingData = {
 };
 
 export interface EditableComponentData {
-  componentId: string;
+  eventId: string;
   type: 'user-message' | 'agent-message' | 'tool-call';
   fields: {
     message?: string;
@@ -523,7 +527,7 @@ export interface EditableComponentData {
 
 export interface BranchRequest {
   parentSessionId: string;
-  componentId: string;          // Component that triggers the branch
+  breakpointEventId: string;    // Event that triggers the branch
   modifiedData?: {              // If provided, creates edit branch; otherwise revert branch
     message?: string;
     tool?: string;
@@ -564,8 +568,10 @@ export interface AgentState {
   _hydrated: boolean;
   
   // UI state
-  uiMode: 'chat' | 'side-by-side';
+  uiInterface: UIInterface;
   sessionComponents: AgentSessionComponent[];
+  agentSessionEvents: AgentSessionEvent[];
+  activePanels: Map<string, AgentSessionComponentType>;
   persistAgentSession: boolean;
   ephemeral: boolean;
   userMessagesHistory: string[];  // Last N user messages for input navigation (most recent first)
@@ -581,7 +587,7 @@ export interface AgentState {
   submitTrigger: number;
   
   // Editing state
-  editingComponentId: string | null;
+  editingEventId: string | null;
   editingData: EditingData | null;
   
   // Branching state
@@ -589,7 +595,7 @@ export interface AgentState {
   
   // Tool-based interaction state (feedback mode)
   activeFeedbackRequest: {
-    componentId: string;
+    toolCallEventId: string;
     userActions: Record<string, FeedbackAction[]>;
   } | null;
   
@@ -629,17 +635,17 @@ export interface AgentState {
   
   // UI component actions
   setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;
-  upsertComponent: (input: AgentSessionComponent | AgentSessionComponent[]) => void;
-  upsertComponentFromEvent: (event: AgentSessionEvent) => void;
+  appendEvent: (event: AgentSessionEvent) => void;
   hydrateFromEvents: (events: AgentSessionEvent[]) => void;
-  clearComponents: () => void;
+  clearEvents: () => void;
   markInitialConfigShown: () => void;
   removeComponent: (id: string) => void;
-  removeComponentsByType: (type: AgentSessionComponent['type']) => void;
-  removeComponentsByRole: (role: AgentSessionComponent['role']) => void;
+  upsertSystemPanel: (panelId: string, panelType: AgentSessionComponentType) => void;
+  removeSystemPanel: (panelId: string) => void;
+  clearSystemPanels: () => void;
   
   // Control actions
-  setUiMode: (mode: 'chat' | 'side-by-side') => void;
+  setUiInterface: (uiInterface: UIInterface) => void;
   setPersistAgentSession: (persist: boolean) => void;
   setEphemeral: (ephemeral: boolean) => void;
   
@@ -658,7 +664,7 @@ export interface AgentState {
   triggerSubmit: () => void;
   
   // Editing actions
-  startEdit: (componentId: string, initialData: string | EditingData) => void;
+  startEdit: (eventId: string, initialData: string | EditingData) => void;
   updateEditingData: (data: EditingData) => void;
   cancelEdit: () => void;
   
@@ -668,7 +674,7 @@ export interface AgentState {
   scrollToComponent: (componentId: string) => void;
   
   // Feedback mode actions
-  setActiveFeedbackRequest: (request: { componentId: string; userActions: Record<string, FeedbackAction[]> } | null) => void;
+  setActiveFeedbackRequest: (request: { toolCallEventId: string; userActions: Record<string, FeedbackAction[]> } | null) => void;
   clearActiveFeedbackRequest: () => void;
   
   // Translation actions

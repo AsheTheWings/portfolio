@@ -29,12 +29,12 @@ export function useAgent() {
   // Feedback mode
   const activeFeedbackRequest = useAgentStore((state) => state.activeFeedbackRequest);
   
-  // UI mode
-  const uiMode = useAgentStore((state) => state.uiMode);
-  const setUiMode = useAgentStore((state) => state.setUiMode);
+  // UI interface
+  const uiInterface = useAgentStore((state) => state.uiInterface);
+  const setUiInterface = useAgentStore((state) => state.setUiInterface);
   
   // Editing
-  const editingComponentId = useAgentStore((state) => state.editingComponentId);
+  const editingEventId = useAgentStore((state) => state.editingEventId);
   const editingData = useAgentStore((state) => state.editingData);
   const startEdit = useAgentStore((state) => state.startEdit);
   const updateEditingData = useAgentStore((state) => state.updateEditingData);
@@ -57,11 +57,11 @@ export function useAgent() {
   const setAgents = useAgentStore((state) => state.setAgents);
   const updateFrontAgentConfig = useAgentStore((state) => state.updateFrontAgentConfig);
   const setFrontAgent = useAgentStore((state) => state.setFrontAgent);
-  const upsertComponent = useAgentStore((state) => state.upsertComponent);
-  const clearComponents = useAgentStore((state) => state.clearComponents);
   const removeComponent = useAgentStore((state) => state.removeComponent);
-  const removeComponentsByType = useAgentStore((state) => state.removeComponentsByType);
-  const removeComponentsByRole = useAgentStore((state) => state.removeComponentsByRole);
+  const upsertSystemPanel = useAgentStore((state) => state.upsertSystemPanel);
+  const removeSystemPanel = useAgentStore((state) => state.removeSystemPanel);
+  const clearSystemPanels = useAgentStore((state) => state.clearSystemPanels);
+  const clearEvents = useAgentStore((state) => state.clearEvents);
   const setPersistAgentSession = useAgentStore((state) => state.setPersistAgentSession);
   const setEphemeral = useAgentStore((state) => state.setEphemeral);
   const setError = useAgentStore((state) => state.setError);
@@ -111,22 +111,22 @@ export function useAgent() {
     activeFeedbackRequest,
     setActiveFeedbackRequest,
     
-    // UI mode
-    uiMode,
-    setUiMode,
+    // UI interface
+    uiInterface,
+    setUiInterface,
     
     // Editing
-    editingComponentId,
+    editingEventId,
     editingData,
     startEdit,
     updateEditingData,
 
     // Component actions
-    upsertComponent,
-    clearComponents,
     removeComponent,
-    removeComponentsByType,
-    removeComponentsByRole,
+    upsertSystemPanel,
+    removeSystemPanel,
+    clearSystemPanels,
+    clearEvents,
     setAgentSessionComponents,
     
     // Control actions

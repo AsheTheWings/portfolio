@@ -1,7 +1,11 @@
 'use client';
 
 /**
- * Chat-Based UI - Simple chat interface
+ * Chat-Based UI - Chat interface rendering chat-mode derived components
+ * 
+ * Renders sessionComponents directly — the store's chat derivation already
+ * produces the right composites (user-message, agent-message, user-feedback,
+ * system panels). No grouping useMemo needed.
  * 
  * SCROLL BEHAVIOR:
  * - Session load: Scroll to last user component (top of viewport)
@@ -13,12 +17,16 @@
  */
 
 import React, { useRef } from 'react';
-import type { AgentSessionComponent } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import type { MessageInputRef } from './MessageInput';
-import { resolveComponent } from './ComponentResolver';
+import { UserMessage } from './UserMessage';
+import { AgentMessage } from './AgentMessage';
+import { UserFeedback } from './UserFeedback';
+import { resolveSystemPanel } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
+import { SystemCall } from '../tools/system-call';
+import { isTextFeedback } from '../utils/toAgentSessionComponent';
 
 export function ChatInterface() {
   const {
@@ -27,7 +35,6 @@ export function ChatInterface() {
     scrollToComponentId,
     clearScrollToComponentId,
     ephemeral,
-    agentConfig,
   } = useAgent();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -41,32 +48,6 @@ export function ChatInterface() {
     clearScrollToComponentId,
   });
 
-  // Group components by groups (User message starts a new group)
-  const componentGroups = React.useMemo(() => {
-    const groups: { userComponent?: AgentSessionComponent; agentComponents: AgentSessionComponent[] }[] = [];
-    let currentGroup: { userComponent?: AgentSessionComponent; agentComponents: AgentSessionComponent[] } = { agentComponents: [] };
-    
-    sessionComponents.forEach(c => {
-      if (c.role === 'user') {
-        // Push old group if it has content
-        if (currentGroup.userComponent || currentGroup.agentComponents.length > 0) {
-          groups.push(currentGroup);
-        }
-        // Start new group
-        currentGroup = { userComponent: c, agentComponents: [] };
-      } else {
-        currentGroup.agentComponents.push(c);
-      }
-    });
-    
-    // Push final group
-    if (currentGroup.userComponent || currentGroup.agentComponents.length > 0) {
-      groups.push(currentGroup);
-    }
-    
-    return groups;
-  }, [sessionComponents]);
-
   return (
     <div className="h-full flex flex-col relative">
       {/* Chat Container - Scrollable */}
@@ -76,7 +57,7 @@ export function ChatInterface() {
           {/* Left Panel - Portal target for agent-side content */}
           <div id="chat-left-panel" className="relative" />
           
-          {/* Center - Chat Content (pb-24 clears the floating InteractionArea overlay) */}
+          {/* Center - Chat Content */}
           <div className="flex flex-col gap-4 py-4 pb-8">
             {/* Placeholder when no conversation exists */}
             {sessionComponents.length === 0 && !currentSessionId && (
@@ -85,44 +66,49 @@ export function ChatInterface() {
               </p>
             )}
             
-            {componentGroups.map((group, idx) => {
-              const isLastGroup = idx === componentGroups.length - 1;
-              // Apply min-height if it's the last group AND it was initiated by a user
-              // This reserves space for the agent to fill, keeping the user message at the top
-              const useMinHeight = isLastGroup && group.userComponent;
-              const minHeightClass = useMinHeight ? 'min-h-[90vh]' : '';
+            {sessionComponents.map((component, idx) => {
+              // Apply min-height to the last user-initiated group
+              // Check if this is a user-message AND there are no more user-messages after it
+              const isLastUserMessage = component.type === 'user-message' &&
+                !sessionComponents.slice(idx + 1).some(c => c.type === 'user-message');
               
-              const userComp = group.userComponent;
-              const renderedUser = userComp ? resolveComponent(userComp, {
-                mode: 'chat',
-                includeThoughtsInResponse: agentConfig?.includeThoughtsInResponse ?? true,
-              }) : null;
-
-              return (
-                <div key={idx} className={`flex flex-col gap-4 ${minHeightClass}`}>
-                  {/* User Message (Header of the group) */}
-                  {renderedUser && userComp && (
-                    <div key={userComp.id} id={userComp.id} className="w-full">
-                      {renderedUser}
+              switch (component.type) {
+                case 'user-message':
+                  return (
+                    <div key={component.id} id={component.id} className={`w-full ${isLastUserMessage ? 'min-h-[90vh]' : ''}`}>
+                      <UserMessage component={component} />
                     </div>
-                  )}
-                  
-                  {/* Agent Responses (Body of the group) */}
-                  <div className="flex flex-col gap-4 w-full transition-all duration-200">
-                    {group.agentComponents.map((component) => {
-                      const rendered = resolveComponent(component, {
-                        mode: 'chat',
-                        includeThoughtsInResponse: agentConfig?.includeThoughtsInResponse ?? true,
-                      });
-                      return rendered ? (
-                        <div key={component.id} id={component.id} className="w-full">
-                          {rendered}
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-              );
+                  );
+                case 'agent-message':
+                  return (
+                    <div key={component.id} id={component.id} className="w-full">
+                      <AgentMessage component={component} />
+                    </div>
+                  );
+                case 'user-feedback':
+                  return (
+                    <div key={component.id} id={component.id} className="w-full">
+                      <UserFeedback feedback={isTextFeedback(component.data.result) ? component.data.result.userFeedback : ''} />
+                    </div>
+                  );
+                case 'system-call':
+                  return (
+                    <div key={component.id} id={component.id} className="w-full">
+                      <SystemCall data={component.data} />
+                    </div>
+                  );
+                case 'config-panel':
+                case 'settings-panel':
+                case 'history-panel':
+                case 'asset-picker-panel':
+                  return (
+                    <div key={component.id} id={component.id} className="w-full flex justify-center py-2">
+                      {resolveSystemPanel(component.type)}
+                    </div>
+                  );
+                default:
+                  return null;
+              }
             })}
           </div>
           

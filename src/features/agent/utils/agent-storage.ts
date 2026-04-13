@@ -78,22 +78,22 @@ const UI_FLAGS_PREFIX = 'timeline:agent:uiFlags';
 /**
  * Load UI flags for a specific interface mode
  */
-export function loadUIFlags(mode: 'chat' | 'side-by-side'): UIFlags {
+export function loadUIFlags(uiInterface: 'chat' | 'flat'): UIFlags {
   try {
-    const key = `${UI_FLAGS_PREFIX}:${mode}`;
+    const key = `${UI_FLAGS_PREFIX}:${uiInterface}`;
     const stored = localStorage.getItem(key);
     
     if (!stored) {
-      // Default values per mode
-      return mode === 'side-by-side' 
+      // Default values per interface
+      return uiInterface === 'flat' 
         ? { persistAgentSession: false, ephemeral: true }
         : { persistAgentSession: true, ephemeral: false };
     }
 
     return JSON.parse(stored) as UIFlags;
   } catch (err) {
-    console.error(`Failed to load UI flags for ${mode}:`, err);
-    return mode === 'side-by-side' 
+    console.error(`Failed to load UI flags for ${uiInterface}:`, err);
+    return uiInterface === 'flat' 
       ? { persistAgentSession: false, ephemeral: true }
       : { persistAgentSession: true, ephemeral: false };
   }
@@ -102,12 +102,12 @@ export function loadUIFlags(mode: 'chat' | 'side-by-side'): UIFlags {
 /**
  * Save UI flags for a specific interface mode
  */
-export function saveUIFlags(mode: 'chat' | 'side-by-side', flags: UIFlags): void {
+export function saveUIFlags(uiInterface: 'chat' | 'flat', flags: UIFlags): void {
   try {
-    const key = `${UI_FLAGS_PREFIX}:${mode}`;
+    const key = `${UI_FLAGS_PREFIX}:${uiInterface}`;
     localStorage.setItem(key, JSON.stringify(flags));
   } catch (err) {
-    console.error(`Failed to save UI flags for ${mode}:`, err);
+    console.error(`Failed to save UI flags for ${uiInterface}:`, err);
   }
 }
 

@@ -9,71 +9,18 @@ import { create } from 'zustand';
 import type {
   AgentState,
   AgentSessionComponent,
+  AgentSessionComponentType,
   AgentSessionEvent,
   Agent,
   AgentConfig,
   SavedAgent,
+  UIInterface,
+  ToolEffectsData,
 } from '../types';
 import { createDefaultAgentConfig, hasCapability, createAssistantAgent } from '../services/models-registry';
 import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
-import { toAgentSessionComponents } from '../utils/toAgentSessionComponent';
-
-/**
- * Merge an incoming component into an existing one.
- * - Streaming chunks: append message/thoughts text
- * - Completed events: replace message/thoughts text
- * - sessionEvents: deduplicate by eventId, append new
- * - role: preserve non-system role if incoming is system
- * - hideComponent: once hidden, stays hidden
- * - controls: incoming wins, fall back to existing
- */
-function mergeComponent(
-  existing: AgentSessionComponent,
-  incoming: AgentSessionComponent,
-): AgentSessionComponent {
-  const mergedMessage = (() => {
-    if (incoming.data.message === undefined) return existing.data.message;
-    if (existing.data.message === undefined) return incoming.data.message;
-    if (!incoming.isStreaming) return incoming.data.message;
-    return existing.data.message + incoming.data.message;
-  })();
-
-  const mergedThoughts = (() => {
-    if (incoming.data.thoughts === undefined) return existing.data.thoughts;
-    if (existing.data.thoughts === undefined) return incoming.data.thoughts;
-    if (!incoming.isStreaming) return incoming.data.thoughts;
-    return existing.data.thoughts + incoming.data.thoughts;
-  })();
-
-  const mergedSessionEvents = (() => {
-    if (!existing.data.sessionEvents && !incoming.data.sessionEvents) return undefined;
-    if (!existing.data.sessionEvents) return incoming.data.sessionEvents;
-    if (!incoming.data.sessionEvents) return existing.data.sessionEvents;
-    const existingIds = new Set(existing.data.sessionEvents.map((e: { eventId: string }) => e.eventId));
-    const newEvents = incoming.data.sessionEvents.filter((e: { eventId: string }) => !existingIds.has(e.eventId));
-    return [...existing.data.sessionEvents, ...newEvents];
-  })();
-
-  return {
-    ...existing,
-    ...incoming,
-    type: existing.type,  // First event establishes type; merges must not overwrite
-    role: (incoming.role === 'system' && existing.role !== 'system')
-      ? existing.role
-      : incoming.role,
-    isStreaming: incoming.isStreaming,
-    hideComponent: existing.hideComponent ?? incoming.hideComponent,
-    controls: incoming.controls ?? existing.controls,
-    data: {
-      ...existing.data,
-      ...incoming.data,
-      message: mergedMessage,
-      thoughts: mergedThoughts,
-      sessionEvents: mergedSessionEvents,
-    },
-  };
-}
+import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
 
 /**
  * Enforce business rules on agent config to maintain invariants.
@@ -127,8 +74,10 @@ const initialState = {
   _hasShownInitialConfig: false,
   
   // UI
-  uiMode: 'chat' as const,
+  uiInterface: 'chat' as UIInterface,
   sessionComponents: [] as AgentSessionComponent[],
+  agentSessionEvents: [] as AgentSessionEvent[],
+  activePanels: new Map<string, AgentSessionComponentType>(),
   persistAgentSession: true,
   ephemeral: false,
   userMessagesHistory: [] as string[],
@@ -145,7 +94,7 @@ const initialState = {
   submitTrigger: 0,
   
   // Editing
-  editingComponentId: null as string | null,
+  editingEventId: null as string | null,
   editingData: null as import('../types').EditingData | null,
   
   // Branching
@@ -320,70 +269,137 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       sessionComponents: typeof components === 'function' ? components(state.sessionComponents) : components,
     })),
 
-  upsertComponent: (input) =>
+  appendEvent: (event: AgentSessionEvent) => {
     set((state) => {
-      const components = Array.isArray(input) ? input : [input];
-      let updated = [...state.sessionComponents];
-      
-      for (const component of components) {
-        const existingIndex = updated.findIndex((comp) => comp.id === component.id);
-        
-        if (existingIndex >= 0) {
-          updated[existingIndex] = mergeComponent(updated[existingIndex], component);
-        } else {
-          updated = [...updated, component];
+      const agentSessionEvents = [...state.agentSessionEvents, event];
+      const sessionComponents = [...state.sessionComponents];
+      processEventIntoComponents(sessionComponents, event, state.uiInterface);
+
+      let conversationStatus = state.conversationStatus;
+      let activeFeedbackRequest = state.activeFeedbackRequest;
+      let skipStatusDerivation = false;
+
+      // Tool-effects side effects (config updates handled after set)
+      if (event.type === 'tool-effects') {
+        const { toolEffects } = event.data as ToolEffectsData;
+        if (toolEffects && Object.keys(toolEffects).length > 0) {
+          if (toolEffects.userActions) {
+            activeFeedbackRequest = {
+              toolCallEventId: event.toolCallEventId!,
+              userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
+            };
+            conversationStatus = 'waitingFeedback';
+            skipStatusDerivation = true;
+          }
         }
       }
-      
-      return { sessionComponents: updated };
-    }),
 
-  upsertComponentFromEvent: (event: AgentSessionEvent) => {
-    const components = toAgentSessionComponents(event);
-    if (components.length > 0) {
-      get().upsertComponent(components);
+      // Derive conversation status from event type
+      if (!skipStatusDerivation) {
+        switch (event.type) {
+          case 'model-thought-chunk': conversationStatus = 'thinking'; break;
+          case 'model-message-chunk': conversationStatus = 'responding'; break;
+          case 'tool-call': conversationStatus = 'toolCalling'; break;
+          case 'agent-turn-completed': conversationStatus = 'healthy'; break;
+          case 'user-turn-completed': conversationStatus = 'processing'; break;
+        }
+      }
+
+      return {
+        agentSessionEvents,
+        sessionComponents,
+        conversationStatus,
+        activeFeedbackRequest,
+      };
+    });
+
+    // Handle config update outside of set (calls another store method)
+    if (event.type === 'tool-effects') {
+      const { toolEffects } = event.data as ToolEffectsData;
+      if (toolEffects?.updateConfig) {
+        get().updateFrontAgentConfig(prev => ({
+          ...prev,
+          ...toolEffects.updateConfig!,
+        }));
+      }
     }
   },
 
   hydrateFromEvents: (events: AgentSessionEvent[]) => {
-    // Clear existing components and rebuild from events
-    const allComponents: AgentSessionComponent[] = [];
-    for (const event of events) {
-      const mapped = toAgentSessionComponents(event);
-      for (const component of mapped) {
-        const existingIndex = allComponents.findIndex((c) => c.id === component.id);
-        if (existingIndex >= 0) {
-          allComponents[existingIndex] = mergeComponent(allComponents[existingIndex], component);
-        } else {
-          allComponents.push(component);
-        }
-      }
+    const { activePanels, uiInterface } = get();
+    const sessionComponents = toAgentSessionComponents(events, uiInterface);
+    // Re-inject active system panels
+    for (const [panelId, panelType] of activePanels) {
+      sessionComponents.push({
+        id: panelId,
+        role: 'system',
+        type: panelType,
+        isStreaming: false,
+        data: {},
+      });
     }
-    set({ sessionComponents: allComponents });
+    set({ agentSessionEvents: events, sessionComponents });
   },
 
-  clearComponents: () => set({ sessionComponents: [] }),
+  clearEvents: () => set({ agentSessionEvents: [], sessionComponents: [], activePanels: new Map() }),
+
+  clearSystemPanels: () =>
+    set((state) => ({
+      sessionComponents: state.sessionComponents.filter(c => c.role !== 'system'),
+      activePanels: new Map(),
+    })),
 
   markInitialConfigShown: () => set({ _hasShownInitialConfig: true }),
 
   removeComponent: (id) =>
-    set((state) => ({
-      sessionComponents: state.sessionComponents.filter((comp) => comp.id !== id),
-    })),
+    set((state) => {
+      const activePanels = new Map(state.activePanels);
+      activePanels.delete(id);
+      return {
+        sessionComponents: state.sessionComponents.filter((comp) => comp.id !== id),
+        activePanels,
+      };
+    }),
 
-  removeComponentsByType: (type) =>
-    set((state) => ({
-      sessionComponents: state.sessionComponents.filter((comp) => comp.type !== type),
-    })),
+  upsertSystemPanel: (panelId: string, panelType: AgentSessionComponentType) =>
+    set((state) => {
+      const activePanels = new Map(state.activePanels);
+      activePanels.set(panelId, panelType);
+      const sessionComponents = state.sessionComponents.filter(c => c.id !== panelId);
+      sessionComponents.push({
+        id: panelId,
+        role: 'system',
+        type: panelType,
+        isStreaming: false,
+        data: {},
+      });
+      return { sessionComponents, activePanels };
+    }),
 
-  removeComponentsByRole: (role) =>
-    set((state) => ({
-      sessionComponents: state.sessionComponents.filter((comp) => comp.role !== role),
-    })),
+  removeSystemPanel: (panelId: string) =>
+    set((state) => {
+      const activePanels = new Map(state.activePanels);
+      activePanels.delete(panelId);
+      return {
+        sessionComponents: state.sessionComponents.filter(c => c.id !== panelId),
+        activePanels,
+      };
+    }),
 
   // Control actions
-  setUiMode: (uiMode) => {
-    set({ uiMode });
+  setUiInterface: (uiInterface: UIInterface) => {
+    const { agentSessionEvents, activePanels } = get();
+    const sessionComponents = toAgentSessionComponents(agentSessionEvents, uiInterface);
+    for (const [panelId, panelType] of activePanels) {
+      sessionComponents.push({
+        id: panelId,
+        role: 'system',
+        type: panelType,
+        isStreaming: false,
+        data: {},
+      });
+    }
+    set({ uiInterface, sessionComponents });
   },
 
   setPersistAgentSession: (persistAgentSession) => {
@@ -411,13 +427,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
   
   // Editing actions
-  startEdit: (componentId, initialData) => {
+  startEdit: (eventId, initialData) => {
     const editingData = typeof initialData === 'string'
       ? { message: initialData }
       : initialData;
     
     set({
-      editingComponentId: componentId,
+      editingEventId: eventId,
       editingData,
     });
   },
@@ -430,7 +446,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   cancelEdit: () => {
     set({
-      editingComponentId: null,
+      editingEventId: null,
       editingData: null,
     });
   },

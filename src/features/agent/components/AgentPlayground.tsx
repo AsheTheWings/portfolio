@@ -2,7 +2,8 @@
 
 /**
  * Agent Playground - Full playground implementation
- * Provides 90vw container, ToolsBar, and UI mode rendering
+ * Provides ToolsBar, QuickAccessHeader, and routes ChatInterface/FlatInterface
+ * based on uiInterface.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,11 +18,11 @@ import { useAgentStore } from '../stores/useAgentStore';
 import { useAcquiredAgentsQuery } from '../hooks/useAcquiredAgentsQuery';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { ChatInterface } from './ChatInterface';
-import { SideBySideInterface } from './SideBySideInterface';
+import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { AgentSessionComponent, Tool, WorkflowSpec } from '../types';
+import type { AgentSessionComponentType, Tool, WorkflowSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 
@@ -79,8 +80,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   }, [reset]);
   
   const {
-    upsertComponent,
-    removeComponentsByRole,
+    upsertSystemPanel,
     clearAgentSession,
     conversationStatus,
     persistAgentSession,
@@ -90,7 +90,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     sessionComponents,
     triggerSubmit,
     setScrollToComponentId,
-    uiMode,
+    uiInterface,
   } = useAgent();
   
   // Derive isProcessing from conversationStatus
@@ -108,27 +108,21 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   useEffect(() => {
     if (!hasShownInitialConfig && sessionComponents.length === 0 && !sessionId) {
       markInitialConfigShown();
-      upsertComponent({
-        id: 'configurations-panel',
-        role: 'system',
-        type: 'config-panel',
-        isStreaming: false,
-        data: {}
-      });
+      upsertSystemPanel('configurations-panel', 'config-panel');
     }
-  }, [hasShownInitialConfig, sessionComponents.length, sessionId, markInitialConfigShown, upsertComponent]);
+  }, [hasShownInitialConfig, sessionComponents.length, sessionId, markInitialConfigShown, upsertSystemPanel]);
 
-  // Load UI flags when mode changes
+  // Load UI flags when interface changes
   useEffect(() => {
-    const flags = loadUIFlags(uiMode);
+    const flags = loadUIFlags(uiInterface);
     setPersistAgentSession(flags.persistAgentSession);
     setEphemeral(flags.ephemeral);
-  }, [uiMode, setPersistAgentSession, setEphemeral]);
+  }, [uiInterface, setPersistAgentSession, setEphemeral]);
   
   // Save UI flags when they change
   useEffect(() => {
-    saveUIFlags(uiMode, { persistAgentSession, ephemeral });
-  }, [uiMode, persistAgentSession, ephemeral]);
+    saveUIFlags(uiInterface, { persistAgentSession, ephemeral });
+  }, [uiInterface, persistAgentSession, ephemeral]);
 
   
 
@@ -138,33 +132,12 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   };
 
   // Utility: Handle panel display (create or scroll to existing)
-  const handlePanelClick = (panelId: string, panelType: AgentSessionComponent['type']) => {
+  const handlePanelClick = (panelId: string, panelType: AgentSessionComponentType) => {
     const existingPanel = sessionComponents.find(c => c.id === panelId);
-    
-    if (uiMode === 'side-by-side') {
-      // In side-by-side mode, remove all system panels (only one at a time)
-      removeComponentsByRole('system');
-      upsertComponent({
-        id: panelId,
-        role: 'system',
-        type: panelType,
-        isStreaming: false,
-        data: {}
-      });
-    } else if (uiMode === 'chat') {
-      if (existingPanel) {
-        // Scroll to existing panel
-        setScrollToComponentId(panelId);
-      } else {
-        // Create new panel
-        upsertComponent({
-          id: panelId,
-          role: 'system',
-          type: panelType,
-          isStreaming: false,
-          data: {}
-        });
-      }
+    if (existingPanel) {
+      setScrollToComponentId(panelId);
+    } else {
+      upsertSystemPanel(panelId, panelType);
     }
   };
 
@@ -204,7 +177,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   }, []);
 
   // Global keyboard listener - handle Escape, Enter and printable characters
-  const editingComponentId = useAgentStore((s) => s.editingComponentId);
+  const editingEventId = useAgentStore((s) => s.editingEventId);
   const resetAllTranslations = useAgentStore((s) => s.resetAllTranslations);
   
   useEffect(() => {
@@ -215,7 +188,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
         e.stopPropagation();
         
         // Reset translations (unless in edit mode)
-        if (!editingComponentId) {
+        if (!editingEventId) {
           resetAllTranslations();
         }
         
@@ -251,7 +224,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isProcessing, triggerSubmit, editingComponentId, resetAllTranslations]);
+  }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations]);
 
   return (
     <div className="h-full w-full bg-background text-foreground">
@@ -263,7 +236,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
         onConfigClick={handleSettingsClick}
         onAgentsHubClick={() => setShowAgentsHub((v) => !v)}
         isProcessing={isProcessing}
-        uiMode={uiMode}
+        uiInterface={uiInterface}
       />
 
       <div className="h-full flex flex-col relative">
@@ -272,14 +245,14 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
           <AgentsHub onClose={() => setShowAgentsHub(false)} />
         )}
 
-        {/* Conditional rendering based on UI mode */}
+        {/* Conditional rendering based on UI interface */}
         <>
             {/* Quick Access Header */}
             <QuickAccessHeader />
 
             {/* Animated Interface Transition with Scroll Preservation */}
             <AnimatePresence mode="wait">
-              {uiMode === 'chat' ? (
+              {uiInterface === 'chat' ? (
                 <motion.div
                   key="chat"
                   initial={{ opacity: 0, y: 10 }}
@@ -292,14 +265,14 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
                 </motion.div>
               ) : (
                 <motion.div
-                  key="side-by-side"
+                  key="flat"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
                   className="flex-1 overflow-hidden"
                 >
-                  <SideBySideInterface />
+                  <FlatInterface />
                 </motion.div>
               )}
             </AnimatePresence>

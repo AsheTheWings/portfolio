@@ -21,7 +21,7 @@ export function useUserInput() {
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     if (activeFeedbackRequest) {
-      submitFeedback(activeFeedbackRequest.componentId, { userFeedback: message });
+      submitFeedback(activeFeedbackRequest.toolCallEventId, { userFeedback: message });
     } else {
       submitMessage(message, libraryItemIds);
     }
@@ -35,7 +35,7 @@ export function useUserInput() {
       console.warn('Cannot submit action: Not in feedback mode');
       return;
     }
-    submitFeedback(activeFeedbackRequest.componentId, { action: actionId });
+    submitFeedback(activeFeedbackRequest.toolCallEventId, { action: actionId });
   }, [activeFeedbackRequest, submitFeedback]);
 
   return {

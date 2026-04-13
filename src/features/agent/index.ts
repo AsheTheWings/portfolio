@@ -13,7 +13,7 @@ export { McpClient } from './lib/mcp-client';
 // UI components (can be used standalone or inline)
 export { AgentPlayground } from './components/AgentPlayground';
 export { ChatInterface } from './components/ChatInterface';
-export { SideBySideInterface } from './components/SideBySideInterface';
+export { FlatInterface } from './components/FlatInterface';
 export { ToolsBar } from './components/ToolsBar';
 export { AgentsConfigPanel } from './components/AgentsConfigPanel';
 export { SettingsPanel } from './components/SettingsPanel';

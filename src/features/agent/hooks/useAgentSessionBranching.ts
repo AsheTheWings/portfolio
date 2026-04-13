@@ -17,7 +17,7 @@ export function useAgentSessionBranching() {
    * Submit edit by sending edit_component WS message
    */
   const submitEdit = useCallback(async (
-    editingComponentId: string,
+    editingEventId: string,
     editingData: Record<string, unknown>
   ) => {
     const store = useAgentStore.getState();
@@ -50,7 +50,7 @@ export function useAgentSessionBranching() {
     send({
       type: 'edit_component',
       sessionId,
-      componentId: editingComponentId,
+      breakpointEventId: editingEventId,
       updatedData,
       configOverride: frontConfig as unknown as Record<string, unknown> | undefined,
     });
@@ -59,7 +59,7 @@ export function useAgentSessionBranching() {
   /**
    * Revert to component by sending revert_to_component WS message
    */
-  const revertToComponent = useCallback(async (componentId: string) => {
+  const revertToComponent = useCallback(async (eventId: string) => {
     const store = useAgentStore.getState();
     const sessionId = store.currentSessionId;
     if (!sessionId) {
@@ -70,7 +70,7 @@ export function useAgentSessionBranching() {
     send({
       type: 'revert_to_component',
       sessionId,
-      componentId,
+      breakpointEventId: eventId,
     });
   }, [send]);
 

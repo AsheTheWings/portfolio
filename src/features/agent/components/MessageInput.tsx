@@ -42,7 +42,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
   const formRef = useRef<HTMLFormElement>(null);
   
   // Get pending library items from agent store
-  const { pendingLibraryItemIds, clearPendingLibraryItems, upsertComponent } = useAgent();
+  const { pendingLibraryItemIds, clearPendingLibraryItems, upsertSystemPanel } = useAgent();
   
   // Message composer hook - owns input state and mention logic
   const handleSend = useCallback((message: string) => {
@@ -78,12 +78,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Open asset picker panel
   const openAssetPicker = () => {
-    upsertComponent({
-      id: 'asset-picker-panel',
-      role: 'system',
-      type: 'asset-picker-panel',
-      data: {},
-    });
+    upsertSystemPanel('asset-picker-panel', 'asset-picker-panel');
   };
 
   // Auto-focus input when processing state changes
