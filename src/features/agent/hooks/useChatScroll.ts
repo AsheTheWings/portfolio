@@ -98,7 +98,8 @@ export function useChatScroll({
   const isAtBottomCheck = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return true;
-    return container.scrollHeight - container.scrollTop - container.clientHeight <= 50;
+    // 2px tolerance for sub-pixel rounding — no magnetic snap zone
+    return container.scrollHeight - container.scrollTop - container.clientHeight <= 2;
   }, [scrollContainerRef]);
 
   // --- User scroll tracking ---

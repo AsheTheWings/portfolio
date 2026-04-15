@@ -138,7 +138,28 @@ export function ComponentShell({
   children,
 }: ComponentShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const fixedScrollRef = useRef<HTMLDivElement>(null);
   const [showBranchList, setShowBranchList] = useState(false);
+
+  // ── Auto-scroll fixed-height viewport during streaming ──
+  // rAF loop pins scroll to bottom while content grows (thoughts/tool views).
+  // Runs independently of React render timing — same architecture as useChatScroll.
+  useEffect(() => {
+    if (!isStreaming || heightMode !== 'fixed') return;
+    const container = fixedScrollRef.current;
+    if (!container) return;
+
+    let rafId: number;
+    const tick = () => {
+      const { scrollHeight, scrollTop, clientHeight } = container;
+      if (scrollHeight - scrollTop - clientHeight > 1) {
+        container.scrollTop = scrollHeight - clientHeight;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isStreaming, heightMode]);
 
   // ── Escape to cancel edit ───────────────────────────────
   useEffect(() => {
@@ -222,7 +243,7 @@ export function ComponentShell({
           style={heightMode === 'fixed' ? { height: FIXED_HEIGHT } : undefined}
         >
           {heightMode === 'fixed' ? (
-            <div className="h-full overflow-y-auto scrollbar-hide">
+            <div ref={fixedScrollRef} className="h-full overflow-y-auto scrollbar-hide">
               {children}
             </div>
           ) : (

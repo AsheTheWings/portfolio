@@ -21,6 +21,23 @@ import type {
 } from '../types';
 
 // ============================================================
+// Immutability helper — React.memo / Zustand shallow comparison
+// ============================================================
+
+/**
+ * Replace a mutated component in the array with a shallow clone.
+ * Creates a new object reference so React.memo detects the change
+ * in Zustand store updates. MUST be called after all in-place
+ * mutations to the component are complete.
+ */
+function stamp(components: AgentSessionComponent[], target: AgentSessionComponent): void {
+  const idx = components.indexOf(target);
+  if (idx !== -1) {
+    components[idx] = { ...target, data: { ...target.data } };
+  }
+}
+
+// ============================================================
 // Default controls per component role/type
 // ============================================================
 
@@ -145,6 +162,7 @@ function processEventForChat(
       }
       composite.isStreaming = true;
       composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+      stamp(components, composite);
       break;
     }
 
@@ -175,6 +193,7 @@ function processEventForChat(
         });
       }
       composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+      stamp(components, composite);
       break;
     }
 
@@ -204,6 +223,7 @@ function processEventForChat(
       }
       composite.isStreaming = true;
       composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+      stamp(components, composite);
       break;
     }
 
@@ -235,6 +255,7 @@ function processEventForChat(
       composite.isStreaming = false;
       composite.data.hasResponse = true;
       composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+      stamp(components, composite);
       break;
     }
 
@@ -250,6 +271,7 @@ function processEventForChat(
         data: { ...data, agentId: event.agentId, sessionEvents: [event] },
       });
       composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+      stamp(components, composite);
       break;
     }
 
@@ -266,6 +288,7 @@ function processEventForChat(
           target.data.metadata = event.data.metadata;
           target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
           composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+          stamp(components, composite);
           break;
         }
       }
@@ -284,6 +307,7 @@ function processEventForChat(
           target.data.toolEffects = event.data.toolEffects;
           target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
           composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+          stamp(components, composite);
           break;
         }
       }
@@ -315,6 +339,7 @@ function processEventForChat(
           if (target) {
             target.data.result = event.data.result;
             target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+            stamp(components, composite);
             break;
           }
         }
@@ -333,6 +358,7 @@ function processEventForChat(
         composite.data.metadata = event.data.metadata;
         composite.isStreaming = false;
         composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+        stamp(components, composite);
       }
       break;
     }
@@ -343,6 +369,7 @@ function processEventForChat(
       const target = components.findLast(c => c.role !== 'system');
       if (target) {
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+        stamp(components, target);
       }
       break;
     }
@@ -426,6 +453,7 @@ function processEventForFlat(
       if (existing) {
         existing.data.thoughts = (existing.data.thoughts || '') + event.data.thoughts;
         existing.data.sessionEvents = [...(existing.data.sessionEvents || []), event];
+        stamp(components, existing);
       } else {
         components.push({
           id: streamKey,
@@ -452,6 +480,7 @@ function processEventForFlat(
         existing.id = event.eventId; // Stabilize ID from streaming key to eventId
         existing.data.metadata = event.data.metadata;
         existing.data.sessionEvents = [...(existing.data.sessionEvents || []), event];
+        stamp(components, existing);
       } else {
         components.push({
           id: event.eventId,
@@ -476,6 +505,7 @@ function processEventForFlat(
       if (existing) {
         existing.data.message = (existing.data.message || '') + event.data.message;
         existing.data.sessionEvents = [...(existing.data.sessionEvents || []), event];
+        stamp(components, existing);
       } else {
         components.push({
           id: streamKey,
@@ -502,6 +532,7 @@ function processEventForFlat(
         existing.id = event.eventId; // Stabilize ID
         existing.data.metadata = event.data.metadata;
         existing.data.sessionEvents = [...(existing.data.sessionEvents || []), event];
+        stamp(components, existing);
       } else {
         components.push({
           id: event.eventId,
@@ -541,6 +572,7 @@ function processEventForFlat(
         target.data.result = event.data.result;
         target.data.metadata = event.data.metadata;
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+        stamp(components, target);
       }
       break;
     }
@@ -552,6 +584,7 @@ function processEventForFlat(
       if (target) {
         target.data.toolEffects = event.data.toolEffects;
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+        stamp(components, target);
       }
       // Embedded sessionComponents
       handleEmbeddedSessionComponents(components, event);
@@ -576,6 +609,7 @@ function processEventForFlat(
         if (target) {
           target.data.result = event.data.result;
           target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+          stamp(components, target);
         }
       }
       break;
@@ -587,6 +621,7 @@ function processEventForFlat(
       if (last) {
         last.data.metadata = event.data.metadata;
         last.data.sessionEvents = [...(last.data.sessionEvents || []), event];
+        stamp(components, last);
       }
       break;
     }
@@ -596,6 +631,7 @@ function processEventForFlat(
       const target = components.findLast(c => c.role !== 'system');
       if (target) {
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+        stamp(components, target);
       }
       break;
     }
@@ -624,6 +660,7 @@ function handleEmbeddedSessionComponents(
     const existing = components.find(c => c.id === comp.id);
     if (existing) {
       Object.assign(existing.data, comp.data);
+      stamp(components, existing);
     } else {
       components.push(comp);
     }
