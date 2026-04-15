@@ -23,7 +23,7 @@ import {
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAuthStore } from '@/features/authentication/stores/authStore';
-import { createDefaultAgentConfig, MODEL_REGISTRY, getModelSpec, hasCapability } from '../services/models-registry';
+import { createDefaultAgentConfig, getModelSpec, hasCapability } from '../services/models-registry';
 
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
@@ -31,7 +31,7 @@ import { McpConfigCardContent } from './McpConfigCardContent';
 
 export function AgentsConfigPanel() {
   // Store state
-  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, workflowsPool, removeComponent, uiInterface } = useAgent();
+  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, workflowsPool, modelsPool, removeComponent, uiInterface } = useAgent();
   const userId = useAuthStore((s) => s.user?.id);
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
@@ -62,8 +62,8 @@ export function AgentsConfigPanel() {
   const config = agentConfig || createDefaultAgentConfig();
   const setAgentConfig = updateFrontAgentConfig;
 
-  // Model capabilities (dynamically from registry)
-  const modelOptions = Object.values(MODEL_REGISTRY);
+  // Model capabilities (dynamically from backend-discovered models)
+  const modelOptions = modelsPool;
   const selectedModelSpec = getModelSpec(config.model);
   const supportsThinking = hasCapability(config.model, ModelCapability.THINKING);
   const supportsToolCalling = hasCapability(config.model, ModelCapability.TOOL_CALLING);

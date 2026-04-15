@@ -7,23 +7,85 @@
  * than ChatInterface — single-column, no min-height groups, no 3-column grid.
  * Has its own scroll container and InteractionArea overlay.
  *
- * Renders: user-message, message, agent-thoughts, tool-call, user-feedback,
- * system-call, and system panels.
+ * agent-thoughts and tool-call types are wrapped in CollapsibleShip
+ * for expand/collapse behavior. All other types render directly via
+ * the centralized resolveComponent.
  */
 
 import React, { useRef } from 'react';
+import { Check, X } from 'lucide-react';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import type { MessageInputRef } from './MessageInput';
-import { UserMessage } from './UserMessage';
-import { UserFeedback } from './UserFeedback';
-import { AgentThoughts } from './AgentThoughts';
-import { ToolCall } from './ToolCall';
-import { MarkdownContent } from './MarkdownContent';
-import { resolveSystemPanel } from './ComponentResolver';
+import type { AgentSessionComponent } from '../types';
+import { resolveComponent } from './ComponentResolver';
+import { CollapsibleShip } from './CollapsibleShip';
+import { getToolDisplayName, getToolStatus } from '../utils/tool-call';
+import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { useChatScroll } from '../hooks/useChatScroll';
-import { SystemCall } from '../tools/system-call';
-import { isTextFeedback } from '../utils/toAgentSessionComponent';
+
+// ── Ship header builders for collapsible types ──────────────────
+
+function ThoughtsShipHeader({ isStreaming }: { isStreaming?: boolean }) {
+  return (
+    <>
+      <span className="font-medium">Thinking</span>
+      {isStreaming && <ThreeDotsScaleMiddleIcon size={16} className="text-cyan-500" />}
+    </>
+  );
+}
+
+function ToolCallShipHeader({ data }: { data: AgentSessionComponent['data'] }) {
+  const status = getToolStatus(data);
+  return (
+    <>
+      <span className="font-medium">{getToolDisplayName(data)}</span>
+      {status === 'executing' && <ThreeDotsScaleMiddleIcon size={14} className="text-cyan-500" />}
+      {status === 'complete' && <Check size={14} className="text-cyan-500" />}
+      {status === 'failed' && <X size={14} className="text-red-500" />}
+    </>
+  );
+}
+
+// ── Render a flat component, wrapping collapsible types with ship ──
+
+function renderFlatComponent(component: AgentSessionComponent): React.ReactNode {
+  const content = resolveComponent(component);
+  if (!content) return null;
+
+  // Wrap agent-thoughts and tool-call in CollapsibleShip
+  switch (component.type) {
+    case 'agent-thoughts':
+      return (
+        <div key={component.id} id={component.id} className="w-full">
+          <CollapsibleShip
+            header={<ThoughtsShipHeader isStreaming={component.isStreaming} />}
+            isStreaming={component.isStreaming}
+            maxHeight="12rem"
+          >
+            {content}
+          </CollapsibleShip>
+        </div>
+      );
+    case 'tool-call':
+      return (
+        <div key={component.id} id={component.id} className="w-full">
+          <CollapsibleShip
+            header={<ToolCallShipHeader data={component.data} />}
+            maxHeight="400px"
+          >
+            {content}
+          </CollapsibleShip>
+        </div>
+      );
+    default:
+      return (
+        <div key={component.id} id={component.id} className="w-full">
+          {content}
+        </div>
+      );
+  }
+}
 
 export function FlatInterface() {
   const {
@@ -57,60 +119,7 @@ export function FlatInterface() {
             </p>
           )}
 
-          {sessionComponents.map((component) => {
-            switch (component.type) {
-              case 'user-message':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <UserMessage component={component} />
-                  </div>
-                );
-              case 'message':
-                // Standalone agent message in flat mode
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <MarkdownContent content={component.data.message ?? ''} />
-                    </div>
-                  </div>
-                );
-              case 'agent-thoughts':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <AgentThoughts maxLines={6} />
-                  </div>
-                );
-              case 'tool-call':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <ToolCall />
-                  </div>
-                );
-              case 'user-feedback':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <UserFeedback feedback={isTextFeedback(component.data.result) ? component.data.result.userFeedback : ''} />
-                  </div>
-                );
-              case 'system-call':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    <SystemCall data={component.data} />
-                  </div>
-                );
-              case 'config-panel':
-              case 'settings-panel':
-              case 'history-panel':
-              case 'asset-picker-panel':
-                return (
-                  <div key={component.id} id={component.id} className="w-full">
-                    {resolveSystemPanel(component.type)}
-                  </div>
-                );
-              default:
-                return null;
-            }
-          })}
+          {sessionComponents.map(renderFlatComponent)}
         </div>
 
         {/* InteractionArea - always visible at bottom of scroll viewport */}

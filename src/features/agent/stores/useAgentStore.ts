@@ -17,7 +17,7 @@ import type {
   UIInterface,
   ToolEffectsData,
 } from '../types';
-import { createDefaultAgentConfig, hasCapability, createAssistantAgent } from '../services/models-registry';
+import { createDefaultAgentConfig, hasCapability, createAssistantAgent, syncModelsRegistry } from '../services/models-registry';
 import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
@@ -85,6 +85,7 @@ const initialState = {
   // Tools
   toolsPool: [] as import('../types').Tool[],
   workflowsPool: [] as import('../types').WorkflowSpec[],
+  modelsPool: [] as import('../types').ModelSpec[],
   
   // State
   conversationStatus: 'healthy' as AgentState['conversationStatus'],
@@ -97,6 +98,9 @@ const initialState = {
   editingEventId: null as string | null,
   editingData: null as import('../types').EditingData | null,
   
+  // Selection (exclusive)
+  selectedComponentId: null as string | null,
+
   // Branching
   showingBranchesForComponent: null as string | null,
   
@@ -261,6 +265,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setWorkflowsPool: (workflowsPool) => {
     set({ workflowsPool });
+  },
+
+  setModelsPool: (modelsPool) => {
+    syncModelsRegistry(modelsPool);
+    set({ modelsPool });
   },
 
   // UI component actions
@@ -449,6 +458,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       editingEventId: null,
       editingData: null,
     });
+  },
+
+  // Selection actions
+  selectComponent: (componentId) => {
+    set({ selectedComponentId: componentId });
   },
 
   // Branch UI state actions

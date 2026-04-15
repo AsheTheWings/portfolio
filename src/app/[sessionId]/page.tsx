@@ -20,7 +20,7 @@ export default async function AgentSessionPage({ params }: { params: Promise<{ s
   const token = await getTokenCookie();
 
   const [agentData, initialEvents] = await Promise.all([
-    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [] }),
+    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [], models: [] }),
     token ? fetchSessionEventsSSR(token, sessionId) : Promise.resolve(null),
   ]);
 
@@ -29,6 +29,7 @@ export default async function AgentSessionPage({ params }: { params: Promise<{ s
       initialUser={initialUser}
       initialTools={agentData.tools}
       initialWorkflows={agentData.workflows}
+      initialModels={agentData.models}
       initialEvents={initialEvents}
     />
   );

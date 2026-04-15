@@ -2,16 +2,15 @@
 
 /**
  * TranslateButton - Language selector for message translation
- * 
+ *
  * Features:
- * - Click: Opens language selector popover
+ * - Click: Opens language selector dropdown (absolute, no portal)
  * - Shift+Click: Quick translate using preferredTranslationLanguage
  * - Translations are cached per component per language
  * - Global Escape resets all to original content
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Languages, Check, Loader2 } from 'lucide-react';
 import {
   Command,
@@ -51,15 +50,14 @@ const LANGUAGES = [
 interface TranslateButtonProps {
   componentId: string;
   originalText: string;
+  isSelected?: boolean;
 }
 
-export function TranslateButton({ componentId, originalText }: TranslateButtonProps) {
+export function TranslateButton({ componentId, originalText, isSelected = false }: TranslateButtonProps) {
   const [open, setOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [panelElement, setPanelElement] = useState<HTMLElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [buttonTop, setButtonTop] = useState(0);
-  
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const preferredLanguage = useAgentStore((s) => s.preferredTranslationLanguage);
   const activeLanguage = useAgentStore((s) => s.activeTranslations[componentId]);
   const cachedTranslations = useAgentStore((s) => s.translationCache[componentId]);
@@ -68,41 +66,23 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
   const setActiveTranslation = useAgentStore((s) => s.setActiveTranslation);
   const setComponentTranslating = useAgentStore((s) => s.setComponentTranslating);
 
-  // Get portal target (always left panel — agent messages only)
-  useEffect(() => {
-    setPanelElement(document.getElementById('chat-left-panel'));
-  }, []);
-
-  // Update button position when open changes
-  useEffect(() => {
-    if (open && buttonRef.current && panelElement) {
-      const buttonRect = buttonRef.current.getBoundingClientRect();
-      const panelRect = panelElement.getBoundingClientRect();
-      setButtonTop(buttonRect.top - panelRect.top);
-    }
-  }, [open, panelElement]);
-
-  // Close on escape
+  // Close on escape or click outside
   useEffect(() => {
     if (!open) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); }
     };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [open]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-translate-panel]') && !target.closest('[data-translate-button]')) {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKey, true);
+    window.addEventListener('mousedown', handleClick);
+    return () => {
+      window.removeEventListener('keydown', handleKey, true);
+      window.removeEventListener('mousedown', handleClick);
+    };
   }, [open]);
 
   const translateTo = async (language: string) => {
@@ -132,13 +112,9 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Translation failed');
-      }
+      if (!response.ok) throw new Error('Translation failed');
 
       const { translatedText } = await response.json();
-      
-      // Cache and activate
       cacheTranslation(componentId, language, translatedText);
       setActiveTranslation(componentId, language);
       setPreferredTranslationLanguage(language);
@@ -151,71 +127,29 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
   };
 
   const handleButtonClick = (e: React.MouseEvent) => {
-    // Shift+Click: quick translate with preferred language
     if (e.shiftKey && preferredLanguage) {
       e.preventDefault();
       translateTo(preferredLanguage);
       return;
     }
-    // Normal click toggles panel
     setOpen(!open);
-  };
-
-  const handleSelectLanguage = (language: string) => {
-    setOpen(false);
-    translateTo(language);
   };
 
   const isActive = !!activeLanguage;
 
-  const languagePanel = open && panelElement ? createPortal(
-    <div
-      data-translate-panel
-      className={cn('absolute right-2 w-[160px] bg-popover border border-border rounded-md shadow-md z-999')}
-      style={{ top: buttonTop }}
-    >
-      <Command>
-        <CommandInput placeholder="Search..." className="h-9" />
-        <CommandList className="scrollbar-inner">
-          <CommandEmpty>No language found.</CommandEmpty>
-          <CommandGroup>
-            {LANGUAGES.map((lang) => (
-              <CommandItem
-                key={lang.value}
-                value={lang.value}
-                onSelect={() => handleSelectLanguage(lang.value)}
-              >
-                {lang.label}
-                <Check
-                  className={cn(
-                    'ml-auto h-4 w-4',
-                    activeLanguage === lang.value ? 'opacity-100' : 'opacity-0'
-                  )}
-                />
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </Command>
-    </div>,
-    panelElement
-  ) : null;
-
   return (
-    <>
+    <div ref={containerRef} className="relative">
       <button
-        ref={buttonRef}
-        data-translate-button
         onClick={handleButtonClick}
         disabled={isTranslating}
         className={cn(
           'p-1 rounded-md transition-all duration-200 cursor-pointer',
+          isTranslating && 'cursor-wait',
           isActive
-            ? 'text-emerald-500 dark:text-emerald-400'
-            : 'text-slate-400 dark:text-slate-500',
-          !isTranslating && 'hover:text-emerald-500 hover:scale-110 dark:hover:text-emerald-400',
-          !isTranslating && 'hover:bg-slate-200/50 dark:hover:bg-slate-700/50',
-          isTranslating && 'cursor-wait'
+            ? 'text-emerald-500 dark:text-emerald-400 hover:text-emerald-400 hover:scale-110 dark:hover:text-emerald-300'
+            : isSelected
+              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300'
+              : 'text-slate-400 dark:text-slate-500 hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50',
         )}
         aria-label={preferredLanguage ? `Translate (Shift+Click for ${preferredLanguage})` : 'Translate'}
         title={preferredLanguage ? `Translate (Shift+Click: ${preferredLanguage})` : 'Translate'}
@@ -223,10 +157,37 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
         {isTranslating ? (
           <Loader2 size={12} className="animate-spin" />
         ) : (
-          <Languages size={16} />
+          <Languages size={12} />
         )}
       </button>
-      {languagePanel}
-    </>
+
+      {open && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-[160px] bg-popover border border-border rounded-md shadow-md z-50">
+          <Command>
+            <CommandInput placeholder="Search..." className="h-9" />
+            <CommandList className="scrollbar-inner">
+              <CommandEmpty>No language found.</CommandEmpty>
+              <CommandGroup>
+                {LANGUAGES.map((lang) => (
+                  <CommandItem
+                    key={lang.value}
+                    value={lang.value}
+                    onSelect={() => { setOpen(false); translateTo(lang.value); }}
+                  >
+                    {lang.label}
+                    <Check
+                      className={cn(
+                        'ml-auto h-4 w-4',
+                        activeLanguage === lang.value ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </div>
+      )}
+    </div>
   );
 }

@@ -579,6 +579,7 @@ export interface AgentState {
   // Tool state
   toolsPool: Tool[];
   workflowsPool: WorkflowSpec[];
+  modelsPool: ModelSpec[];
   
   // Scroll state
   scrollToComponentId: string | null;
@@ -590,6 +591,9 @@ export interface AgentState {
   editingEventId: string | null;
   editingData: EditingData | null;
   
+  // Selection state (exclusive — one component at a time)
+  selectedComponentId: string | null;
+
   // Branching state
   showingBranchesForComponent: string | null;
   
@@ -632,6 +636,7 @@ export interface AgentState {
   // Tool management
   setToolsPool: (tools: Tool[]) => void;
   setWorkflowsPool: (workflows: WorkflowSpec[]) => void;
+  setModelsPool: (models: ModelSpec[]) => void;
   
   // UI component actions
   setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;
@@ -668,6 +673,9 @@ export interface AgentState {
   updateEditingData: (data: EditingData) => void;
   cancelEdit: () => void;
   
+  // Selection actions
+  selectComponent: (componentId: string | null) => void;
+
   // Branching UI state actions
   showBranches: (componentId: string) => void;
   hideBranches: () => void;

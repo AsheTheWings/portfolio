@@ -16,8 +16,28 @@ import type {
   AgentSessionEvent,
   AgentSessionComponent,
   AgentSessionComponentData,
+  AgentSessionComponentControls,
   UIInterface,
 } from '../types';
+
+// ============================================================
+// Default controls per component role/type
+// ============================================================
+
+const USER_MESSAGE_CONTROLS: AgentSessionComponentControls = {
+  debug: true,
+  edit: true,
+  revert: true,
+  branch: true,
+};
+
+const AGENT_MESSAGE_CONTROLS: AgentSessionComponentControls = {
+  debug: true,
+  edit: true,
+  revert: true,
+  branch: true,
+  translate: true,
+};
 
 // ============================================================
 // Public API
@@ -68,71 +88,6 @@ export function processEventIntoComponents(
 }
 
 // ============================================================
-// Immutability Helpers (Zustand / React.memo compatibility)
-// ============================================================
-
-/**
- * Clone-on-mutate for an agent-message composite at a known index.
- * Returns the cloned composite (already replaced in the array).
- * Only the items array and sessionEvents array get new references;
- * individual items remain the same objects until touchItem() is called.
- */
-function touchComposite(
-  components: AgentSessionComponent[],
-  index: number,
-): AgentSessionComponent {
-  const c = components[index];
-  const clone: AgentSessionComponent = {
-    ...c,
-    data: {
-      ...c.data,
-      items: c.data.items ? [...c.data.items] : undefined,
-      sessionEvents: c.data.sessionEvents ? [...c.data.sessionEvents] : undefined,
-    },
-  };
-  components[index] = clone;
-  return clone;
-}
-
-/**
- * Clone a sub-item within a composite's items array for safe mutation.
- * Returns the cloned item (already replaced in the items array).
- */
-function touchItem(
-  composite: AgentSessionComponent,
-  itemIndex: number,
-): AgentSessionComponent {
-  const items = composite.data.items!;
-  const clone = { ...items[itemIndex], data: { ...items[itemIndex].data } };
-  items[itemIndex] = clone;
-  return clone;
-}
-
-/**
- * Find a composite by backwards search and touch it for mutation.
- * Returns [composite, compositeIndex] or [null, -1] if not found.
- */
-function touchCompositeWithToolCall(
-  components: AgentSessionComponent[],
-  toolCallEventId: string | undefined,
-): [AgentSessionComponent | null, number] {
-  if (!toolCallEventId) return [null, -1];
-  for (let i = components.length - 1; i >= 0; i--) {
-    const c = components[i]!;
-    if (c.type !== 'agent-message') continue;
-    const itemIdx = c.data.items!.findIndex(
-      (item) => item.type === 'tool-call' && item.id === toolCallEventId,
-    );
-    if (itemIdx >= 0) {
-      const composite = touchComposite(components, i);
-      const item = touchItem(composite, itemIdx);
-      return [composite, itemIdx];
-    }
-  }
-  return [null, -1];
-}
-
-// ============================================================
 // Chat Mode Derivation
 // ============================================================
 
@@ -158,6 +113,7 @@ function processEventForChat(
         type: 'user-message',
         role: 'user',
         isStreaming: false,
+        controls: USER_MESSAGE_CONTROLS,
         data: { ...data, sessionEvents: [event] },
       });
       break;
@@ -167,11 +123,10 @@ function processEventForChat(
     case 'model-thought-chunk': {
       const composite = findOrCreateAgentMessage(components, event);
       const items = composite.data.items!;
-      const lastThoughtIdx = items.findLastIndex(
+      const lastThought = items.findLast(
         (c) => c.type === 'agent-thoughts' && c.isStreaming,
       );
-      if (lastThoughtIdx >= 0) {
-        const lastThought = touchItem(composite, lastThoughtIdx);
+      if (lastThought) {
         lastThought.data.thoughts = (lastThought.data.thoughts || '') + event.data.thoughts;
         lastThought.data.sessionEvents = [...(lastThought.data.sessionEvents || []), event];
       } else {
@@ -189,18 +144,17 @@ function processEventForChat(
         });
       }
       composite.isStreaming = true;
-      composite.data.sessionEvents!.push(event);
+      composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       break;
     }
 
     case 'model-thought-completed': {
       const composite = findOrCreateAgentMessage(components, event);
       const items = composite.data.items!;
-      const lastThoughtIdx = items.findLastIndex(
+      const lastThought = items.findLast(
         (c) => c.type === 'agent-thoughts' && c.isStreaming,
       );
-      if (lastThoughtIdx >= 0) {
-        const lastThought = touchItem(composite, lastThoughtIdx);
+      if (lastThought) {
         lastThought.data.thoughts = event.data.thoughts;
         lastThought.isStreaming = false;
         lastThought.data.metadata = event.data.metadata;
@@ -220,7 +174,7 @@ function processEventForChat(
           },
         });
       }
-      composite.data.sessionEvents!.push(event);
+      composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       break;
     }
 
@@ -228,11 +182,10 @@ function processEventForChat(
     case 'model-message-chunk': {
       const composite = findOrCreateAgentMessage(components, event);
       const items = composite.data.items!;
-      const lastMsgIdx = items.findLastIndex(
+      const lastMsg = items.findLast(
         (c) => c.type === 'message' && c.isStreaming,
       );
-      if (lastMsgIdx >= 0) {
-        const lastMsg = touchItem(composite, lastMsgIdx);
+      if (lastMsg) {
         lastMsg.data.message = (lastMsg.data.message || '') + event.data.message;
         lastMsg.data.sessionEvents = [...(lastMsg.data.sessionEvents || []), event];
       } else {
@@ -250,18 +203,17 @@ function processEventForChat(
         });
       }
       composite.isStreaming = true;
-      composite.data.sessionEvents!.push(event);
+      composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       break;
     }
 
     case 'model-message-completed': {
       const composite = findOrCreateAgentMessage(components, event);
       const items = composite.data.items!;
-      const lastMsgIdx = items.findLastIndex(
+      const lastMsg = items.findLast(
         (c) => c.type === 'message' && c.isStreaming,
       );
-      if (lastMsgIdx >= 0) {
-        const lastMsg = touchItem(composite, lastMsgIdx);
+      if (lastMsg) {
         lastMsg.data.message = event.data.message;
         lastMsg.isStreaming = false;
         lastMsg.data.metadata = event.data.metadata;
@@ -282,7 +234,7 @@ function processEventForChat(
       }
       composite.isStreaming = false;
       composite.data.hasResponse = true;
-      composite.data.sessionEvents!.push(event);
+      composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       break;
     }
 
@@ -297,34 +249,43 @@ function processEventForChat(
         isStreaming: false,
         data: { ...data, agentId: event.agentId, sessionEvents: [event] },
       });
-      composite.data.sessionEvents!.push(event);
+      composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       break;
     }
 
     case 'tool-result': {
-      const [composite] = touchCompositeWithToolCall(components, event.toolCallEventId);
-      if (composite) {
-        // touchCompositeWithToolCall already cloned composite + target item
+      // Search all composites backwards for parallel agent correctness
+      for (let i = components.length - 1; i >= 0; i--) {
+        const composite = components[i]!;
+        if (composite.type !== 'agent-message') continue;
         const target = composite.data.items!.find(
           (c) => c.type === 'tool-call' && c.id === event.toolCallEventId,
-        )!;
-        target.data.result = event.data.result;
-        target.data.metadata = event.data.metadata;
-        target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
-        composite.data.sessionEvents!.push(event);
+        );
+        if (target) {
+          target.data.result = event.data.result;
+          target.data.metadata = event.data.metadata;
+          target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+          composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+          break;
+        }
       }
       break;
     }
 
     case 'tool-effects': {
-      const [composite] = touchCompositeWithToolCall(components, event.toolCallEventId);
-      if (composite) {
+      // Merge effects into matching tool-call
+      for (let i = components.length - 1; i >= 0; i--) {
+        const composite = components[i]!;
+        if (composite.type !== 'agent-message') continue;
         const target = composite.data.items!.find(
           (c) => c.type === 'tool-call' && c.id === event.toolCallEventId,
-        )!;
-        target.data.toolEffects = event.data.toolEffects;
-        target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
-        composite.data.sessionEvents!.push(event);
+        );
+        if (target) {
+          target.data.toolEffects = event.data.toolEffects;
+          target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+          composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
+          break;
+        }
       }
       // Handle embedded sessionComponents from tool-effects
       handleEmbeddedSessionComponents(components, event);
@@ -345,13 +306,17 @@ function processEventForChat(
         });
       } else if (event.toolCallEventId) {
         // Action feedback → merge into tool-call within agent-message
-        const [composite] = touchCompositeWithToolCall(components, event.toolCallEventId);
-        if (composite) {
+        for (let i = components.length - 1; i >= 0; i--) {
+          const composite = components[i]!;
+          if (composite.type !== 'agent-message') continue;
           const target = composite.data.items!.find(
             (c) => c.id === event.toolCallEventId,
-          )!;
-          target.data.result = event.data.result;
-          target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+          );
+          if (target) {
+            target.data.result = event.data.result;
+            target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
+            break;
+          }
         }
       }
       break;
@@ -360,14 +325,14 @@ function processEventForChat(
     // ── Turn completion ────────────────────────────────────
     case 'agent-turn-completed': {
       // Attach final metadata to the last agent-message composite for this agent
-      const idx = components.findLastIndex(
-        (c) => c.type === 'agent-message' && c.data.agentId === (event.agentId ?? 'none'),
+      const composite = components.findLast(
+        (c): c is AgentSessionComponent =>
+          c.type === 'agent-message' && c.data.agentId === (event.agentId ?? 'none'),
       );
-      if (idx >= 0) {
-        const composite = touchComposite(components, idx);
+      if (composite) {
         composite.data.metadata = event.data.metadata;
         composite.isStreaming = false;
-        composite.data.sessionEvents!.push(event);
+        composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
       }
       break;
     }
@@ -375,10 +340,9 @@ function processEventForChat(
     // ── Branch ─────────────────────────────────────────────
     case 'branch': {
       // Attach to last non-system component
-      const idx = components.findLastIndex(c => c.role !== 'system');
-      if (idx >= 0) {
-        const target = touchComposite(components, idx);
-        target.data.sessionEvents!.push(event);
+      const target = components.findLast(c => c.role !== 'system');
+      if (target) {
+        target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
       }
       break;
     }
@@ -406,8 +370,7 @@ function findOrCreateAgentMessage(
     if (c.type === 'agent-message' && c.data.agentId === agentId) {
       // Sealed by a completed response — start a new group
       if (c.data.hasResponse) break;
-      // Clone for Zustand/React.memo immutability — new reference
-      return touchComposite(components, i);
+      return c;
     }
   }
 
@@ -417,6 +380,7 @@ function findOrCreateAgentMessage(
     role: 'agent',
     type: 'agent-message',
     isStreaming: false,
+    controls: AGENT_MESSAGE_CONTROLS,
     data: {
       agentId,
       items: [],

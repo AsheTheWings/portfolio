@@ -9,16 +9,18 @@
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { loadAgents } from '../utils/agent-storage';
-import type { Tool, WorkflowSpec, AgentState } from '../types';
+import type { Tool, WorkflowSpec, ModelSpec, AgentState } from '../types';
 
 interface HydrateOptions {
   initialTools?: Tool[];
   initialWorkflows?: WorkflowSpec[];
+  initialModels?: ModelSpec[];
 }
 
-export function useHydrateStore({ initialTools, initialWorkflows }: HydrateOptions = {}) {
+export function useHydrateStore({ initialTools, initialWorkflows, initialModels }: HydrateOptions = {}) {
   const initialToolsRef = useRef(initialTools);
   const initialWorkflowsRef = useRef(initialWorkflows);
+  const initialModelsRef = useRef(initialModels);
 
   useEffect(() => {
     const state = useAgentStore.getState();
@@ -35,6 +37,9 @@ export function useHydrateStore({ initialTools, initialWorkflows }: HydrateOptio
     }
     if (initialWorkflowsRef.current?.length) {
       useAgentStore.getState().setWorkflowsPool(initialWorkflowsRef.current);
+    }
+    if (initialModelsRef.current?.length) {
+      useAgentStore.getState().setModelsPool(initialModelsRef.current);
     }
   }, []);
 }

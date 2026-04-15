@@ -1,12 +1,13 @@
 /**
- * Component Resolver — Shared utilities for resolving component types
+ * Component Resolver — Centralized component type→React mapping
  *
- * Provides:
+ * Both ChatInterface and FlatInterface delegate to resolveComponent()
+ * for determining which React component renders for a given type.
+ * Interfaces handle structural concerns (layout, grouping, ship wrapping).
+ *
+ * Exports:
+ * - resolveComponent(): Maps any AgentSessionComponent to React content
  * - resolveSystemPanel(): Maps system panel types to their React components
- * - resolveComponent(): Flat switch for all component types (used by flat mode)
- *
- * Chat mode renders UserMessage/AgentMessage directly in ChatInterface.
- * Flat mode uses resolveComponent for standalone types.
  */
 
 import React from 'react';
@@ -20,7 +21,7 @@ import { AgentMessage } from './AgentMessage';
 import { AgentThoughts } from './AgentThoughts';
 import { ToolCall } from './ToolCall';
 import { UserFeedback } from './UserFeedback';
-import { MarkdownContent } from './MarkdownContent';
+import { FlatAgentResponse } from './FlatAgentResponse';
 import { isTextFeedback } from '../utils/toAgentSessionComponent';
 
 // Tool-owned components
@@ -46,37 +47,43 @@ export function resolveSystemPanel(
 }
 
 /**
- * Resolve any AgentSessionComponent to its React representation.
- * Flat switch — no wrapper, no RenderContext. Each component receives
- * data via props and renders inside its own ComponentShell.
+ * Resolve any AgentSessionComponent to its pure React representation.
+ * Returns content-only components — no collapse wrappers or layout shells.
+ * The consuming interface applies structural wrappers (CollapsibleShip, etc.).
  */
 export function resolveComponent(
   component: AgentSessionComponent,
 ): React.ReactNode {
   switch (component.type) {
+    // Chat-mode composites
     case 'user-message':
       return <UserMessage component={component} />;
     case 'agent-message':
       return <AgentMessage component={component} />;
+
+    // Shared types (both modes)
     case 'user-feedback':
       return <UserFeedback feedback={isTextFeedback(component.data.result) ? component.data.result.userFeedback : ''} />;
     case 'system-call':
       return <SystemCall data={component.data} />;
-    // Flat mode standalone types (not reached in chat mode):
+
+    // Flat-mode standalone types (not reached in chat mode)
     case 'agent-thoughts':
-      return <AgentThoughts maxLines={6} thoughts={component.data.thoughts} isStreaming={component.isStreaming} />;
+      return <AgentThoughts thoughts={component.data.thoughts} isStreaming={component.isStreaming} />;
     case 'tool-call':
       return <ToolCall data={component.data} />;
     case 'message':
       return component.role === 'agent'
-        ? <div className="p-3 rounded-lg bg-muted/30 border border-border/50"><MarkdownContent content={component.data.message ?? ''} /></div>
+        ? <FlatAgentResponse component={component} />
         : null;
-    // System panels:
+
+    // System panels
     case 'config-panel':
     case 'settings-panel':
     case 'history-panel':
     case 'asset-picker-panel':
       return resolveSystemPanel(component.type);
+
     default:
       return null;
   }

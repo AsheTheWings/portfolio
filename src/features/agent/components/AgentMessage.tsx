@@ -2,39 +2,23 @@
 
 /**
  * AgentMessage — Composite carousel component for agent responses
- *
- * Renders a grouped set of sub-views (thoughts, tool-calls, text response)
- * from `data.items` with arrow-based carousel navigation.
- *
- * Layout:
- *   ┌──────────────────────────────────────────┐
- *   │ [Controls: edit | revert | debug]  [🤖]  │  ← Top bar + agent avatar
- *   ├──────────────────────────────────────────┤
- *   │  Active view content (thoughts/tool/msg) │
- *   ├──────────────────────────────────────────┤
- *   │         ◀  2 / 5  ▶                     │  ← Navigation
- *   └──────────────────────────────────────────┘
- *
- * Height modes:
- *   - fixed (~300px, scrollable) for thoughts and tool-call views
- *   - auto (grows to fit) for message/response views
- *
- * Auto-advances to latest streaming item. Collapses to default view
- * on `agent:collapseAll` DOM event.
- *
- * Uses ComponentShell for control bar, debug overlay, and branch navigation.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Check, X } from 'lucide-react';
 import { AgentThoughts } from './AgentThoughts';
+import { DebugView } from './DebugView';
 import { ToolCall } from './ToolCall';
+import { getToolDisplayName, getToolStatus } from '../utils/tool-call';
 import { MarkdownContent } from './MarkdownContent';
+import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { ComponentShell } from './ComponentShell';
 import type { BranchInfo, ParentBranchInfo } from './ComponentShell';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
+import { isLightColor } from '../utils/color';
 
 // ────────────────────────────────────────────────────────────
 // Props
@@ -52,10 +36,14 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const { id, data, isStreaming, controls } = component;
   const items: AgentSessionComponent[] = data.items || [];
   const agentId = data.agentId as string | undefined;
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  // Debug view is always view #1 (index 0) in the carousel
+  const hasDebugView = !!controls?.debug;
+  const itemOffset = hasDebugView ? 1 : 0;
 
   // ── View state ──────────────────────────────────────────
-  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultViewIndex(items));
-  const [isDebugView, setIsDebugView] = useState(false);
+  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultViewIndex(items, itemOffset));
 
   // ── Store selectors ─────────────────────────────────────
   const editingEventId = useAgentStore((s) => s.editingEventId);
@@ -64,55 +52,21 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
+  const isSelected = useAgentStore((s) => s.selectedComponentId === id);
+  const selectComponent = useAgentStore((s) => s.selectComponent);
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
     agentId && agentId !== 'none' ? s.acquiredAgents[agentId] : undefined
   );
-  const avatarImage = acquiredAgent?.avatarImage;
-  const agentColor = acquiredAgent?.color;
+  // Resolve agent display info (same pattern as AgentSessionPopover)
+  const agentName = agentId === 'none' || !agentId ? 'Assistant' : (acquiredAgent?.name ?? 'Agent');
+  const agentColor = agentId === 'none' || !agentId ? '#E2E8F0' : (acquiredAgent?.color ?? '#E2E8F0');
+  const avatarImage = acquiredAgent?.avatarImage ?? null;
 
   // ── Branching ───────────────────────────────────────────
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
   const { loadAgentSession } = useAgentSessionLifecycle();
-
-  // ── Active item ─────────────────────────────────────────
-  const clampedIndex = Math.min(activeViewIndex, Math.max(items.length - 1, 0));
-  const activeItem = items[clampedIndex];
-
-  // ── Determine if active item is being edited ────────────
-  const isEditMode = !!activeItem && editingEventId === activeItem.id;
-  const [isValidForSubmit, setIsValidForSubmit] = useState(true);
-
-  // ── Auto-advance to latest streaming item ───────────────
-  useEffect(() => {
-    if (!isStreaming) return;
-    // Find the last streaming or most recently added item
-    const lastIdx = items.length - 1;
-    if (lastIdx >= 0) {
-      setActiveViewIndex(lastIdx);
-    }
-  }, [isStreaming, items.length]);
-
-  // ── Collapse listener (agent:collapseAll) ───────────────
-  useEffect(() => {
-    const onCollapse = () => {
-      setActiveViewIndex(defaultViewIndex(items));
-      setIsDebugView(false);
-    };
-    window.addEventListener('agent:collapseAll', onCollapse);
-    return () => window.removeEventListener('agent:collapseAll', onCollapse);
-  }, [items]);
-
-  // ── Escape to cancel edit ───────────────────────────────
-  useEffect(() => {
-    if (!isEditMode) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isEditMode, cancelEdit]);
 
   // ── Session events (aggregated from all items + composite) ──
   const allSessionEvents = useMemo<AgentSessionEvent[]>(() => {
@@ -131,6 +85,46 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     events.sort((a, b) => a.sequence - b.sequence);
     return events;
   }, [data.sessionEvents, items]);
+
+  // ── Debug view as carousel view (always index 0) ────────
+  const totalViews = items.length + (hasDebugView ? 1 : 0);
+
+  // ── Active item ─────────────────────────────────────────
+  const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
+  const isShowingDebug = hasDebugView && clampedIndex === 0;
+  const activeItem = isShowingDebug ? undefined : items[clampedIndex - itemOffset];
+
+  // ── Determine if active item is being edited ────────────
+  const isEditMode = !!activeItem && editingEventId === activeItem.id;
+  const [isValidForSubmit, setIsValidForSubmit] = useState(true);
+
+  // ── Auto-advance to latest streaming item ───────────────
+  useEffect(() => {
+    if (!isStreaming) return;
+    const lastIdx = items.length - 1;
+    if (lastIdx >= 0) {
+      setActiveViewIndex(lastIdx + itemOffset);
+    }
+  }, [isStreaming, items.length, itemOffset]);
+
+  // ── Collapse listener (agent:collapseAll) ───────────────
+  useEffect(() => {
+    const onCollapse = () => {
+      setActiveViewIndex(defaultViewIndex(items, itemOffset));
+    };
+    window.addEventListener('agent:collapseAll', onCollapse);
+    return () => window.removeEventListener('agent:collapseAll', onCollapse);
+  }, [items, itemOffset]);
+
+  // ── Escape to cancel edit ───────────────────────────────
+  useEffect(() => {
+    if (!isEditMode) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isEditMode, cancelEdit]);
 
   // ── Branch data from all session events ─────────────────
   const branches: BranchInfo[] = useMemo(() => {
@@ -152,9 +146,11 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [allSessionEvents]);
 
   // ── Height mode per active view type ────────────────────
-  const heightMode = activeItem
-    ? (activeItem.type === 'message' ? 'auto' : 'fixed')
-    : 'auto';
+  const heightMode = isShowingDebug
+    ? 'fixed'
+    : activeItem
+      ? (activeItem.type === 'message' ? 'auto' : 'fixed')
+      : 'auto';
 
   // ── Edit callbacks ──────────────────────────────────────
   const handleStartEdit = useCallback(
@@ -219,8 +215,52 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     onRevert: handleRevert,
   }), [controls, activeItem, id, isEditMode, isValidForSubmit, handleStartEdit, handleSubmitEdit, handleRevert]);
 
+  // ── Selection: click to select, arrow keys to navigate ──
+  const handleBubbleClick = useCallback((e: React.MouseEvent) => {
+    // Don't select if in edit mode or clicking interactive elements
+    if (isEditMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, [contenteditable], textarea, input, [data-edit-allowed], [data-controls]')) return;
+    selectComponent(isSelected ? null : id);
+  }, [isEditMode, isSelected, selectComponent, id]);
+
+  // Arrow key navigation when selected
+  useEffect(() => {
+    if (!isSelected || isEditMode || totalViews <= 1) return;
+    const handleKey = (e: KeyboardEvent) => {
+      // Don't intercept if focus is in a text input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setActiveViewIndex(i => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setActiveViewIndex(i => Math.min(totalViews - 1, i + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isSelected, isEditMode, totalViews]);
+
+  // Click-away deselection
+  useEffect(() => {
+    if (!isSelected) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        selectComponent(null);
+      }
+    };
+    // Use capture phase so this fires before the other AgentMessage's click handler
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => document.removeEventListener('mousedown', handleClickOutside, true);
+  }, [isSelected, selectComponent]);
+
   // ── Render active view ──────────────────────────────────
   const renderActiveView = () => {
+    if (isShowingDebug) {
+      return <DebugView sessionEvents={allSessionEvents} />;
+    }
     if (!activeItem) return null;
     return (
       <SubViewRenderer
@@ -237,35 +277,45 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   };
 
   return (
-    <div className="flex flex-col items-start">
-      <div className="session-component rounded-2xl relative text-foreground rounded-tl-md w-full">
-        {/* Agent avatar (top-right) */}
-        {avatarImage && (
-          <div className="absolute -top-2 -right-2 z-10">
-            <img
-              src={avatarImage}
-              alt="Agent"
-              className="w-6 h-6 rounded-full ring-2 ring-background object-cover"
-              style={agentColor ? { borderColor: agentColor } : undefined}
-            />
-          </div>
-        )}
+    <div className="w-[80%] relative">
+      <div
+        ref={bubbleRef}
+        onClick={handleBubbleClick}
+        className="session-component rounded-2xl relative bg-white dark:bg-surface-1 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-tl-md min-w-0 cursor-pointer"
+        style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: agentColor }}
+      >
+        {/* Agent avatar — on top of bubble */}
+        <div
+          className="absolute -left-5 -top-2.5 w-10 h-10 rounded-full overflow-hidden z-[10]"
+          style={{ backgroundColor: agentColor }}
+        >
+          {avatarImage ? (
+            <img src={avatarImage} alt={agentName} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span
+                className="text-xs font-bold antialiased"
+                style={{ color: isLightColor(agentColor) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)', textRendering: 'optimizeLegibility' }}
+              >
+                {agentName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
 
         <ComponentShell
           role="agent"
           controlBar={controlBarConfig}
-          viewCount={items.length}
+          viewCount={totalViews}
           activeViewIndex={clampedIndex}
           onNavigate={setActiveViewIndex}
           branches={branches}
           parentBranch={parentBranch}
-          sessionEvents={allSessionEvents}
-          isDebugView={isDebugView}
-          onToggleDebug={() => setIsDebugView(v => !v)}
           heightMode={heightMode}
           onLoadSession={loadAgentSession}
           onSetPreserveScroll={setPreserveScrollOnSessionChange}
           isStreaming={isStreaming ?? false}
+          isSelected={isSelected}
         >
           {renderActiveView()}
         </ComponentShell>
@@ -304,23 +354,33 @@ function SubViewRenderer({
     case 'agent-thoughts':
       return (
         <AgentThoughts
-          maxLines={8}
           thoughts={item.data.thoughts}
           isStreaming={item.isStreaming}
         />
       );
 
-    case 'tool-call':
+    case 'tool-call': {
+      const status = getToolStatus(item.data);
       return (
-        <ToolCall
-          data={item.data}
-          isEditMode={isEditMode}
-          editingData={isEditMode ? editingData : undefined}
-          onUpdateEditingData={updateEditingData}
-          onSubmitEdit={onSubmitEdit}
-          onValidationChange={onValidationChange}
-        />
+        <div>
+          {/* Inline tool name header for carousel context */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+            <span className="font-medium">{getToolDisplayName(item.data)}</span>
+            {status === 'executing' && <ThreeDotsScaleMiddleIcon size={14} className="text-cyan-500" />}
+            {status === 'complete' && <Check size={14} className="text-cyan-500" />}
+            {status === 'failed' && <X size={14} className="text-red-500" />}
+          </div>
+          <ToolCall
+            data={item.data}
+            isEditMode={isEditMode}
+            editingData={isEditMode ? editingData : undefined}
+            onUpdateEditingData={updateEditingData}
+            onSubmitEdit={onSubmitEdit}
+            onValidationChange={onValidationChange}
+          />
+        </div>
       );
+    }
 
     case 'message':
       return (
@@ -336,13 +396,14 @@ function SubViewRenderer({
 // Helpers
 // ────────────────────────────────────────────────────────────
 
-/** Default view index: response (last message item) if available, otherwise last item */
-function defaultViewIndex(items: AgentSessionComponent[]): number {
+/** Default view index: response (last message item) if available, otherwise last item.
+ *  debugOffset shifts all item indices when debug view occupies index 0. */
+function defaultViewIndex(items: AgentSessionComponent[], debugOffset: number = 0): number {
   if (items.length === 0) return 0;
   // Prefer the last 'message' type item (the response)
   for (let i = items.length - 1; i >= 0; i--) {
-    if (items[i].type === 'message') return i;
+    if (items[i].type === 'message') return i + debugOffset;
   }
   // Fallback to last item
-  return items.length - 1;
+  return items.length - 1 + debugOffset;
 }

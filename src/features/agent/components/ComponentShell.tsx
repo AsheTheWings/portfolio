@@ -17,15 +17,13 @@
  * Replaces: AgentSessionComponentWrapper (deleted).
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Edit2, RotateCcw, Send } from 'lucide-react';
-import IconFocusCenter from '@/features/shared/icons/IconFocusCenter';
 import IconBranch from '@/features/shared/icons/IconBranch';
 import { TranslateButton } from './TranslateButton';
-import { DebugView } from './DebugView';
 import { BranchTreeView } from './BranchTreeView';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import type { AgentSessionEvent, AgentSessionComponentControls, EditingData } from '../types';
+import type { AgentSessionComponentControls, EditingData } from '../types';
 
 // ────────────────────────────────────────────────────────────
 // Control bar types
@@ -84,19 +82,15 @@ export interface ComponentShellProps {
   branches?: BranchInfo[];
   /** Parent session info (if this is a branch) */
   parentBranch?: ParentBranchInfo;
-  /** Session events for debug inspector */
-  sessionEvents?: AgentSessionEvent[];
-  /** Whether debug view is toggled on */
-  isDebugView: boolean;
-  /** Callback to toggle debug overlay */
-  onToggleDebug: () => void;
-  /** Height mode — 'fixed' (~300px, scrollable viewport) | 'auto' (growable) */
+  /** Height mode — 'fixed' (300px, scrollable viewport) | 'auto' (growable) */
   heightMode?: 'fixed' | 'auto';
   /** Callbacks for branch navigation */
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
   /** Whether the component is streaming (hides controls during stream) */
   isStreaming?: boolean;
+  /** Whether this component is selected (all controls turn cyan + stay visible) */
+  isSelected?: boolean;
   /** Main content (active view or custom) */
   children: React.ReactNode;
 }
@@ -116,6 +110,14 @@ const HOVER_BUTTON_CLASS = `
   cursor-pointer
 `;
 
+const SELECTED_BUTTON_CLASS = `
+  p-1 rounded-md
+  text-cyan-500 dark:text-cyan-400
+  hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300
+  transition-all duration-200
+  cursor-pointer
+`;
+
 // ────────────────────────────────────────────────────────────
 // ComponentShell
 // ────────────────────────────────────────────────────────────
@@ -128,30 +130,15 @@ export function ComponentShell({
   onNavigate,
   branches = [],
   parentBranch,
-  sessionEvents,
-  isDebugView,
-  onToggleDebug,
   heightMode = 'auto',
   onLoadSession,
   onSetPreserveScroll,
   isStreaming = false,
+  isSelected = false,
   children,
 }: ComponentShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showBranchList, setShowBranchList] = useState(false);
-  const [isShiftHeld, setIsShiftHeld] = useState(false);
-
-  // ── Shift key tracking ──────────────────────────────────
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftHeld(true); };
-    const up = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftHeld(false); };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
-    };
-  }, []);
 
   // ── Escape to cancel edit ───────────────────────────────
   useEffect(() => {
@@ -176,57 +163,51 @@ export function ComponentShell({
     additionalAllowedSelectors: controlBar.isEditMode ? ['[data-edit-allowed]'] : [],
   });
 
-  // ── Shift+click for debug toggle ────────────────────────
-  const handleShiftClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-controls]')) return;
-    if (e.shiftKey && sessionEvents && sessionEvents.length > 0 && !controlBar.isEditMode) {
-      e.preventDefault();
-      e.stopPropagation();
-      onToggleDebug();
-    }
-  }, [sessionEvents, controlBar.isEditMode, onToggleDebug]);
-
-  // ── Cursor ──────────────────────────────────────────────
-  const cursorClass = isShiftHeld && sessionEvents && sessionEvents.length > 0 && !controlBar.isEditMode
-    ? 'cursor-pointer' : '';
-
   // ── Show controls only when not streaming ───────────────
   const showControls = !isStreaming;
+
+  // ── Whether the top bar has any content to render ───────
+  const hasControls = controlBar.controls && (
+    controlBar.controls.edit ||
+    controlBar.controls.revert || controlBar.controls.branch ||
+    controlBar.controls.translate
+  );
+  const hasTopBar = showControls && !showBranchList && (
+    hasControls || !!parentBranch || branches.length > 0 || viewCount > 1 || controlBar.isEditMode
+  );
 
   return (
     <div
       ref={contentRef}
-      className={`relative group ${cursorClass}`}
-      onClick={handleShiftClick}
+      className="relative group"
     >
-      {/* ── Control bar ─────────────────────────────────── */}
-      {showControls && !isDebugView && (
-        <div
-          data-controls
-          className={`absolute z-99 w-[100px] ${
-            role === 'user' ? 'right-[-6.8rem]' : 'left-[-6.8rem]'
-          }`}
-        >
+      {/* ── Top bar: controls + navigation ──────────────── */}
+      {hasTopBar && (
+        <div data-controls className={`absolute top-0 ${role === 'user' ? 'right-0 pr-4' : 'left-0 pl-6'} z-10 flex items-center h-8 gap-1 ${role === 'user' ? 'flex-row-reverse' : ''}`}>
           <ShellControlBar
             {...controlBar}
             branches={branches}
             parentBranch={parentBranch}
             onLoadSession={onLoadSession}
             onSetPreserveScroll={onSetPreserveScroll}
-            onToggleDebug={onToggleDebug}
             onShowBranches={() => setShowBranchList(true)}
+            isSelected={isSelected}
           />
+          {viewCount > 1 && (
+            <div className={isSelected ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0'}>
+              <ViewNavigation
+                viewCount={viewCount}
+                activeViewIndex={activeViewIndex}
+                onNavigate={onNavigate}
+                isSelected={isSelected}
+              />
+            </div>
+          )}
         </div>
       )}
 
       {/* ── Content viewport ────────────────────────────── */}
-      {isDebugView ? (
-        <DebugView
-          sessionEvents={sessionEvents}
-          onClose={onToggleDebug}
-        />
-      ) : showBranchList && branches.length > 0 ? (
+      {showBranchList && branches.length > 0 ? (
         <BranchTreeView
           branches={branches}
           onSelectBranch={(sessionId) => {
@@ -237,20 +218,17 @@ export function ComponentShell({
         />
       ) : (
         <div
-          className={heightMode === 'fixed' ? 'overflow-y-auto scrollbar-hide' : ''}
-          style={heightMode === 'fixed' ? { maxHeight: FIXED_HEIGHT } : undefined}
+          className="px-4 py-8"
+          style={heightMode === 'fixed' ? { height: FIXED_HEIGHT } : undefined}
         >
-          {children}
+          {heightMode === 'fixed' ? (
+            <div className="h-full overflow-y-auto scrollbar-hide">
+              {children}
+            </div>
+          ) : (
+            children
+          )}
         </div>
-      )}
-
-      {/* ── View navigation (carousel arrows) ───────────── */}
-      {viewCount > 1 && !isDebugView && !showBranchList && (
-        <ViewNavigation
-          viewCount={viewCount}
-          activeViewIndex={activeViewIndex}
-          onNavigate={onNavigate}
-        />
       )}
     </div>
   );
@@ -265,8 +243,8 @@ interface ShellControlBarProps extends ControlBarConfig {
   parentBranch?: ParentBranchInfo;
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
-  onToggleDebug: () => void;
   onShowBranches: () => void;
+  isSelected?: boolean;
 }
 
 function ShellControlBar({
@@ -284,31 +262,24 @@ function ShellControlBar({
   parentBranch,
   onLoadSession,
   onSetPreserveScroll,
-  onToggleDebug,
   onShowBranches,
+  isSelected = false,
 }: ShellControlBarProps) {
-  const canShowDebug = controls?.debug;
   const canShowBranches = controls?.branch && branches.length > 0;
   const canShowEdit = controls?.edit;
   const canShowRevert = controls?.revert;
   const canShowTranslate = controls?.translate;
-  const hasAnyControls = canShowDebug || canShowEdit || canShowRevert || canShowBranches || canShowTranslate || !!parentBranch;
-
-  if (!hasAnyControls) return null;
-
-  const isAgentRole = role !== 'user';
-  const reverseClass = isAgentRole ? 'flex-row-reverse' : '';
 
   // ── Edit mode: show only submit button ──────────────────
   if (isEditMode) {
     return (
-      <div data-edit-allowed className={`flex items-center gap-1 ${reverseClass}`}>
+      <div data-edit-allowed className="flex items-center gap-1">
         <button
           data-edit-allowed
           onClick={onSubmitEdit}
           disabled={!isValidForSubmit}
           className={`
-            mx-2 px-1 rounded scale-[1.2]
+            px-1 rounded scale-[1.2]
             transition-all duration-200
             ${isValidForSubmit
               ? 'text-cyan-400 dark:text-cyan-400 hover:text-cyan-300 hover:scale-[1.3] dark:hover:text-cyan-300 hover:bg-cyan-500/5 dark:hover:bg-cyan-500/5'
@@ -324,96 +295,84 @@ function ShellControlBar({
   }
 
   // ── Normal mode: all buttons ────────────────────────────
+  const reverseClass = role === 'user' ? 'flex-row-reverse' : '';
   return (
     <div className={`flex items-center gap-1 ${reverseClass}`}>
-      {/* Always-visible buttons (nearest to content) */}
-      <div className={`flex items-center gap-1 ${reverseClass}`}>
-        {/* Branch child button (purple, rotated) */}
-        {canShowBranches && (
-          <button
-            onClick={() => {
-              if (branches.length === 1) {
-                onSetPreserveScroll?.(true);
-                onLoadSession?.(branches[0].branchSessionId);
-              } else {
-                onShowBranches();
-              }
-            }}
-            className="
-              p-1 rounded-md
-              text-purple-500 dark:text-purple-400
-              hover:text-purple-600 hover:scale-110 dark:hover:text-purple-300
-              hover:bg-purple-100/50 dark:hover:bg-purple-900/20
-              transition-all duration-200 opacity-100 cursor-pointer rotate-180
-            "
-            title={branches.length === 1 ? 'Switch to branch' : `Show ${branches.length} branches`}
-          >
-            <IconBranch size="12" />
-          </button>
-        )}
-
-        {/* Parent button (orange) */}
-        {parentBranch && (
-          <button
-            onClick={() => {
+      {/* Always-visible branch buttons */}
+      {canShowBranches && (
+        <button
+          onClick={() => {
+            if (branches.length === 1) {
               onSetPreserveScroll?.(true);
-              onLoadSession?.(parentBranch.parentSessionId);
-            }}
-            className="
-              p-1 rounded-md
-              text-orange-500 dark:text-orange-400
-              hover:text-orange-600 hover:scale-110 dark:hover:text-orange-300
-              hover:bg-orange-100/50 dark:hover:bg-orange-900/20
-              transition-all duration-200 opacity-100 cursor-pointer
-            "
-            title="Go to parent session"
-          >
-            <IconBranch size="12" />
-          </button>
-        )}
-      </div>
+              onLoadSession?.(branches[0].branchSessionId);
+            } else {
+              onShowBranches();
+            }
+          }}
+          className={`
+            p-1 rounded-md
+            hover:scale-110
+            transition-all duration-200 cursor-pointer rotate-180
+            ${isSelected
+              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 dark:hover:text-cyan-300'
+              : 'text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/20'
+            }
+          `}
+          title={branches.length === 1 ? 'Switch to branch' : `Show ${branches.length} branches`}
+        >
+          <IconBranch size="12" />
+        </button>
+      )}
 
-      {/* Hover-only buttons */}
-      <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0 ${reverseClass}`}>
-        {/* Edit */}
+      {parentBranch && (
+        <button
+          onClick={() => {
+            onSetPreserveScroll?.(true);
+            onLoadSession?.(parentBranch.parentSessionId);
+          }}
+          className={`
+            p-1 rounded-md
+            hover:scale-110
+            transition-all duration-200 cursor-pointer
+            ${isSelected
+              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 dark:hover:text-cyan-300'
+              : 'text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:bg-orange-100/50 dark:hover:bg-orange-900/20'
+            }
+          `}
+          title="Go to parent session"
+        >
+          <IconBranch size="12" />
+        </button>
+      )}
+
+      {/* Action buttons — always visible when selected, hover-only otherwise */}
+      <div className={`flex items-center gap-1 ${reverseClass} ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200 delay-300 group-hover:delay-0`}>
         {canShowEdit && onStartEdit && (
           <button
             data-edit-allowed
             onClick={() => onStartEdit(translationText || '')}
-            className={HOVER_BUTTON_CLASS}
+            className={isSelected ? SELECTED_BUTTON_CLASS : HOVER_BUTTON_CLASS}
             title="Edit"
           >
             <Edit2 size="12" />
           </button>
         )}
 
-        {/* Revert */}
         {canShowRevert && onRevert && eventId && (
           <button
             onClick={() => onRevert(eventId)}
-            className={HOVER_BUTTON_CLASS}
+            className={isSelected ? SELECTED_BUTTON_CLASS : HOVER_BUTTON_CLASS}
             title="Revert to this point"
           >
             <RotateCcw size="12" />
           </button>
         )}
 
-        {/* Debug */}
-        {canShowDebug && (
-          <button
-            onClick={onToggleDebug}
-            className={HOVER_BUTTON_CLASS}
-            title="Show debug view"
-          >
-            <IconFocusCenter size="12" />
-          </button>
-        )}
-
-        {/* Translate */}
         {canShowTranslate && translationText && (
           <TranslateButton
             componentId={componentId}
             originalText={translationText}
+            isSelected={isSelected}
           />
         )}
       </div>
@@ -429,42 +388,58 @@ interface ViewNavigationProps {
   viewCount: number;
   activeViewIndex: number;
   onNavigate: (index: number) => void;
+  isSelected?: boolean;
 }
 
-function ViewNavigation({ viewCount, activeViewIndex, onNavigate }: ViewNavigationProps) {
+function ViewNavigation({ viewCount, activeViewIndex, onNavigate, isSelected = false }: ViewNavigationProps) {
   const canGoBack = activeViewIndex > 0;
   const canGoForward = activeViewIndex < viewCount - 1;
 
+  const NAV_BUTTON_ENABLED = isSelected
+    ? `
+      p-1 rounded-md
+      text-cyan-500 dark:text-cyan-400
+      hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300
+      transition-all duration-200
+      cursor-pointer
+    `
+    : `
+      p-1 rounded-md
+      text-slate-400 dark:text-slate-500
+      hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
+      hover:bg-slate-200/50 dark:hover:bg-slate-700/50
+      transition-all duration-200
+      cursor-pointer
+    `;
+
+  const NAV_BUTTON_DISABLED = `
+    p-1 rounded-md
+    text-slate-300 dark:text-slate-700
+    cursor-default
+  `;
+
   return (
-    <div className="flex items-center justify-center gap-3 py-1.5 select-none">
+    <div className="flex items-center gap-1 select-none flex-shrink-0">
       <button
         onClick={() => canGoBack && onNavigate(activeViewIndex - 1)}
         disabled={!canGoBack}
-        className={`p-0.5 rounded transition-colors ${
-          canGoBack
-            ? 'text-muted-foreground hover:text-foreground cursor-pointer'
-            : 'text-muted-foreground/30 cursor-default'
-        }`}
+        className={canGoBack ? NAV_BUTTON_ENABLED : NAV_BUTTON_DISABLED}
         aria-label="Previous view"
       >
-        <ChevronLeft size={14} />
+        <ChevronLeft size={12} />
       </button>
 
-      <span className="text-[11px] tabular-nums text-muted-foreground min-w-[3ch] text-center">
-        {activeViewIndex + 1} / {viewCount}
+      <span className={`text-[11px] tabular-nums min-w-[3ch] text-center ${isSelected ? 'text-cyan-500 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}`}>
+        {activeViewIndex + 1}/{viewCount}
       </span>
 
       <button
         onClick={() => canGoForward && onNavigate(activeViewIndex + 1)}
         disabled={!canGoForward}
-        className={`p-0.5 rounded transition-colors ${
-          canGoForward
-            ? 'text-muted-foreground hover:text-foreground cursor-pointer'
-            : 'text-muted-foreground/30 cursor-default'
-        }`}
+        className={canGoForward ? NAV_BUTTON_ENABLED : NAV_BUTTON_DISABLED}
         aria-label="Next view"
       >
-        <ChevronRight size={14} />
+        <ChevronRight size={12} />
       </button>
     </div>
   );

@@ -24,6 +24,7 @@ import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { parseLibraryPaths } from '../utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@/features/library';
+import { DebugView } from './DebugView';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
 
 // ────────────────────────────────────────────────────────────
@@ -55,8 +56,14 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
   const { loadAgentSession } = useAgentSessionLifecycle();
 
-  // ── Debug toggle ────────────────────────────────────────
-  const [isDebugView, setIsDebugView] = useState(false);
+  // ── View state (carousel: debug at index 0, content at index 1) ──
+  const hasDebugView = !!controls?.debug;
+  const itemOffset = hasDebugView ? 1 : 0;
+  const [activeViewIndex, setActiveViewIndex] = useState(itemOffset);
+  const totalViews = 1 + (hasDebugView ? 1 : 0);
+  const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
+  const isShowingDebug = hasDebugView && clampedIndex === 0;
+  const heightMode = isShowingDebug ? 'fixed' : 'auto';
 
   // ── Branch data from sessionEvents ──────────────────────
   const branches: BranchInfo[] = useMemo(() => {
@@ -156,6 +163,13 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
     return () => window.removeEventListener('keydown', handleKey);
   }, [isEditMode, cancelEdit]);
 
+  // ── Collapse listener (agent:collapseAll) ───────────────
+  useEffect(() => {
+    const onCollapse = () => setActiveViewIndex(itemOffset);
+    window.addEventListener('agent:collapseAll', onCollapse);
+    return () => window.removeEventListener('agent:collapseAll', onCollapse);
+  }, [itemOffset]);
+
   // ── Edit callbacks ──────────────────────────────────────
   const handleStartEdit = useCallback(
     () => startEdit(id, content),
@@ -226,78 +240,83 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   }), [controls, id, isEditMode, handleStartEdit, handleSubmitEdit, handleRevert]);
 
   return (
-    <ComponentShell
-      role="user"
-      controlBar={controlBarConfig}
-      viewCount={1}
-      activeViewIndex={0}
-      onNavigate={() => {}}
-      branches={branches}
-      parentBranch={parentBranch}
-      sessionEvents={sessionEvents}
-      isDebugView={isDebugView}
-      onToggleDebug={() => setIsDebugView(v => !v)}
-      heightMode="auto"
-      onLoadSession={loadAgentSession}
-      onSetPreserveScroll={setPreserveScrollOnSessionChange}
-      isStreaming={isStreaming ?? false}
-    >
-      <div className="flex flex-col items-end">
-        {hasContent && (
-          <div className="session-component rounded-2xl relative max-w-[56%] px-4 py-3 bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md">
-            {isEditMode && (
-              <BorderBeam colorFrom="#06b6d4" colorTo="#22d3ee" borderWidth={3} pixelsPerSecond={500} />
-            )}
+    <div className="flex flex-col items-end">
+      {hasContent && (
+        <div
+          className="session-component rounded-2xl relative min-w-[160px] max-w-[56%] bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md"
+        >
+          {isEditMode && (
+            <BorderBeam colorFrom="#06b6d4" colorTo="#22d3ee" borderWidth={3} pixelsPerSecond={500} />
+          )}
 
-            {/* Text content */}
-            {(content?.trim() || isEditMode) && <div>{contentRenderer}</div>}
+          <ComponentShell
+            role="user"
+            controlBar={controlBarConfig}
+            viewCount={totalViews}
+            activeViewIndex={clampedIndex}
+            onNavigate={setActiveViewIndex}
+            branches={branches}
+            parentBranch={parentBranch}
+            heightMode={heightMode}
+            onLoadSession={loadAgentSession}
+            onSetPreserveScroll={setPreserveScrollOnSessionChange}
+            isStreaming={isStreaming ?? false}
+          >
+            {isShowingDebug ? (
+                <DebugView sessionEvents={sessionEvents} />
+            ) : (
+            <>
+              {/* Text content */}
+              {(content?.trim() || isEditMode) && <div>{contentRenderer}</div>}
 
-            {/* Encoded images */}
-            {hasImages && (
-              <div className={`flex flex-wrap gap-1.5 ${content?.trim() ? 'mt-2' : ''}`}>
-                {encodedImages!.slice(0, 20).map((img, index) => (
-                  <a
-                    key={index}
-                    href={`data:${img.mimeType};base64,${img.data}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block overflow-hidden rounded-md hover:opacity-90 transition-opacity"
-                  >
-                    <img
-                      src={`data:${img.mimeType};base64,${img.data}`}
-                      alt={`Attached image ${index + 1}`}
-                      className="h-16 w-16 object-cover"
-                    />
-                  </a>
-                ))}
-                {encodedImages!.length > 20 && (
-                  <div className="flex items-center justify-center h-16 px-3 text-sm text-muted-foreground">
-                    +{encodedImages!.length - 20} more
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Encoded images */}
+              {hasImages && (
+                <div className={`flex flex-wrap gap-1.5 ${content?.trim() ? 'mt-2' : ''}`}>
+                  {encodedImages!.slice(0, 20).map((img, index) => (
+                    <a
+                      key={index}
+                      href={`data:${img.mimeType};base64,${img.data}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block overflow-hidden rounded-md hover:opacity-90 transition-opacity"
+                    >
+                      <img
+                        src={`data:${img.mimeType};base64,${img.data}`}
+                        alt={`Attached image ${index + 1}`}
+                        className="h-16 w-16 object-cover"
+                      />
+                    </a>
+                  ))}
+                  {encodedImages!.length > 20 && (
+                    <div className="flex items-center justify-center h-16 px-3 text-sm text-muted-foreground">
+                      +{encodedImages!.length - 20} more
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Library items */}
-            {hasLibraryItems && (
-              <div ref={gridContainerRef} className="mt-6">
-                <LightAssetGrid
-                  items={libraryItems}
-                  isLoading={libraryLoading}
-                  expectedCount={expectedItemCount}
-                  error={libraryError}
-                  maxVisible={17}
-                  focusedPath={focusedPath}
-                  onItemClick={handleItemClick}
-                  onViewInLibrary={handleViewInLibrary}
-                  onClearFocus={handleClearFocus}
-                  isUserMessage
-                />
-              </div>
+              {/* Library items */}
+              {hasLibraryItems && (
+                <div ref={gridContainerRef} className="mt-6">
+                  <LightAssetGrid
+                    items={libraryItems}
+                    isLoading={libraryLoading}
+                    expectedCount={expectedItemCount}
+                    error={libraryError}
+                    maxVisible={17}
+                    focusedPath={focusedPath}
+                    onItemClick={handleItemClick}
+                    onViewInLibrary={handleViewInLibrary}
+                    onClearFocus={handleClearFocus}
+                    isUserMessage
+                  />
+                </div>
+              )}
+            </>
             )}
-          </div>
-        )}
-      </div>
-    </ComponentShell>
+          </ComponentShell>
+        </div>
+      )}
+    </div>
   );
 });

@@ -22,7 +22,7 @@ import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { AgentSessionComponentType, Tool, WorkflowSpec } from '../types';
+import type { AgentSessionComponentType, Tool, WorkflowSpec, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 
@@ -33,13 +33,15 @@ interface AgentPlaygroundProps {
   initialTools?: Tool[];
   /** Server-fetched workflows (hydrated into store on mount) */
   initialWorkflows?: WorkflowSpec[];
+  /** Server-fetched models (hydrated into store on mount) */
+  initialModels?: ModelSpec[];
   /** Server-fetched session events (SSR) */
   initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialEvents }: AgentPlaygroundProps) {
+export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialEvents }: AgentPlaygroundProps) {
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
-  useHydrateStore({ initialTools, initialWorkflows });
+  useHydrateStore({ initialTools, initialWorkflows, initialModels });
   
   // Fetch acquired agents (owned + subscribed) and push into store
   useAcquiredAgentsQuery();
@@ -145,40 +147,10 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   const handleHistoryClick = () => handlePanelClick('history-panel', 'history-panel');
   const handleSettingsClick = () => handlePanelClick('settings-panel', 'settings-panel');
 
-  // Disable text selection when shift is held (for shift+click debug view)
-  useEffect(() => {
-    const handleShiftDown = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') {
-        document.body.style.userSelect = 'none';
-      }
-    };
-
-    const handleShiftUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') {
-        document.body.style.userSelect = '';
-      }
-    };
-
-    // Also handle blur to reset selection if user switches windows
-    const handleBlur = () => {
-      document.body.style.userSelect = '';
-    };
-
-    window.addEventListener('keydown', handleShiftDown);
-    window.addEventListener('keyup', handleShiftUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('keydown', handleShiftDown);
-      window.removeEventListener('keyup', handleShiftUp);
-      window.removeEventListener('blur', handleBlur);
-      document.body.style.userSelect = '';
-    };
-  }, []);
-
   // Global keyboard listener - handle Escape, Enter and printable characters
   const editingEventId = useAgentStore((s) => s.editingEventId);
   const resetAllTranslations = useAgentStore((s) => s.resetAllTranslations);
+  const selectComponent = useAgentStore((s) => s.selectComponent);
   
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -191,6 +163,9 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
         if (!editingEventId) {
           resetAllTranslations();
         }
+        
+        // Deselect any selected component
+        selectComponent(null);
         
         // Dispatch a global collapse event that components listen to
         const event = new Event('agent:collapseAll');
@@ -224,7 +199,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations]);
+  }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations, selectComponent]);
 
   return (
     <div className="h-full w-full bg-background text-foreground">

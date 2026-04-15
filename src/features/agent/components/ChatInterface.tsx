@@ -16,17 +16,62 @@
  * - Branch navigation: Preserve scroll position
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
+import type { AgentSessionComponent } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import type { MessageInputRef } from './MessageInput';
-import { UserMessage } from './UserMessage';
-import { AgentMessage } from './AgentMessage';
-import { UserFeedback } from './UserFeedback';
-import { resolveSystemPanel } from './ComponentResolver';
+import { resolveComponent } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
-import { SystemCall } from '../tools/system-call';
-import { isTextFeedback } from '../utils/toAgentSessionComponent';
+
+// ── Render a single component via centralized resolver ──────────
+function renderComponent(component: AgentSessionComponent): React.ReactNode {
+  const content = resolveComponent(component);
+  if (!content) return null;
+
+  // System panels get centered layout
+  const isPanel = component.type === 'config-panel' || component.type === 'settings-panel'
+    || component.type === 'history-panel' || component.type === 'asset-picker-panel';
+
+  return (
+    <div key={component.id} id={component.id} className={isPanel ? 'w-full flex justify-center py-2' : 'w-full'}>
+      {content}
+    </div>
+  );
+}
+
+// ── Group components into user-initiated conversation groups ──
+// A user-message starts a new group; subsequent non-user components
+// belong to it. min-h-[90vh] on the last group keeps the user message
+// at the top of the viewport while the agent response fills below.
+interface ComponentGroup {
+  userComponent?: AgentSessionComponent;
+  responseComponents: AgentSessionComponent[];
+}
+
+function groupComponents(components: AgentSessionComponent[]): ComponentGroup[] {
+  const groups: ComponentGroup[] = [];
+  let current: ComponentGroup = { responseComponents: [] };
+
+  for (const c of components) {
+    if (c.type === 'user-message') {
+      // Push previous group if it has content
+      if (current.userComponent || current.responseComponents.length > 0) {
+        groups.push(current);
+      }
+      current = { userComponent: c, responseComponents: [] };
+    } else {
+      current.responseComponents.push(c);
+    }
+  }
+
+  // Push final group
+  if (current.userComponent || current.responseComponents.length > 0) {
+    groups.push(current);
+  }
+
+  return groups;
+}
 
 export function ChatInterface() {
   const {
@@ -48,6 +93,8 @@ export function ChatInterface() {
     clearScrollToComponentId,
   });
 
+  const componentGroups = useMemo(() => groupComponents(sessionComponents), [sessionComponents]);
+
   return (
     <div className="h-full flex flex-col relative">
       {/* Chat Container - Scrollable */}
@@ -58,7 +105,7 @@ export function ChatInterface() {
           <div id="chat-left-panel" className="relative" />
           
           {/* Center - Chat Content */}
-          <div className="flex flex-col gap-4 py-4 pb-8">
+          <div className="flex flex-col gap-6 py-4 pb-8">
             {/* Placeholder when no conversation exists */}
             {sessionComponents.length === 0 && !currentSessionId && (
               <p className="w-full flex-1 flex justify-center items-center text-sm text-muted-foreground italic">
@@ -66,49 +113,16 @@ export function ChatInterface() {
               </p>
             )}
             
-            {sessionComponents.map((component, idx) => {
-              // Apply min-height to the last user-initiated group
-              // Check if this is a user-message AND there are no more user-messages after it
-              const isLastUserMessage = component.type === 'user-message' &&
-                !sessionComponents.slice(idx + 1).some(c => c.type === 'user-message');
-              
-              switch (component.type) {
-                case 'user-message':
-                  return (
-                    <div key={component.id} id={component.id} className={`w-full ${isLastUserMessage ? 'min-h-[90vh]' : ''}`}>
-                      <UserMessage component={component} />
-                    </div>
-                  );
-                case 'agent-message':
-                  return (
-                    <div key={component.id} id={component.id} className="w-full">
-                      <AgentMessage component={component} />
-                    </div>
-                  );
-                case 'user-feedback':
-                  return (
-                    <div key={component.id} id={component.id} className="w-full">
-                      <UserFeedback feedback={isTextFeedback(component.data.result) ? component.data.result.userFeedback : ''} />
-                    </div>
-                  );
-                case 'system-call':
-                  return (
-                    <div key={component.id} id={component.id} className="w-full">
-                      <SystemCall data={component.data} />
-                    </div>
-                  );
-                case 'config-panel':
-                case 'settings-panel':
-                case 'history-panel':
-                case 'asset-picker-panel':
-                  return (
-                    <div key={component.id} id={component.id} className="w-full flex justify-center py-2">
-                      {resolveSystemPanel(component.type)}
-                    </div>
-                  );
-                default:
-                  return null;
-              }
+            {componentGroups.map((group, idx) => {
+              const isLastGroup = idx === componentGroups.length - 1;
+              const useMinHeight = isLastGroup && !!group.userComponent;
+
+              return (
+                <div key={group.userComponent?.id ?? `group-${idx}`} className={`flex flex-col gap-6 ${useMinHeight ? 'min-h-[90vh]' : ''}`}>
+                  {group.userComponent && renderComponent(group.userComponent)}
+                  {group.responseComponents.map(c => renderComponent(c))}
+                </div>
+              );
             })}
           </div>
           
