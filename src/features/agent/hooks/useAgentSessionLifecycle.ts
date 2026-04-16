@@ -16,6 +16,7 @@ import { fetchAgentSessionEvents, deleteAgentSession } from '../lib/agent-api';
 import { saveCurrentAgentSessionId } from '../utils/agent-storage';
 import type { AgentSessionEvent } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
+import { deriveConversationStatus } from '../utils/derive-conversation-status';
 
 /**
  * Convert wire events (ISO timestamps) to rich AgentSessionEvents (Date objects)
@@ -85,16 +86,7 @@ export function useAgentSessionLifecycle() {
         store.setUserMessagesHistory(userMessages);
 
         // Derive conversation status from loaded events
-        if (events.length > 0) {
-          const lastNonBranch = [...events].reverse().find(e => e.type !== 'branch');
-          if (lastNonBranch && lastNonBranch.type !== 'agent-turn-completed') {
-            store.setConversationStatus('interrupted');
-          } else {
-            store.setConversationStatus('healthy');
-          }
-        } else {
-          store.setConversationStatus('healthy');
-        }
+        store.setConversationStatus(deriveConversationStatus(events));
 
         // 3. Subscribe via WS with lastSequence — backend sends catch-up events
         const lastSequence = events.length > 0

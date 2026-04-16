@@ -215,13 +215,11 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     onRevert: handleRevert,
   }), [controls, activeItem, id, isEditMode, isValidForSubmit, handleStartEdit, handleSubmitEdit, handleRevert]);
 
-  // ── Selection: click to select, arrow keys to navigate ──
-  const handleBubbleClick = useCallback((e: React.MouseEvent) => {
-    // Don't select if in edit mode or clicking interactive elements
+  // ── Selection: click anywhere inside selects this instance ──
+  // Deselection happens only via: clicking another instance (click-away) or Escape.
+  const handleBubbleClick = useCallback(() => {
     if (isEditMode) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button, a, [contenteditable], textarea, input, [data-edit-allowed], [data-controls]')) return;
-    selectComponent(isSelected ? null : id);
+    if (!isSelected) selectComponent(id);
   }, [isEditMode, isSelected, selectComponent, id]);
 
   // Arrow key navigation when selected

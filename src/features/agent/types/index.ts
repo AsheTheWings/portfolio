@@ -9,8 +9,8 @@ export enum ModelCapability {
   VISION = 'vision',
   AUDIO = 'audio',
   VIDEO = 'video',
-  IMAGE_GENERATION = 'imageGeneration',
-  TOOL_CALLING = 'toolCalling',
+  IMAGE_GENERATION = 'image_generation',
+  TOOL_CALLING = 'tool_calling',
 }
 
 // Native tool definition (Generic)
@@ -613,7 +613,7 @@ export interface AgentState {
   pendingLibraryItemIds: string[];
   
   // Conversation status
-  conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'interrupted';
+  conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'paused' | 'interrupted';
 
   // Session management
   setCurrentAgentSessionId: (sessionId: string | null) => void;

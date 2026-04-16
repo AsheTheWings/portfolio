@@ -101,7 +101,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       return 'Agent is processing...';
     }
     if (disabled) return 'Waiting for agent response...';
-    return `${placeholder} (Enter to send, Shift+Enter for new line)`;
+    return `${placeholder}`;
   };
 
   const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;

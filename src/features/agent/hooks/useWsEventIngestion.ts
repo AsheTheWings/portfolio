@@ -30,6 +30,7 @@ import type {
   WsErrorMessage,
   WireAgentSessionEvent,
 } from '../types/protocol';
+import { deriveConversationStatus } from '../utils/derive-conversation-status';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
@@ -179,10 +180,10 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       if (msg.status === 'completed') {
         useAgentStore.getState().setConversationStatus('healthy');
       } else if (msg.status === 'aborted') {
-        // Agent was stopped mid-turn — no agent-turn-completed event was emitted,
-        // so the session is in an incomplete state. Match the reload behavior in
-        // useAgentSessionLifecycle which detects this same condition.
-        useAgentStore.getState().setConversationStatus('interrupted');
+        // Re-derive from event state — could be 'interrupted' or 'paused'
+        // depending on whether the agent produced any output before abort.
+        const abortStore = useAgentStore.getState();
+        abortStore.setConversationStatus(deriveConversationStatus(abortStore.agentSessionEvents));
       } else if (msg.status === 'resuming') {
         // Re-derive components after backend cleanup
         if (msg.deletedEventIds?.length) {
@@ -194,9 +195,10 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
           store.hydrateFromEvents(remaining);
         }
       } else if (msg.status === 'error') {
-        useAgentStore.getState().setConversationStatus('interrupted');
+        const errorStore = useAgentStore.getState();
+        errorStore.setConversationStatus(deriveConversationStatus(errorStore.agentSessionEvents));
         const errorMessage = msg.error || 'Something went wrong. Please try again.';
-        useAgentStore.getState().setError(errorMessage);
+        errorStore.setError(errorMessage);
         toastError(errorMessage);
       } else if (msg.status === 'paused') {
         useAgentStore.getState().setConversationStatus('waitingFeedback');

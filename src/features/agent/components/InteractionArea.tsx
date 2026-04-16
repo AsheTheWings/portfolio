@@ -60,6 +60,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     
     // Disable input if processing or hanging input (user message pending)
     const isInputDisabled = isProcessing || conversationStatus === 'interrupted';
+    const showResume = conversationStatus === 'interrupted' || conversationStatus === 'paused';
     
     // Use consolidated user input handler
     const { submitUserInput, submitAction, isFeedbackMode } = useUserInput();
@@ -226,8 +227,8 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const morphRef = useRef<HTMLDivElement>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     const ANIM_DURATION = 0.4;
-    // Active states (processing/interrupted) get narrow width; normal expanded gets 50%
-    const isActiveState = isProcessing || conversationStatus === 'interrupted';
+    // Active states (processing/interrupted/paused) get narrow width; normal expanded gets 50%
+    const isActiveState = isProcessing || conversationStatus === 'interrupted' || conversationStatus === 'paused';
     const expandedWidth = isActiveState ? '25%' : '50%';
     const expandedMarginRight = isActiveState ? '6rem' : '25%';
 
@@ -280,9 +281,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
                 </motion.div>
               );
             })()
-          ) : conversationStatus === 'interrupted' ? (
+          ) : showResume ? (
             <motion.div
-              key="interrupted"
+              key="resume"
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 'auto', opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
@@ -290,7 +291,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
               className="flex justify-center items-center overflow-hidden whitespace-nowrap"
             >
               <FeedbackPanel
-                prompt="Agent turn was interrupted. Would you like to resume?"
+                prompt={conversationStatus === 'interrupted'
+                  ? "Agent turn was interrupted. Would you like to resume?"
+                  : "Agent was paused. Resume or send a new message."}
                 actions={[
                   { 
                     id: 'resume', 

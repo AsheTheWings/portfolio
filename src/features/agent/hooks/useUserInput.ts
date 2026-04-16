@@ -17,15 +17,13 @@ export function useUserInput() {
   const { submitMessage, submitFeedback } = useAgentCall();
 
   /**
-   * Submit user input — routes to feedback or normal message
+   * Submit user input — text always creates a new message.
+   * Feedback is exclusively button-driven via submitAction.
+   * Typing during waitingFeedback finalizes the pending turn and starts fresh.
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
-    if (activeFeedbackRequest) {
-      submitFeedback(activeFeedbackRequest.toolCallEventId, { userFeedback: message });
-    } else {
-      submitMessage(message, libraryItemIds);
-    }
-  }, [activeFeedbackRequest, submitFeedback, submitMessage]);
+    submitMessage(message, libraryItemIds);
+  }, [submitMessage]);
 
   /**
    * Submit action button click (feedback mode only)
