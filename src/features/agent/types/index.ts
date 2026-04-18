@@ -590,9 +590,6 @@ export interface AgentState {
   // Editing state
   editingEventId: string | null;
   editingData: EditingData | null;
-  
-  // Selection state (exclusive — one component at a time)
-  selectedComponentId: string | null;
 
   // Branching state
   showingBranchesForComponent: string | null;
@@ -672,9 +669,6 @@ export interface AgentState {
   startEdit: (eventId: string, initialData: string | EditingData) => void;
   updateEditingData: (data: EditingData) => void;
   cancelEdit: () => void;
-  
-  // Selection actions
-  selectComponent: (componentId: string | null) => void;
 
   // Branching UI state actions
   showBranches: (componentId: string) => void;

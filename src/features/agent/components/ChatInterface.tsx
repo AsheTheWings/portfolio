@@ -105,7 +105,7 @@ export function ChatInterface() {
           <div id="chat-left-panel" className="relative" />
           
           {/* Center - Chat Content */}
-          <div className="flex flex-col gap-6 py-4 pb-8">
+          <div className="flex flex-col gap-6 pt-4 pb-8">
             {/* Placeholder when no conversation exists */}
             {sessionComponents.length === 0 && !currentSessionId && (
               <p className="w-full flex-1 flex justify-center items-center text-sm text-muted-foreground italic">
@@ -118,7 +118,7 @@ export function ChatInterface() {
               const useMinHeight = isLastGroup && !!group.userComponent;
 
               return (
-                <div key={group.userComponent?.id ?? `group-${idx}`} className={`flex flex-col gap-6 ${useMinHeight ? 'min-h-[90vh]' : ''}`}>
+                <div key={group.userComponent?.id ?? `group-${idx}`} className={`flex flex-col gap-6 ${useMinHeight ? 'min-h-[calc(100vh-42px-3rem)]' : ''}`}>
                   {group.userComponent && renderComponent(group.userComponent)}
                   {group.responseComponents.map(c => renderComponent(c))}
                 </div>

@@ -50,10 +50,9 @@ const LANGUAGES = [
 interface TranslateButtonProps {
   componentId: string;
   originalText: string;
-  isSelected?: boolean;
 }
 
-export function TranslateButton({ componentId, originalText, isSelected = false }: TranslateButtonProps) {
+export function TranslateButton({ componentId, originalText }: TranslateButtonProps) {
   const [open, setOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -147,9 +146,7 @@ export function TranslateButton({ componentId, originalText, isSelected = false 
           isTranslating && 'cursor-wait',
           isActive
             ? 'text-emerald-500 dark:text-emerald-400 hover:text-emerald-400 hover:scale-110 dark:hover:text-emerald-300'
-            : isSelected
-              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300'
-              : 'text-slate-400 dark:text-slate-500 hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50',
+            : 'text-slate-400 dark:text-slate-500 hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50',
         )}
         aria-label={preferredLanguage ? `Translate (Shift+Click for ${preferredLanguage})` : 'Translate'}
         title={preferredLanguage ? `Translate (Shift+Click: ${preferredLanguage})` : 'Translate'}

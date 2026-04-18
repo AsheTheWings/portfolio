@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Edit2, RotateCcw, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Loader2, RotateCcw, Send } from 'lucide-react';
 import IconBranch from '@/features/shared/icons/IconBranch';
 import { TranslateButton } from './TranslateButton';
 import { BranchTreeView } from './BranchTreeView';
@@ -82,15 +82,17 @@ export interface ComponentShellProps {
   branches?: BranchInfo[];
   /** Parent session info (if this is a branch) */
   parentBranch?: ParentBranchInfo;
-  /** Height mode — 'fixed' (300px, scrollable viewport) | 'auto' (growable) */
+  /** Height mode — 'fixed' (320px, scrollable viewport) | 'auto' (growable) */
   heightMode?: 'fixed' | 'auto';
   /** Callbacks for branch navigation */
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
   /** Whether the component is streaming (hides controls during stream) */
   isStreaming?: boolean;
-  /** Whether this component is selected (all controls turn cyan + stay visible) */
-  isSelected?: boolean;
+  /** Title displayed centered in the top bar for the current view */
+  viewTitle?: React.ReactNode;
+  /** Status label shown centered in top bar while streaming (e.g. 'Thinking') */
+  streamingStatus?: string;
   /** Main content (active view or custom) */
   children: React.ReactNode;
 }
@@ -99,21 +101,13 @@ export interface ComponentShellProps {
 // Constants
 // ────────────────────────────────────────────────────────────
 
-const FIXED_HEIGHT = 300; // px for thoughts/tool-call views
+const FIXED_HEIGHT = 320; // px min-height for thoughts/tool-call views
 
 const HOVER_BUTTON_CLASS = `
   p-1 rounded-md
   text-slate-400 dark:text-slate-500
   hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
   hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-  transition-all duration-200
-  cursor-pointer
-`;
-
-const SELECTED_BUTTON_CLASS = `
-  p-1 rounded-md
-  text-cyan-500 dark:text-cyan-400
-  hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300
   transition-all duration-200
   cursor-pointer
 `;
@@ -134,32 +128,12 @@ export function ComponentShell({
   onLoadSession,
   onSetPreserveScroll,
   isStreaming = false,
-  isSelected = false,
+  viewTitle,
+  streamingStatus,
   children,
 }: ComponentShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const fixedScrollRef = useRef<HTMLDivElement>(null);
   const [showBranchList, setShowBranchList] = useState(false);
-
-  // ── Auto-scroll fixed-height viewport during streaming ──
-  // rAF loop pins scroll to bottom while content grows (thoughts/tool views).
-  // Runs independently of React render timing — same architecture as useChatScroll.
-  useEffect(() => {
-    if (!isStreaming || heightMode !== 'fixed') return;
-    const container = fixedScrollRef.current;
-    if (!container) return;
-
-    let rafId: number;
-    const tick = () => {
-      const { scrollHeight, scrollTop, clientHeight } = container;
-      if (scrollHeight - scrollTop - clientHeight > 1) {
-        container.scrollTop = scrollHeight - clientHeight;
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [isStreaming, heightMode]);
 
   // ── Escape to cancel edit ───────────────────────────────
   useEffect(() => {
@@ -202,9 +176,32 @@ export function ComponentShell({
       ref={contentRef}
       className="relative group"
     >
+      {/* ── View title — centered ───────────────────── */}
+      {isStreaming && streamingStatus ? (
+        <div className="absolute top-0 left-6 right-0 z-[9] flex items-center h-8 pointer-events-none">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase text-cyan-500 dark:text-cyan-400 animate-pulse">
+            <Loader2 size={11} className="animate-spin" />
+            {streamingStatus}
+          </span>
+        </div>
+      ) : viewTitle ? (
+        <div className="absolute top-0 left-0 right-0 z-[9] flex items-center justify-center h-8 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0">
+          <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 dark:text-slate-500">{viewTitle}</span>
+        </div>
+      ) : null}
+
       {/* ── Top bar: controls + navigation ──────────────── */}
       {hasTopBar && (
         <div data-controls className={`absolute top-0 ${role === 'user' ? 'right-0 pr-4' : 'left-0 pl-6'} z-10 flex items-center h-8 gap-1 ${role === 'user' ? 'flex-row-reverse' : ''}`}>
+          {viewCount > 1 && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0">
+              <ViewNavigation
+                viewCount={viewCount}
+                activeViewIndex={activeViewIndex}
+                onNavigate={onNavigate}
+              />
+            </div>
+          )}
           <ShellControlBar
             {...controlBar}
             branches={branches}
@@ -212,18 +209,7 @@ export function ComponentShell({
             onLoadSession={onLoadSession}
             onSetPreserveScroll={onSetPreserveScroll}
             onShowBranches={() => setShowBranchList(true)}
-            isSelected={isSelected}
           />
-          {viewCount > 1 && (
-            <div className={isSelected ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0'}>
-              <ViewNavigation
-                viewCount={viewCount}
-                activeViewIndex={activeViewIndex}
-                onNavigate={onNavigate}
-                isSelected={isSelected}
-              />
-            </div>
-          )}
         </div>
       )}
 
@@ -240,15 +226,9 @@ export function ComponentShell({
       ) : (
         <div
           className="px-4 py-8"
-          style={heightMode === 'fixed' ? { height: FIXED_HEIGHT } : undefined}
+          style={heightMode === 'fixed' ? { minHeight: FIXED_HEIGHT } : undefined}
         >
-          {heightMode === 'fixed' ? (
-            <div ref={fixedScrollRef} className="h-full overflow-y-auto scrollbar-hide">
-              {children}
-            </div>
-          ) : (
-            children
-          )}
+          {children}
         </div>
       )}
     </div>
@@ -265,7 +245,6 @@ interface ShellControlBarProps extends ControlBarConfig {
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
   onShowBranches: () => void;
-  isSelected?: boolean;
 }
 
 function ShellControlBar({
@@ -284,7 +263,6 @@ function ShellControlBar({
   onLoadSession,
   onSetPreserveScroll,
   onShowBranches,
-  isSelected = false,
 }: ShellControlBarProps) {
   const canShowBranches = controls?.branch && branches.length > 0;
   const canShowEdit = controls?.edit;
@@ -330,15 +308,7 @@ function ShellControlBar({
               onShowBranches();
             }
           }}
-          className={`
-            p-1 rounded-md
-            hover:scale-110
-            transition-all duration-200 cursor-pointer rotate-180
-            ${isSelected
-              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 dark:hover:text-cyan-300'
-              : 'text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/20'
-            }
-          `}
+          className="p-1 rounded-md hover:scale-110 transition-all duration-200 cursor-pointer rotate-180 text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/20"
           title={branches.length === 1 ? 'Switch to branch' : `Show ${branches.length} branches`}
         >
           <IconBranch size="12" />
@@ -351,15 +321,7 @@ function ShellControlBar({
             onSetPreserveScroll?.(true);
             onLoadSession?.(parentBranch.parentSessionId);
           }}
-          className={`
-            p-1 rounded-md
-            hover:scale-110
-            transition-all duration-200 cursor-pointer
-            ${isSelected
-              ? 'text-cyan-500 dark:text-cyan-400 hover:text-cyan-400 dark:hover:text-cyan-300'
-              : 'text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:bg-orange-100/50 dark:hover:bg-orange-900/20'
-            }
-          `}
+          className="p-1 rounded-md hover:scale-110 transition-all duration-200 cursor-pointer text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:bg-orange-100/50 dark:hover:bg-orange-900/20"
           title="Go to parent session"
         >
           <IconBranch size="12" />
@@ -367,12 +329,12 @@ function ShellControlBar({
       )}
 
       {/* Action buttons — always visible when selected, hover-only otherwise */}
-      <div className={`flex items-center gap-1 ${reverseClass} ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity duration-200 delay-300 group-hover:delay-0`}>
+      <div className={`flex items-center gap-1 ${reverseClass} opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0`}>
         {canShowEdit && onStartEdit && (
           <button
             data-edit-allowed
             onClick={() => onStartEdit(translationText || '')}
-            className={isSelected ? SELECTED_BUTTON_CLASS : HOVER_BUTTON_CLASS}
+            className={HOVER_BUTTON_CLASS}
             title="Edit"
           >
             <Edit2 size="12" />
@@ -382,7 +344,7 @@ function ShellControlBar({
         {canShowRevert && onRevert && eventId && (
           <button
             onClick={() => onRevert(eventId)}
-            className={isSelected ? SELECTED_BUTTON_CLASS : HOVER_BUTTON_CLASS}
+            className={HOVER_BUTTON_CLASS}
             title="Revert to this point"
           >
             <RotateCcw size="12" />
@@ -393,7 +355,6 @@ function ShellControlBar({
           <TranslateButton
             componentId={componentId}
             originalText={translationText}
-            isSelected={isSelected}
           />
         )}
       </div>
@@ -409,29 +370,20 @@ interface ViewNavigationProps {
   viewCount: number;
   activeViewIndex: number;
   onNavigate: (index: number) => void;
-  isSelected?: boolean;
 }
 
-function ViewNavigation({ viewCount, activeViewIndex, onNavigate, isSelected = false }: ViewNavigationProps) {
+function ViewNavigation({ viewCount, activeViewIndex, onNavigate }: ViewNavigationProps) {
   const canGoBack = activeViewIndex > 0;
   const canGoForward = activeViewIndex < viewCount - 1;
 
-  const NAV_BUTTON_ENABLED = isSelected
-    ? `
-      p-1 rounded-md
-      text-cyan-500 dark:text-cyan-400
-      hover:text-cyan-400 hover:scale-110 dark:hover:text-cyan-300
-      transition-all duration-200
-      cursor-pointer
-    `
-    : `
-      p-1 rounded-md
-      text-slate-400 dark:text-slate-500
-      hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
-      hover:bg-slate-200/50 dark:hover:bg-slate-700/50
-      transition-all duration-200
-      cursor-pointer
-    `;
+  const NAV_BUTTON_ENABLED = `
+    p-1 rounded-md
+    text-slate-400 dark:text-slate-500
+    hover:text-cyan-500 hover:scale-110 dark:hover:text-slate-300
+    hover:bg-slate-200/50 dark:hover:bg-slate-700/50
+    transition-all duration-200
+    cursor-pointer
+  `;
 
   const NAV_BUTTON_DISABLED = `
     p-1 rounded-md
@@ -450,7 +402,7 @@ function ViewNavigation({ viewCount, activeViewIndex, onNavigate, isSelected = f
         <ChevronLeft size={12} />
       </button>
 
-      <span className={`text-[11px] tabular-nums min-w-[3ch] text-center ${isSelected ? 'text-cyan-500 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}`}>
+      <span className="text-[11px] tabular-nums min-w-[3ch] text-center text-slate-400 dark:text-slate-500">
         {activeViewIndex + 1}/{viewCount}
       </span>
 

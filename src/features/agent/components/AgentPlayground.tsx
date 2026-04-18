@@ -150,7 +150,6 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   // Global keyboard listener - handle Escape, Enter and printable characters
   const editingEventId = useAgentStore((s) => s.editingEventId);
   const resetAllTranslations = useAgentStore((s) => s.resetAllTranslations);
-  const selectComponent = useAgentStore((s) => s.selectComponent);
   
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -163,9 +162,6 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
         if (!editingEventId) {
           resetAllTranslations();
         }
-        
-        // Deselect any selected component
-        selectComponent(null);
         
         // Dispatch a global collapse event that components listen to
         const event = new Event('agent:collapseAll');
@@ -199,7 +195,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations, selectComponent]);
+  }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations]);
 
   return (
     <div className="h-full w-full bg-background text-foreground">

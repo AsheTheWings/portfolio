@@ -99,7 +99,7 @@ const initialState = {
   editingData: null as import('../types').EditingData | null,
   
   // Selection (exclusive)
-  selectedComponentId: null as string | null,
+  // REMOVED: selectedComponentId selection feature has been removed
 
   // Branching
   showingBranchesForComponent: null as string | null,
@@ -260,7 +260,25 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Tool management
   setToolsPool: (toolsPool) => {
-    set({ toolsPool });
+    // Reconcile all agents' availableTools against the new pool
+    // (drops tools that are no longer available, e.g., disabled via mcp.json)
+    const currentAgents = get().agents;
+    const reconciled = currentAgents.map(agent => ({
+      ...agent,
+      config: {
+        ...agent.config,
+        availableTools: agent.config.availableTools
+          .filter(tool => toolsPool.some(t => t.server === tool.server && t.tool === tool.tool))
+      }
+    }));
+    
+    // Only update agents if something changed
+    if (JSON.stringify(reconciled) !== JSON.stringify(currentAgents)) {
+      saveAgents(reconciled);
+      set({ agents: reconciled, toolsPool });
+    } else {
+      set({ toolsPool });
+    }
   },
 
   setWorkflowsPool: (workflowsPool) => {
@@ -458,11 +476,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       editingEventId: null,
       editingData: null,
     });
-  },
-
-  // Selection actions
-  selectComponent: (componentId) => {
-    set({ selectedComponentId: componentId });
   },
 
   // Branch UI state actions

@@ -178,21 +178,21 @@ export function ToolCall({
       {isEditMode && <BorderBeam colorFrom="#06b6d4" colorTo="#22d3ee" borderWidth={2} pixelsPerSecond={500} />}
 
       {/* Content panels — always visible */}
-      <div className={`flex flex-col overflow-y-auto scrollbar-inner overflow-x-hidden lg:flex-row gap-3 ${isEditMode ? 'h-[400px]' : 'max-h-[400px]'}`}>
+      <div className="flex flex-col overflow-x-hidden lg:flex-row gap-3">
         {/* Left Panel — Declaration / Arguments */}
-        <div className="lg:w-[40%] min-w-0 min-h-0 flex flex-col">
+        <div className="lg:w-[40%] min-w-0">
           <div className="flex items-start justify-between mb-2 px-1 gap-2">
-            <div className="text-sm font-medium text-foreground flex-shrink-0 whitespace-nowrap">
+            <div className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground/70 flex-shrink-0 whitespace-nowrap">
               {isEditMode ? 'Tool Arguments' : 'Tool Declaration'}
             </div>
             {isEditMode && jsonError && (
               <div className="text-xs text-red-500">{jsonError}</div>
             )}
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div>
             {isEditMode ? (
               <div
-                className="json-highlight border border-input rounded-md overflow-hidden h-full code-editor-container transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]"
+                className="json-highlight border border-input rounded-md overflow-hidden min-h-[200px] code-editor-container transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -217,12 +217,11 @@ export function ToolCall({
                     fontFamily: '"Fira Code", "Fira Mono", Consolas, monospace',
                     fontSize: 12,
                     backgroundColor: 'transparent',
-                    height: '100%',
                   }}
                 />
               </div>
             ) : (
-              <div className="json-highlight overflow-y-auto overflow-x-hidden scrollbar-inner h-full">
+              <div className="json-highlight overflow-x-hidden">
                 <pre className="text-xs font-mono whitespace-pre-wrap break-words">
                   <code
                     className="hljs language-json"
@@ -236,11 +235,11 @@ export function ToolCall({
         </div>
 
         {/* Right Panel — Result */}
-        <div className="lg:w-[60%] min-w-0 min-h-0 flex flex-col">
-          <div className="text-sm font-medium text-foreground mb-2 px-1">Tool Result</div>
-          <div className="flex-1 overflow-hidden">
+        <div className="lg:w-[60%] min-w-0">
+          <div className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground/70 mb-2 px-1">Tool Result</div>
+          <div>
             {isEditMode ? (
-              <div className="border border-input rounded-md overflow-hidden h-full transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]">
+              <div className="border border-input rounded-md overflow-hidden min-h-[200px] transition-colors focus-within:border-cyan-500 focus-within:shadow-[0_0_0_1px_rgba(6,182,212,0.5)]">
                 <textarea
                   value={editingResult}
                   onChange={(e) => onUpdateEditingData({ result: e.target.value })}
@@ -253,14 +252,14 @@ export function ToolCall({
                       handleSubmit();
                     }
                   }}
-                  className="w-full h-full p-3 bg-transparent border-none outline-none resize-none text-xs font-mono"
+                  className="w-full min-h-[200px] p-3 bg-transparent border-none outline-none resize-none text-xs font-mono"
                   placeholder="Enter result text..."
                 />
               </div>
             ) : (
-              <div className="overflow-y-auto scrollbar-inner h-full">
+              <div>
                 {isExecuting && (
-                  <div className="flex items-center justify-center h-full w-full">
+                  <div className="flex items-center justify-center min-h-[100px] w-full">
                     <ThreeDotsScaleMiddleIcon size={26} className="text-cyan-500" />
                   </div>
                 )}

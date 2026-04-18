@@ -261,6 +261,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
             onLoadSession={loadAgentSession}
             onSetPreserveScroll={setPreserveScrollOnSessionChange}
             isStreaming={isStreaming ?? false}
+            viewTitle={isShowingDebug ? 'Agent Session Events' : undefined}
           >
             {isShowingDebug ? (
                 <DebugView sessionEvents={sessionEvents} />

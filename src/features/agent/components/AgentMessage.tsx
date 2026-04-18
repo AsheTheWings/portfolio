@@ -4,7 +4,7 @@
  * AgentMessage — Composite carousel component for agent responses
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Check, X } from 'lucide-react';
 import { AgentThoughts } from './AgentThoughts';
 import { DebugView } from './DebugView';
@@ -36,7 +36,6 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const { id, data, isStreaming, controls } = component;
   const items: AgentSessionComponent[] = data.items || [];
   const agentId = data.agentId as string | undefined;
-  const bubbleRef = useRef<HTMLDivElement>(null);
 
   // Debug view is always view #1 (index 0) in the carousel
   const hasDebugView = !!controls?.debug;
@@ -52,8 +51,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
-  const isSelected = useAgentStore((s) => s.selectedComponentId === id);
-  const selectComponent = useAgentStore((s) => s.selectComponent);
+  const conversationStatus = useAgentStore((s) => s.conversationStatus);
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
@@ -152,6 +150,29 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       ? (activeItem.type === 'message' ? 'auto' : 'fixed')
       : 'auto';
 
+  // ── View title (centered in top bar, last view/messages get none) ──
+  const viewTitle = useMemo(() => {
+    if (isShowingDebug) return 'Agent Session Events';
+    if (!activeItem) return undefined;
+    if (activeItem.type === 'agent-thoughts') return 'Thoughts';
+    if (activeItem.type === 'tool-call') {
+      const status = getToolStatus(activeItem.data);
+      const displayName = getToolDisplayName(activeItem.data);
+      return (
+        <span className="flex items-center gap-1.5">
+          {displayName}
+          {status === 'executing' && <ThreeDotsScaleMiddleIcon size={12} />}
+          {status === 'complete' && <Check size={12} />}
+          {status === 'failed' && <X size={12} className="text-red-500" />}
+        </span>
+      );
+    }
+    return undefined;
+  }, [isShowingDebug, activeItem]);
+
+  // ── Streaming status label ──────────────────────────────
+  const streamingStatus = isStreaming ? statusLabel(conversationStatus) : undefined;
+
   // ── Edit callbacks ──────────────────────────────────────
   const handleStartEdit = useCallback(
     () => {
@@ -215,45 +236,6 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     onRevert: handleRevert,
   }), [controls, activeItem, id, isEditMode, isValidForSubmit, handleStartEdit, handleSubmitEdit, handleRevert]);
 
-  // ── Selection: click anywhere inside selects this instance ──
-  // Deselection happens only via: clicking another instance (click-away) or Escape.
-  const handleBubbleClick = useCallback(() => {
-    if (isEditMode) return;
-    if (!isSelected) selectComponent(id);
-  }, [isEditMode, isSelected, selectComponent, id]);
-
-  // Arrow key navigation when selected
-  useEffect(() => {
-    if (!isSelected || isEditMode || totalViews <= 1) return;
-    const handleKey = (e: KeyboardEvent) => {
-      // Don't intercept if focus is in a text input
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setActiveViewIndex(i => Math.max(0, i - 1));
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setActiveViewIndex(i => Math.min(totalViews - 1, i + 1));
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isSelected, isEditMode, totalViews]);
-
-  // Click-away deselection
-  useEffect(() => {
-    if (!isSelected) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
-        selectComponent(null);
-      }
-    };
-    // Use capture phase so this fires before the other AgentMessage's click handler
-    document.addEventListener('mousedown', handleClickOutside, true);
-    return () => document.removeEventListener('mousedown', handleClickOutside, true);
-  }, [isSelected, selectComponent]);
-
   // ── Render active view ──────────────────────────────────
   const renderActiveView = () => {
     if (isShowingDebug) {
@@ -277,9 +259,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   return (
     <div className="w-[80%] relative">
       <div
-        ref={bubbleRef}
-        onClick={handleBubbleClick}
-        className="session-component rounded-2xl relative bg-white dark:bg-surface-1 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-tl-md min-w-0 cursor-pointer"
+        className="session-component rounded-2xl relative bg-white dark:bg-surface-1 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-tl-md min-w-0"
         style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: agentColor }}
       >
         {/* Agent avatar — on top of bubble */}
@@ -313,7 +293,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
           onLoadSession={loadAgentSession}
           onSetPreserveScroll={setPreserveScrollOnSessionChange}
           isStreaming={isStreaming ?? false}
-          isSelected={isSelected}
+          viewTitle={viewTitle}
+          streamingStatus={streamingStatus}
         >
           {renderActiveView()}
         </ComponentShell>
@@ -358,25 +339,15 @@ function SubViewRenderer({
       );
 
     case 'tool-call': {
-      const status = getToolStatus(item.data);
       return (
-        <div>
-          {/* Inline tool name header for carousel context */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-            <span className="font-medium">{getToolDisplayName(item.data)}</span>
-            {status === 'executing' && <ThreeDotsScaleMiddleIcon size={14} className="text-cyan-500" />}
-            {status === 'complete' && <Check size={14} className="text-cyan-500" />}
-            {status === 'failed' && <X size={14} className="text-red-500" />}
-          </div>
-          <ToolCall
-            data={item.data}
-            isEditMode={isEditMode}
-            editingData={isEditMode ? editingData : undefined}
-            onUpdateEditingData={updateEditingData}
-            onSubmitEdit={onSubmitEdit}
-            onValidationChange={onValidationChange}
-          />
-        </div>
+        <ToolCall
+          data={item.data}
+          isEditMode={isEditMode}
+          editingData={isEditMode ? editingData : undefined}
+          onUpdateEditingData={updateEditingData}
+          onSubmitEdit={onSubmitEdit}
+          onValidationChange={onValidationChange}
+        />
       );
     }
 
@@ -404,4 +375,15 @@ function defaultViewIndex(items: AgentSessionComponent[], debugOffset: number = 
   }
   // Fallback to last item
   return items.length - 1 + debugOffset;
+}
+
+/** Map conversation status to a short display label */
+function statusLabel(status: string): string | undefined {
+  switch (status) {
+    case 'thinking': return 'Thinking';
+    case 'responding': return 'Responding';
+    case 'toolCalling': return 'Calling tools';
+    case 'processing': return 'Processing';
+    default: return undefined;
+  }
 }
