@@ -151,6 +151,19 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   const editingEventId = useAgentStore((s) => s.editingEventId);
   const resetAllTranslations = useAgentStore((s) => s.resetAllTranslations);
   
+  // Click-outside-all: reset all components to message view
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (editingEventId) return; // don't collapse while editing
+      const target = e.target as Element;
+      if (!target.closest('.session-component')) {
+        window.dispatchEvent(new Event('agent:collapseAll'));
+      }
+    };
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => window.removeEventListener('mousedown', handleMouseDown);
+  }, [editingEventId]);
+
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Handle Escape key - highest priority, works everywhere

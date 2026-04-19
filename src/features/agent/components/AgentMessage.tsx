@@ -260,7 +260,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     <div className="w-[80%] relative">
       <div
         className="session-component rounded-2xl relative bg-white dark:bg-surface-1 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-tl-md min-w-0"
-        style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: agentColor }}
+        style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: hexToRgba70(agentColor) }}
       >
         {/* Agent avatar — on top of bubble */}
         <div
@@ -364,6 +364,15 @@ function SubViewRenderer({
 // ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
+
+/** Convert hex color to rgba with 70% opacity for border */
+function hexToRgba70(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.7)`;
+}
 
 /** Default view index: response (last message item) if available, otherwise last item.
  *  debugOffset shifts all item indices when debug view occupies index 0. */
