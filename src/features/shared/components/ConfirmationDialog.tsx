@@ -63,7 +63,7 @@ export function ConfirmationDialog({
                   <span className="font-medium">{warningText}</span>
                 </div>
               )}
-              <p>{contentText}</p>
+              <p className="line-clamp-3 break-all">{contentText}</p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

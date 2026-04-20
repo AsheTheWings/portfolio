@@ -28,6 +28,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
   const [search, setSearch] = useState('');
   const userId = useAuthStore((s) => s.user?.id);
   const toggleAgent = useAgentStore((s) => s.toggleAgent);
+  const setFrontAgent = useAgentStore((s) => s.setFrontAgent);
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
   const agents = useAgentStore((s) => s.agents);
   const selectedAgentIds = useMemo(() => {
@@ -62,8 +63,14 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
   const revalidateAcquired = revalidateAcquiredAgents;
 
   const handleSelect = useCallback(
-    (agent: SavedAgent) => toggleAgent(agent.id, agent.agentConfig),
-    [toggleAgent],
+    (agent: SavedAgent) => {
+      const isPresent = selectedAgentIds.has(agent.id);
+      toggleAgent(agent.id, agent.agentConfig);
+      if (!isPresent) {
+        setFrontAgent(agent.id);
+      }
+    },
+    [toggleAgent, setFrontAgent, selectedAgentIds],
   );
 
   const handleDelete = useCallback(

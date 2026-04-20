@@ -183,7 +183,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   // Navigation actions
   hydrateAllFolders: (folders, initialNavigation) => {
-    const homeFolder = folders.find(f => f.isSystem && f.parentId === null) || null;
+    const homeFolder = folders.find(f => f.isSystem && f.name === 'home' && f.parentId === null) || null;
     
     // If initial navigation provided, use it directly (server-side resolved path)
     if (initialNavigation) {
