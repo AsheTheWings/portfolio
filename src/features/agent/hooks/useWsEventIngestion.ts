@@ -6,7 +6,7 @@
  * Listens to all server→client WS messages and routes them:
  * - session_event    → store.appendEvent (handles catch-up + live events uniformly)
  * - session_created  → store.setCurrentAgentSessionId + URL update
- * - agent_status     → store.setConversationStatus
+ * - agent_status     → store.setAgentStatus / resetAllAgentStatuses
  * - session_branched → navigation to new branch session
  * - error            → store.setError
  *
@@ -30,7 +30,7 @@ import type {
   WsErrorMessage,
   WireAgentSessionEvent,
 } from '../types/protocol';
-import { deriveConversationStatus } from '../utils/derive-conversation-status';
+import { deriveAgentStatuses } from '../utils/agent-status';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
@@ -177,31 +177,36 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const currentSessionId = useAgentStore.getState().currentSessionId;
       if (msg.sessionId !== currentSessionId) return;
 
+      const store = useAgentStore.getState();
+
       if (msg.status === 'completed') {
-        useAgentStore.getState().setConversationStatus('healthy');
+        // All agents finished — flip every agent back to idle.
+        store.resetAllAgentStatuses('idle');
       } else if (msg.status === 'aborted') {
-        // Re-derive from event state — could be 'interrupted' or 'paused'
-        // depending on whether the agent produced any output before abort.
-        const abortStore = useAgentStore.getState();
-        abortStore.setConversationStatus(deriveConversationStatus(abortStore.agentSessionEvents));
+        // Re-derive per-agent from event state.
+        const statuses = deriveAgentStatuses(store.agentSessionEvents, store.agents);
+        for (const [agentId, status] of Object.entries(statuses)) {
+          store.setAgentStatus(agentId, status);
+        }
       } else if (msg.status === 'resuming') {
         // Re-derive components after backend cleanup
         if (msg.deletedEventIds?.length) {
-          const store = useAgentStore.getState();
-          // Filter out deleted events and re-derive components
           const remaining = store.agentSessionEvents.filter(
-            e => !msg.deletedEventIds!.includes(e.eventId)
+            (e) => !msg.deletedEventIds!.includes(e.eventId),
           );
           store.hydrateFromEvents(remaining);
         }
       } else if (msg.status === 'error') {
-        const errorStore = useAgentStore.getState();
-        errorStore.setConversationStatus(deriveConversationStatus(errorStore.agentSessionEvents));
+        const statuses = deriveAgentStatuses(store.agentSessionEvents, store.agents);
+        for (const [agentId, status] of Object.entries(statuses)) {
+          store.setAgentStatus(agentId, status);
+        }
         const errorMessage = msg.error || 'Something went wrong. Please try again.';
-        errorStore.setError(errorMessage);
+        store.setError(errorMessage);
         toastError(errorMessage);
       } else if (msg.status === 'paused') {
-        useAgentStore.getState().setConversationStatus('waitingFeedback');
+        // Backend paused all active agents awaiting user feedback.
+        store.resetAllAgentStatuses('waitingFeedback');
       }
     });
 

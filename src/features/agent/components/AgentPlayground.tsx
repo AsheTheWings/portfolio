@@ -25,6 +25,7 @@ import { AgentsHub } from './AgentsHub';
 import type { AgentSessionComponentType, Tool, WorkflowSpec, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
+import { hasActiveAgent } from '../utils/agent-status';
 
 interface AgentPlaygroundProps {
   /** Session ID from URL (optional, for dynamic route) */
@@ -84,7 +85,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   const {
     upsertSystemPanel,
     clearAgentSession,
-    conversationStatus,
+    agentStatuses,
     persistAgentSession,
     ephemeral,
     setPersistAgentSession,
@@ -95,8 +96,8 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     uiInterface,
   } = useAgent();
   
-  // Derive isProcessing from conversationStatus
-  const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
+  // Derive isProcessing aggregate from per-agent statuses
+  const isProcessing = hasActiveAgent(agentStatuses);
   
   // Store-based flag to prevent re-showing config panel on route changes
   const hasShownInitialConfig = useAgentStore((s) => s._hasShownInitialConfig);
@@ -151,19 +152,6 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   const editingEventId = useAgentStore((s) => s.editingEventId);
   const resetAllTranslations = useAgentStore((s) => s.resetAllTranslations);
   
-  // Click-outside-all: reset all components to message view
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (editingEventId) return; // don't collapse while editing
-      const target = e.target as Element;
-      if (!target.closest('.session-component')) {
-        window.dispatchEvent(new Event('agent:collapseAll'));
-      }
-    };
-    window.addEventListener('mousedown', handleMouseDown);
-    return () => window.removeEventListener('mousedown', handleMouseDown);
-  }, [editingEventId]);
-
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Handle Escape key - highest priority, works everywhere

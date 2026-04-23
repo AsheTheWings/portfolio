@@ -20,8 +20,8 @@ export function useAgent() {
   const ephemeral = useAgentStore((state) => state.ephemeral);
   const userMessagesHistory = useAgentStore((state) => state.userMessagesHistory);
   
-  // Conversation status
-  const conversationStatus = useAgentStore((state) => state.conversationStatus);
+  // Per-agent statuses (consumers aggregate via helpers in utils/agent-status)
+  const agentStatuses = useAgentStore((state) => state.agentStatuses);
   const error = useAgentStore((state) => state.error);
   const scrollToComponentId = useAgentStore((state) => state.scrollToComponentId);
   const submitTrigger = useAgentStore((state) => state.submitTrigger);
@@ -104,8 +104,8 @@ export function useAgent() {
     persistAgentSession,
     ephemeral,
     
-    // Processing state
-    conversationStatus,
+    // Per-agent runtime status map
+    agentStatuses,
     error,
     scrollToComponentId,
     submitTrigger,

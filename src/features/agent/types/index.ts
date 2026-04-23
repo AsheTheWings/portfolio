@@ -2,6 +2,7 @@
  * Agent domain types
  */
 
+import type { AgentStatus } from '../utils/agent-status';
 
 // Model capabilities
 export enum ModelCapability {
@@ -242,6 +243,8 @@ export interface AgentSessionMetadata {
   titleLocked?: boolean;
   agentName: string;
   rootSessionId?: string;  // NULL for roots, points to root for branches
+  workflow?: 'default' | 'timeline';  // Workflow used for this session
+  topRole?: 'user' | 'client';        // Highest role level for app users
 }
 
 // Tool effects (applied after tool execution)
@@ -567,6 +570,11 @@ export interface AgentState {
   // Hydration state
   _hydrated: boolean;
   
+  // View mode for message composition (timeline workflow)
+  viewMode: 'user' | 'client';
+  // Staged user message (Insert action — waiting for client content)
+  stagedUserMessage: string | null;
+
   // UI state
   uiInterface: UIInterface;
   sessionComponents: AgentSessionComponent[];
@@ -609,8 +617,9 @@ export interface AgentState {
   // Pending library items (asset or folder IDs) for message attachment
   pendingLibraryItemIds: string[];
   
-  // Conversation status
-  conversationStatus: 'healthy' | 'processing' | 'thinking' | 'toolCalling' | 'responding' | 'waitingFeedback' | 'paused' | 'interrupted';
+  // Per-agent runtime status (keyed by agentId). Ephemeral — never persisted.
+  // Consumers that need an aggregate should use helpers from utils/agent-status.
+  agentStatuses: Record<string, AgentStatus>;
 
   // Session management
   setCurrentAgentSessionId: (sessionId: string | null) => void;
@@ -650,14 +659,21 @@ export interface AgentState {
   setUiInterface: (uiInterface: UIInterface) => void;
   setPersistAgentSession: (persist: boolean) => void;
   setEphemeral: (ephemeral: boolean) => void;
+
+  // View mode actions (timeline workflow)
+  setViewMode: (mode: 'user' | 'client') => void;
+  setStagedUserMessage: (message: string | null) => void;
   
   // User messages history actions
   setUserMessagesHistory: (history: string[]) => void;
   appendToUserMessagesHistory: (message: string) => void;
   clearUserMessagesHistory: () => void;
   
+  // Per-agent status actions
+  setAgentStatus: (agentId: string, status: AgentStatus) => void;
+  resetAllAgentStatuses: (status?: AgentStatus) => void;
+
   // State actions
-  setConversationStatus: (status: AgentState['conversationStatus']) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
   setScrollToComponentId: (componentId: string | null) => void;

@@ -16,7 +16,7 @@ import { fetchAgentSessionEvents, deleteAgentSession } from '../lib/agent-api';
 import { saveCurrentAgentSessionId } from '../utils/agent-storage';
 import type { AgentSessionEvent } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
-import { deriveConversationStatus } from '../utils/derive-conversation-status';
+import { deriveAgentStatuses } from '../utils/agent-status';
 
 /**
  * Convert wire events (ISO timestamps) to rich AgentSessionEvents (Date objects)
@@ -85,8 +85,11 @@ export function useAgentSessionLifecycle() {
           .slice(0, 20);
         store.setUserMessagesHistory(userMessages);
 
-        // Derive conversation status from loaded events
-        store.setConversationStatus(deriveConversationStatus(events));
+        // Derive per-agent statuses from loaded events.
+        const derivedStatuses = deriveAgentStatuses(events, useAgentStore.getState().agents);
+        for (const [agentId, status] of Object.entries(derivedStatuses)) {
+          store.setAgentStatus(agentId, status);
+        }
 
         // 3. Subscribe via WS with lastSequence — backend sends catch-up events
         const lastSequence = events.length > 0
@@ -131,7 +134,7 @@ export function useAgentSessionLifecycle() {
       store.clearEvents();
       store.clearUserMessagesHistory();
       store.clearActiveFeedbackRequest();
-      store.setConversationStatus('healthy');
+      store.resetAllAgentStatuses('idle');
       store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session
       saveCurrentAgentSessionId(null);

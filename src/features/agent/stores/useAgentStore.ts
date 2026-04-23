@@ -21,6 +21,7 @@ import { createDefaultAgentConfig, hasCapability, createAssistantAgent, syncMode
 import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
+import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
 
 /**
  * Enforce business rules on agent config to maintain invariants.
@@ -73,6 +74,10 @@ const initialState = {
   // Initial config panel shown (prevents re-showing on route changes)
   _hasShownInitialConfig: false,
   
+  // Timeline workflow composition state
+  viewMode: 'user' as 'user' | 'client',
+  stagedUserMessage: null as string | null,
+
   // UI
   uiInterface: 'chat' as UIInterface,
   sessionComponents: [] as AgentSessionComponent[],
@@ -87,8 +92,8 @@ const initialState = {
   workflowsPool: [] as import('../types').WorkflowSpec[],
   modelsPool: [] as import('../types').ModelSpec[],
   
-  // State
-  conversationStatus: 'healthy' as AgentState['conversationStatus'],
+  // Per-agent runtime status (ephemeral)
+  agentStatuses: { none: 'idle' } as Record<string, AgentStatus>,
   scrollToComponentId: null as string | null,
   preserveScrollOnSessionChange: false,
   error: null as string | null,
@@ -120,8 +125,20 @@ const initialState = {
 export const useAgentStore = create<AgentState>((set, get) => ({
   ...initialState,
   
-  setConversationStatus: (conversationStatus: AgentState['conversationStatus']) => {
-    set({ conversationStatus });
+  setAgentStatus: (agentId: string, status: AgentStatus) => {
+    set((state) => ({
+      agentStatuses: { ...state.agentStatuses, [agentId]: status },
+    }));
+  },
+
+  resetAllAgentStatuses: (status: AgentStatus = 'idle') => {
+    set((state) => {
+      const next: Record<string, AgentStatus> = {};
+      for (const agentId of Object.keys(state.agentStatuses)) next[agentId] = status;
+      // Ensure every known agent from the agents[] list is covered
+      for (const a of state.agents) if (!(a.agentId in next)) next[a.agentId] = status;
+      return { agentStatuses: next };
+    });
   },
 
   setError: (error: string | null) => {
@@ -175,15 +192,20 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       seen.add(a.agentId);
       return true;
     });
-    if (agents.length !== incoming.length) {
-    }
     // Invariant: 'none' (assistant) must always be present
     const hasNone = agents.some(a => a.agentId === 'none');
     if (!hasNone) {
       agents = [createAssistantAgent(), ...agents];
     }
     saveAgents(agents);
-    set({ agents });
+    // Reconcile agentStatuses: keep entries for retained agents, default new ones to 'idle'
+    set((state) => {
+      const nextStatuses: Record<string, AgentStatus> = {};
+      for (const a of agents) {
+        nextStatuses[a.agentId] = state.agentStatuses[a.agentId] ?? 'idle';
+      }
+      return { agents, agentStatuses: nextStatuses };
+    });
   },
 
   addAgent: (agentId: string, config: AgentConfig) => {
@@ -302,40 +324,39 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       const sessionComponents = [...state.sessionComponents];
       processEventIntoComponents(sessionComponents, event, state.uiInterface);
 
-      let conversationStatus = state.conversationStatus;
+      const agentStatuses = { ...state.agentStatuses };
       let activeFeedbackRequest = state.activeFeedbackRequest;
-      let skipStatusDerivation = false;
 
-      // Tool-effects side effects (config updates handled after set)
-      if (event.type === 'tool-effects') {
-        const { toolEffects } = event.data as ToolEffectsData;
-        if (toolEffects && Object.keys(toolEffects).length > 0) {
-          if (toolEffects.userActions) {
+      // user-turn-completed is session-scoped: mark every known agent as 'processing'
+      // so each one lights up while waiting for its first model event.
+      if (event.type === 'user-turn-completed') {
+        for (const a of state.agents) agentStatuses[a.agentId] = 'processing';
+      } else {
+        const agentKey = event.agentId || 'none';
+
+        // Tool-effects with pending userActions → that agent is waiting for feedback
+        if (event.type === 'tool-effects') {
+          const { toolEffects } = event.data as ToolEffectsData;
+          if (toolEffects?.userActions) {
             activeFeedbackRequest = {
               toolCallEventId: event.toolCallEventId!,
               userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
             };
-            conversationStatus = 'waitingFeedback';
-            skipStatusDerivation = true;
+            agentStatuses[agentKey] = 'waitingFeedback';
+          } else {
+            const mapped = statusFromEvent(event);
+            if (mapped) agentStatuses[agentKey] = mapped;
           }
-        }
-      }
-
-      // Derive conversation status from event type
-      if (!skipStatusDerivation) {
-        switch (event.type) {
-          case 'model-thought-chunk': conversationStatus = 'thinking'; break;
-          case 'model-message-chunk': conversationStatus = 'responding'; break;
-          case 'tool-call': conversationStatus = 'toolCalling'; break;
-          case 'agent-turn-completed': conversationStatus = 'healthy'; break;
-          case 'user-turn-completed': conversationStatus = 'processing'; break;
+        } else {
+          const mapped = statusFromEvent(event);
+          if (mapped) agentStatuses[agentKey] = mapped;
         }
       }
 
       return {
         agentSessionEvents,
         sessionComponents,
-        conversationStatus,
+        agentStatuses,
         activeFeedbackRequest,
       };
     });
@@ -435,6 +456,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setEphemeral: (ephemeral) => {
     set({ ephemeral });
+  },
+  
+  // View mode actions (timeline workflow)
+  setViewMode: (mode) => {
+    set({ viewMode: mode });
+  },
+  setStagedUserMessage: (message) => {
+    set({ stagedUserMessage: message });
   },
   
   // User messages history actions
@@ -565,7 +594,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   reset: () => {
     set({
       ...initialState,
-      conversationStatus: 'healthy',
+      agentStatuses: { none: 'idle' },
     });
   },
 }));

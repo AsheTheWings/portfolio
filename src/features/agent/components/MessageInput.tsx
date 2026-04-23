@@ -16,6 +16,7 @@ import { LibraryPathBrowser } from '@/features/library';
 
 interface MessageInputProps {
   onSend: (message: string, assetIds?: string[]) => void;
+  onInsert?: (text: string) => void;  // User mode: stage text without submitting
   onStop?: () => void;
   isProcessing: boolean;
   isThinking?: boolean;
@@ -27,6 +28,8 @@ interface MessageInputProps {
   collapsed?: boolean;
   onExpand?: () => void;
   isAnimating?: boolean;
+  viewMode?: 'user' | 'client';        // Timeline: affects placeholder + Insert action
+  hasStagedMessage?: boolean;          // Timeline: staged user text is pending
 }
 
 export interface MessageInputRef {
@@ -37,7 +40,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onStop, isProcessing, isThinking, isToolCalling, isResponding, disabled, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating }, ref) => {
+  ({ onSend, onInsert, onStop, isProcessing, isThinking, isToolCalling, isResponding, disabled, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -101,10 +104,23 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       return 'Agent is processing...';
     }
     if (disabled) return 'Waiting for agent response...';
+    if (viewMode === 'client') return 'Type client message...';
+    if (hasStagedMessage) return 'Type client message...';
     return `${placeholder}`;
   };
 
   const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;
+
+  // Show Insert button when: user mode, not collapsed, not processing, onInsert is provided
+  const showInsert = !collapsed && !isAnimating && !isProcessing && !disabled && viewMode === 'user' && !hasStagedMessage && !!onInsert;
+
+  // Handle Insert action: stage current text, clear input, keep focus
+  const handleInsert = () => {
+    if (!hasTextContent || !onInsert) return;
+    onInsert(value);
+    setValue('');
+    focus();
+  };
 
   // Visual collapsed state: stays collapsed-looking during GSAP animation
   const visuallyCollapsed = collapsed || isAnimating;
@@ -212,18 +228,34 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
             </span>
           </Button>
         ) : (
-          <Button
-            ref={buttonRef}
-            type={collapsed ? 'button' : 'submit'}
-            disabled={collapsed ? false : (!hasContent || disabled)}
-            size="icon-lg"
-            className="ml-auto rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
-            title={collapsed ? 'Open input (Enter)' : 'Send message'}
-            tabIndex={collapsed ? -1 : 0}
-            data-gsap="submit-btn"
-          >
-            {collapsed ? <Keyboard size={20} /> : <IconSend size="24" />}
-          </Button>
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            {/* Insert button — user mode only, before staging */}
+            {showInsert && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleInsert}
+                disabled={!hasTextContent}
+                className="rounded-full text-xs px-3 h-8 border-border-subtle text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                title="Stage as developer text, then add client message"
+              >
+                Insert
+              </Button>
+            )}
+            <Button
+              ref={buttonRef}
+              type={collapsed ? 'button' : 'submit'}
+              disabled={collapsed ? false : (!hasContent || disabled)}
+              size="icon-lg"
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+              title={collapsed ? 'Open input (Enter)' : viewMode === 'client' ? 'Send as client' : hasStagedMessage ? 'Send combined message' : 'Send message'}
+              tabIndex={collapsed ? -1 : 0}
+              data-gsap="submit-btn"
+            >
+              {collapsed ? <Keyboard size={20} /> : <IconSend size="24" />}
+            </Button>
+          </div>
         )}
       </form>
     </div>

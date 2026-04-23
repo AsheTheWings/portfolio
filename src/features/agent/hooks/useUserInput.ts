@@ -2,10 +2,12 @@
 
 /**
  * useUserInput Hook
- * 
+ *
  * Consolidates user input handling:
  * - Normal mode: sends user_message via WS
  * - Feedback mode: sends submit_feedback via WS
+ * - Timeline client mode: wraps message in <client> tags
+ * - Timeline user mode: supports Insert (stage) + Submit (combine)
  */
 
 import { useCallback } from 'react';
@@ -14,16 +16,41 @@ import { useAgentCall } from './useAgentCall';
 
 export function useUserInput() {
   const activeFeedbackRequest = useAgentStore((s) => s.activeFeedbackRequest);
+  const viewMode = useAgentStore((s) => s.viewMode);
+  const stagedUserMessage = useAgentStore((s) => s.stagedUserMessage);
   const { submitMessage, submitFeedback } = useAgentCall();
 
   /**
-   * Submit user input — text always creates a new message.
-   * Feedback is exclusively button-driven via submitAction.
-   * Typing during waitingFeedback finalizes the pending turn and starts fresh.
+   * Submit user input — handles viewMode routing.
+   * - Client mode: wraps message in <client> tags automatically
+   * - User mode with staged: combines staged user text + <client> wrapped current text
+   * - User mode without staged: sends plain developer message
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
-    submitMessage(message, libraryItemIds);
-  }, [submitMessage]);
+    if (viewMode === 'client') {
+      // Client mode — wrap in <client> tags, no user text
+      submitMessage(`<client>${message}</client>`, libraryItemIds);
+    } else if (stagedUserMessage !== null) {
+      // User mode with staged developer text — combine with client content
+      const clientPart = message.trim() ? `<client>${message}</client>` : '';
+      const combined = clientPart
+        ? `${stagedUserMessage}\n${clientPart}`
+        : stagedUserMessage;
+      useAgentStore.getState().setStagedUserMessage(null);
+      submitMessage(combined, libraryItemIds);
+    } else {
+      // User mode — plain developer message
+      submitMessage(message, libraryItemIds);
+    }
+  }, [viewMode, stagedUserMessage, submitMessage]);
+
+  /**
+   * Insert action (user mode only) — stages the current input text without submitting.
+   * The staged text will be combined with client content on next Submit.
+   */
+  const insertUserMessage = useCallback((text: string) => {
+    useAgentStore.getState().setStagedUserMessage(text);
+  }, []);
 
   /**
    * Submit action button click (feedback mode only)
@@ -38,7 +65,10 @@ export function useUserInput() {
 
   return {
     submitUserInput,
+    insertUserMessage,
     submitAction,
+    viewMode,
+    stagedUserMessage,
     isFeedbackMode: activeFeedbackRequest !== null,
   };
 }

@@ -12,6 +12,7 @@
  *   - Encoded images flex layout
  *   - Library items grid (LightAssetGrid)
  *   - Inline contentEditable editing
+ *   - Timeline: client/user view mode rendering for <client> tagged content
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
@@ -26,6 +27,22 @@ import { parseLibraryPaths } from '../utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@/features/library';
 import { DebugView } from './DebugView';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
+
+// ────────────────────────────────────────────────────────────
+// Client content parsing
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Split a message into developer text and client text.
+ * Client text lives inside <client>...</client> tags.
+ */
+function parseClientContent(message: string): { userText: string; clientText: string | null } {
+  const match = message.match(/<client>([\s\S]*?)<\/client>/);
+  if (!match) return { userText: message, clientText: null };
+  const clientText = match[1] ?? '';
+  const userText = message.replace(/<client>[\s\S]*?<\/client>/g, '').trim();
+  return { userText, clientText };
+}
 
 // ────────────────────────────────────────────────────────────
 // Props
@@ -51,6 +68,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
+  const viewMode = useAgentStore((s) => s.viewMode);
 
   // ── Branching ───────────────────────────────────────────
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
@@ -85,7 +103,17 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   }, [sessionEvents]);
 
   // ── Content ─────────────────────────────────────────────
-  const content = data.message || '';
+  const rawContent = data.message || '';
+  const { userText, clientText } = useMemo(() => parseClientContent(rawContent), [rawContent]);
+
+  // In client view mode, only show client text (if present)
+  const content = (viewMode === 'client' && clientText !== null)
+    ? clientText
+    : rawContent;
+
+  // Skip rendering entirely if in client mode and there's no client content
+  const isClientOnlyMessage = viewMode === 'client' && clientText === null && !isEditMode;
+
   const editingMessage = editingData?.message || '';
   const editingElRef = useRef<HTMLDivElement | null>(null);
 
@@ -191,7 +219,11 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   // ── Determine if content is present ─────────────────────
   const hasContent = content?.trim() || hasImages || hasLibraryItems || isEditMode;
 
+  // In client mode, skip messages that have no client content (developer-only messages)
+  if (isClientOnlyMessage && !hasImages && !hasLibraryItems) return null;
+
   // ── Render content ──────────────────────────────────────
+  // In user view mode with client content: render full message with highlighted client section
   const contentRenderer = isEditMode ? (
     <div
       contentEditable
@@ -219,6 +251,21 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       data-placeholder="Edit message..."
       ref={editingElRef}
     />
+  ) : viewMode === 'user' && clientText !== null ? (
+    // User view mode: show developer text + highlighted client section
+    <div className="flex flex-col gap-1.5">
+      {userText && (
+        <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
+          <MentionHighlightedText content={userText} onPathClick={handlePathClick} isDark />
+        </pre>
+      )}
+      <div className="rounded-lg bg-cyan-600/25 border border-cyan-400/40 px-2.5 py-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-300/70 block mb-0.5">client</span>
+        <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0 text-cyan-50">
+          {clientText}
+        </pre>
+      </div>
+    </div>
   ) : (
     <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
       <MentionHighlightedText content={content} onPathClick={handlePathClick} isDark />

@@ -16,6 +16,7 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
+import { hasAgentStatus, hasActiveAgent } from '../utils/agent-status';
 
 gsap.registerPlugin(useGSAP);
 
@@ -24,23 +25,32 @@ type InteractionAreaProps = object;
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, resumeAgent, conversationStatus } = useAgent();
-    
-    // Collapsed state: auto-collapse when healthy, expand on user interaction
+    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, resumeAgent, agentStatuses } = useAgent();
+
+    // Aggregate flags derived from per-agent statuses
+    const isProcessing = hasActiveAgent(agentStatuses);
+    const isThinking = hasAgentStatus(agentStatuses, 'thinking');
+    const isToolCalling = hasAgentStatus(agentStatuses, 'toolCalling');
+    const isResponding = hasAgentStatus(agentStatuses, 'responding');
+    const isInterrupted = hasAgentStatus(agentStatuses, 'interrupted');
+    const isPaused = hasAgentStatus(agentStatuses, 'paused');
+    const isIdle = !isProcessing && !isInterrupted && !isPaused;
+
+    // Collapsed state: auto-collapse when idle, expand on user interaction
     const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
-    const isCollapsed = conversationStatus === 'healthy' && !isManuallyExpanded;
-    
-    // Auto-collapse when returning to healthy
+    const isCollapsed = isIdle && !isManuallyExpanded;
+
+    // Auto-collapse when returning to idle
     useEffect(() => {
-      if (conversationStatus === 'healthy') {
+      if (isIdle) {
         setIsManuallyExpanded(false);
       }
-    }, [conversationStatus]);
-    
+    }, [isIdle]);
+
     // Escape key collapses (via agent:collapseAll event) — discard input
     useEffect(() => {
       const onCollapseAll = () => {
-        if (conversationStatus === 'healthy') {
+        if (isIdle) {
           setIsManuallyExpanded(false);
           // Clear input text on collapse
           if (ref && typeof ref !== 'function' && ref.current) {
@@ -50,20 +60,14 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       };
       window.addEventListener('agent:collapseAll', onCollapseAll);
       return () => window.removeEventListener('agent:collapseAll', onCollapseAll);
-    }, [conversationStatus, ref]);
-    
-    // Derive processing states from conversationStatus
-    const isProcessing = conversationStatus === 'processing' || conversationStatus === 'thinking' || conversationStatus === 'toolCalling' || conversationStatus === 'responding';
-    const isThinking = conversationStatus === 'thinking';
-    const isToolCalling = conversationStatus === 'toolCalling';
-    const isResponding = conversationStatus === 'responding';
-    
+    }, [isIdle, ref]);
+
     // Disable input if processing or hanging input (user message pending)
-    const isInputDisabled = isProcessing || conversationStatus === 'interrupted';
-    const showResume = conversationStatus === 'interrupted' || conversationStatus === 'paused';
+    const isInputDisabled = isProcessing || isInterrupted;
+    const showResume = isInterrupted || isPaused;
     
     // Use consolidated user input handler
-    const { submitUserInput, submitAction, isFeedbackMode } = useUserInput();
+    const { submitUserInput, insertUserMessage, submitAction, viewMode, stagedUserMessage, isFeedbackMode } = useUserInput();
 
     const lastSubmitTriggerRef = useRef(0);
     
@@ -228,7 +232,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const [isAnimating, setIsAnimating] = useState(false);
     const ANIM_DURATION = 0.4;
     // Active states (processing/interrupted/paused) get narrow width; normal expanded gets 50%
-    const isActiveState = isProcessing || conversationStatus === 'interrupted' || conversationStatus === 'paused';
+    const isActiveState = isProcessing || isInterrupted || isPaused;
     const expandedWidth = isActiveState ? '25%' : '50%';
     const expandedMarginRight = isActiveState ? '6rem' : '25%';
 
@@ -252,7 +256,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
           setIsAnimating(false);
         },
       });
-    }, { dependencies: [isCollapsed, isActiveState, conversationStatus] });
+    }, { dependencies: [isCollapsed, isActiveState] });
 
     return (
       <div className="w-full min-h-[72px] overflow-hidden flex items-center">
@@ -291,7 +295,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
               className="flex justify-center items-center overflow-hidden whitespace-nowrap"
             >
               <FeedbackPanel
-                prompt={conversationStatus === 'interrupted'
+                prompt={isInterrupted
                   ? "Agent turn was interrupted. Would you like to resume?"
                   : "Agent was paused. Resume or send a new message."}
                 actions={[
@@ -319,17 +323,20 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
           <MessageInput
             ref={ref}
             onSend={submitUserInput}
+            onInsert={insertUserMessage}
             onStop={stopAgent}
             isProcessing={isProcessing}
             disabled={isInputDisabled}
             isThinking={isThinking}
             isToolCalling={isToolCalling}
             isResponding={isResponding}
-            placeholder={isFeedbackMode ? 'Provide feedback...' : 'Type a message...'}
+            placeholder={isFeedbackMode ? 'Provide feedback...' : viewMode === 'client' ? 'Type client message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}
             onExpand={expandInput}
             isAnimating={isAnimating}
+            viewMode={viewMode}
+            hasStagedMessage={stagedUserMessage !== null}
           />
         </div>
       </div>

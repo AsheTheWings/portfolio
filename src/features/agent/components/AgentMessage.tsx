@@ -19,6 +19,7 @@ import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
 import { isLightColor } from '../utils/color';
+import { getAgentStatus, statusLabel } from '../utils/agent-status';
 
 // ────────────────────────────────────────────────────────────
 // Props
@@ -51,7 +52,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
-  const conversationStatus = useAgentStore((s) => s.conversationStatus);
+  // Read only this agent's status — not the whole map — to avoid re-rendering on unrelated updates
+  const agentStatus = useAgentStore((s) => getAgentStatus(s.agentStatuses, agentId));
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
@@ -171,7 +173,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [isShowingDebug, activeItem]);
 
   // ── Streaming status label ──────────────────────────────
-  const streamingStatus = isStreaming ? statusLabel(conversationStatus) : undefined;
+  const streamingStatus = isStreaming ? statusLabel(agentStatus) : undefined;
 
   // ── Edit callbacks ──────────────────────────────────────
   const handleStartEdit = useCallback(
@@ -377,13 +379,3 @@ function defaultViewIndex(items: AgentSessionComponent[], debugOffset: number = 
   return items.length - 1 + debugOffset;
 }
 
-/** Map conversation status to a short display label */
-function statusLabel(status: string): string | undefined {
-  switch (status) {
-    case 'thinking': return 'Thinking';
-    case 'responding': return 'Responding';
-    case 'toolCalling': return 'Calling tools';
-    case 'processing': return 'Processing';
-    default: return undefined;
-  }
-}

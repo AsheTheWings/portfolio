@@ -19,6 +19,9 @@ export function useAgentCall() {
   /**
    * Send user message to backend via WS.
    * If no sessionId exists, backend creates a new session (session_created msg).
+   * Workflow is derived from agent configuration:
+   * - 'timeline' when any non-assistant agent is present in the agents array
+   * - 'default' for assistant-only sessions
    */
   const submitMessage = useCallback((
     message: string,
@@ -30,10 +33,16 @@ export function useAgentCall() {
     
     // Clear system panels when user sends a new message
     store.clearSystemPanels();
-    store.setConversationStatus('processing');
+    // Mark every configured agent as 'processing' so each bubble lights up
+    // while waiting for its first model event.
+    store.resetAllAgentStatuses('processing');
     
     // Track in user messages history
     store.appendToUserMessagesHistory(message);
+
+    // Resolve workflow: timeline when any non-assistant agent is active
+    const hasNonAssistantAgent = store.agents.some(a => a.agentId !== 'none');
+    const workflow: 'default' | 'timeline' = hasNonAssistantAgent ? 'timeline' : 'default';
 
     send({
       type: 'user_message',
@@ -41,6 +50,7 @@ export function useAgentCall() {
       data: {
         message,
         agents: store.agents.map(a => ({ agentId: a.agentId, config: a.config })),
+        workflow,
         libraryItemIds,
       },
     });
@@ -87,7 +97,7 @@ export function useAgentCall() {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;
 
-    useAgentStore.getState().setConversationStatus('processing');
+    useAgentStore.getState().resetAllAgentStatuses('processing');
 
     send({
       type: 'resume_agent',

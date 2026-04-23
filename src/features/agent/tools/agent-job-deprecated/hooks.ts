@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAgentStore } from '@/features/agent/stores/useAgentStore';
 import { formatDuration } from './shared';
 import type { AgentMetadata } from '@/features/agent/types';
+import { hasAgentStatus, hasActiveAgent } from '@/features/agent/utils/agent-status';
 
 interface LiveTimers {
   jobDuration: string;
@@ -26,7 +27,7 @@ export function useLiveTimers(
   metadata: AgentMetadata | undefined,
   isJobActive: boolean
 ): LiveTimers {
-  const conversationStatus = useAgentStore((state) => state.conversationStatus);
+  const agentStatuses = useAgentStore((state) => state.agentStatuses);
   const [liveOffset, setLiveOffset] = useState(0);
   const lastUpdateTimeRef = useRef<number>(Date.now());
   
@@ -44,17 +45,10 @@ export function useLiveTimers(
     setLiveOffset(0);
   }, [metadataKey]);
   
-  // Determine active states
-  const isThinkingOrResponding = 
-    conversationStatus === 'thinking' || 
-    conversationStatus === 'responding';
-  
-  const isToolCalling = conversationStatus === 'toolCalling';
-  
-  const isAnyWorking = 
-    conversationStatus === 'processing' || 
-    isThinkingOrResponding || 
-    isToolCalling;
+  // Determine active states aggregated across all agents
+  const isThinkingOrResponding = hasAgentStatus(agentStatuses, 'thinking', 'responding');
+  const isToolCalling = hasAgentStatus(agentStatuses, 'toolCalling');
+  const isAnyWorking = hasActiveAgent(agentStatuses);
   
   // Live tick when agent is working and job is active
   useEffect(() => {
