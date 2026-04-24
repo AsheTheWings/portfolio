@@ -25,9 +25,9 @@ export function QuickAccessHeader() {
   } = useAgent();
   
   return (
-    <div className="min-h-[42px] z-10 flex items-start justify-start gap-8 px-6 py-2">
+    <div className="h-[42px] flex items-center justify-start gap-8 px-6">
       {/* Agent identity or session info — fixed width slot */}
-      <div className="w-[200px] flex-shrink-0">
+      <div className="w-[240px]">
         <AgentSessionPopover
           sessionId={currentSessionId || undefined}
           persistAgentSession={persistAgentSession}

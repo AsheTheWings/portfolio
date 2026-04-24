@@ -9,7 +9,7 @@
 
 import { useAgentStore } from '../stores/useAgentStore';
 import { MarkdownContent } from './MarkdownContent';
-import { isLightColor } from '../utils/color';
+import { Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
 import type { AgentSessionComponent } from '../types';
 
 export function FlatAgentResponse({ component }: { component: AgentSessionComponent }) {
@@ -24,23 +24,12 @@ export function FlatAgentResponse({ component }: { component: AgentSessionCompon
   return (
     <div className="flex items-start gap-2.5">
       {/* Agent avatar */}
-      <div
-        className="w-8 h-8 rounded-full ring-2 ring-background overflow-hidden relative flex-shrink-0 mt-1"
-        style={{ backgroundColor: agentColor }}
-      >
-        {avatarImage ? (
-          <img src={avatarImage} alt={agentName} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span
-              className="text-xs font-bold antialiased"
-              style={{ color: isLightColor(agentColor) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)' }}
-            >
-              {agentName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        )}
-      </div>
+      <Avatar className="ring-2 ring-background mt-1 flex-shrink-0">
+        {avatarImage && <AvatarImage src={avatarImage} alt={agentName} />}
+        <AvatarFallback color={agentColor} className="text-xs font-bold">
+          {agentName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
 
       {/* Card — matches AgentMessage styling */}
       <div

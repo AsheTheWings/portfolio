@@ -26,6 +26,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuGroup,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
@@ -35,7 +38,6 @@ import { createDefaultAgentConfig, getModelSpec, hasCapability } from '../servic
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { McpConfigCardContent } from './McpConfigCardContent';
-import { isLightColor } from '../utils/color';
 
 export function AgentsConfigPanel() {
   // Store state
@@ -214,18 +216,14 @@ export function AgentsConfigPanel() {
                       type="button"
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <div
-                        className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                        style={{ backgroundColor: acquiredAgent?.color ?? '#E2E8F0' }}
-                      >
-                        {acquiredAgent?.avatarImage ? (
-                          <img src={acquiredAgent.avatarImage} alt={acquiredAgent.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className={`text-[10px] font-semibold ${isLightColor(acquiredAgent?.color ?? '#E2E8F0') ? 'text-gray-900/80' : 'text-white/80'}`}>
-                            {(acquiredAgent?.name ?? 'A').charAt(0).toUpperCase()}
-                          </span>
+                      <Avatar className="size-5">
+                        {acquiredAgent?.avatarImage && (
+                          <AvatarImage src={acquiredAgent.avatarImage} alt={acquiredAgent.name} />
                         )}
-                      </div>
+                        <AvatarFallback color={acquiredAgent?.color ?? '#E2E8F0'} className="text-[10px]">
+                          {(acquiredAgent?.name ?? 'A').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="flex-1 text-left truncate">{acquiredAgent?.name ?? 'Assistant'}</span>
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </button>
@@ -244,18 +242,12 @@ export function AgentsConfigPanel() {
                           onClick={() => { if (!isActive) setFrontAgent(a.agentId); }}
                           className="flex items-center gap-2"
                         >
-                          <div
-                            className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                            style={{ backgroundColor: color }}
-                          >
-                            {avatarImage ? (
-                              <img src={avatarImage} alt={name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className={`text-[10px] font-semibold ${isLightColor(color) ? 'text-gray-900/80' : 'text-white/80'}`}>
-                                {name.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                          <Avatar className="size-5">
+                            {avatarImage && <AvatarImage src={avatarImage} alt={name} />}
+                            <AvatarFallback color={color} className="text-[10px]">
+                              {name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                           <span className="flex-1 truncate">{name}</span>
                           {isActive && <Check className="w-4 h-4 text-primary" />}
                         </DropdownMenuItem>

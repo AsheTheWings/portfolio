@@ -19,6 +19,9 @@ import {
   Input,
   Textarea,
   Slider,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
@@ -218,18 +221,12 @@ export function AgentsConfigPanel() {
                               : 'hover:bg-surface-2 border border-transparent'
                           }`}
                         >
-                          <div
-                            className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                            style={{ backgroundColor: color }}
-                          >
-                            {avatarImage ? (
-                              <img src={avatarImage} alt={name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-semibold text-white/80">
-                                {name.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                          <Avatar className="size-7">
+                            {avatarImage && <AvatarImage src={avatarImage} alt={name} />}
+                            <AvatarFallback color={color} className="text-xs">
+                              {name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                           <span className={`text-sm truncate ${isActive ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
                             {name}
                           </span>

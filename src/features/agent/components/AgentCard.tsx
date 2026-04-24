@@ -5,7 +5,7 @@
  */
 
 import { Lock } from 'lucide-react';
-import { Badge } from '@/features/shared/components/shadcn';
+import { Badge, Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
 import type { SavedAgent } from '../types';
 import { isLightColor } from '../utils/color';
 
@@ -26,7 +26,6 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
   const lightColor = isLightColor(color);
 
   const textClass = isSelected ? (lightColor ? 'text-gray-900' : 'text-white') : '';
-  const avatarTextClass = lightColor ? 'text-gray-900/80' : 'text-white/80';
 
   const handleSelect = (e: React.MouseEvent | React.KeyboardEvent) => {
     if ('key' in e) {
@@ -53,24 +52,12 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
       <div className="p-4 flex flex-col gap-3 min-w-0">
         {/* Avatar + Name row */}
         <div className="flex items-center gap-3">
-          <div
-            className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 relative"
-            style={{ backgroundColor: color }}
-          >
-            {agent.avatarImage ? (
-              <img
-                src={agent.avatarImage}
-                alt={agent.name}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-xl font-semibold ${avatarTextClass}`}>
-                  {agent.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
+          <Avatar className="size-14">
+            {agent.avatarImage && <AvatarImage src={agent.avatarImage} alt={agent.name} />}
+            <AvatarFallback color={color} className="text-xl">
+              {agent.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0">
             <div className={`text-sm font-medium truncate ${isSelected ? textClass : 'text-foreground'}`}>
               {agent.name}

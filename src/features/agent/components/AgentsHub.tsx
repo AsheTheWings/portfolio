@@ -176,7 +176,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
       </div>
 
       {/* Scrollable content: agents + workflows */}
-      <div className="flex-1 overflow-auto pb-8 scrollbar-container">
+      <div className="flex-1 overflow-auto pb-8 scrollbar-container px-14">
         {/* Agents */}
         <p className="px-6 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Agents</p>
         {isLoading ? (
@@ -225,7 +225,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
         title={confirmDialog.action === 'delete' ? 'Delete Agent' : 'Remove Agent'}
         contentText={
           confirmDialog.action === 'delete'
-            ? `Are you sure you want to delete "${confirmDialog.agentName ?? ''}"? This action cannot be undone.`
+            ? `Are you sure you want to delete "${confirmDialog.agentName ?? ''}"?`
             : `Remove "${confirmDialog.agentName ?? ''}" from your library?`
         }
         confirmButtonText={confirmDialog.action === 'delete' ? 'Delete' : 'Remove'}

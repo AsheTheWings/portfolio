@@ -18,7 +18,7 @@ import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
-import { isLightColor } from '../utils/color';
+import { Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
 import { getAgentStatus, statusLabel } from '../utils/agent-status';
 
 // ────────────────────────────────────────────────────────────
@@ -265,23 +265,12 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
         style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: agentColor }}
       >
         {/* Agent avatar — on top of bubble */}
-        <div
-          className="absolute -left-5 -top-1 w-10 h-10 rounded-full overflow-hidden z-[10]"
-          style={{ backgroundColor: agentColor }}
-        >
-          {avatarImage ? (
-            <img src={avatarImage} alt={agentName} className="absolute inset-0 w-full h-full object-cover rounded-full" style={{ border: `1px solid ${agentColor}` }} />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span
-                className="text-xs font-bold antialiased"
-                style={{ color: isLightColor(agentColor) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)', textRendering: 'optimizeLegibility' }}
-              >
-                {agentName.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
-        </div>
+        <Avatar size="lg" className="absolute -left-5 -top-1 z-[10]">
+          {avatarImage && <AvatarImage src={avatarImage} alt={agentName} />}
+          <AvatarFallback color={agentColor} className="text-xs font-bold">
+            {agentName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
 
         <ComponentShell
           role="agent"

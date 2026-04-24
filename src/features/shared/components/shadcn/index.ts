@@ -53,7 +53,14 @@ export * from './command';
 
 // Data components
 export * from './table';
-export { Avatar, AvatarImage, AvatarFallback } from './avatar';
+export {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  AvatarBadge,
+  AvatarGroup,
+  AvatarGroupCount,
+} from './avatar';
 export { Badge, badgeVariants } from './badge';
 export { Calendar } from './calendar';
 

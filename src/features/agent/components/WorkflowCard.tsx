@@ -17,15 +17,15 @@ export function WorkflowCard({ workflow, isSelected, onClick }: WorkflowCardProp
       type="button"
       onClick={onClick}
       className={`
-        relative flex flex-col w-[400px] rounded-lg border transition-all duration-150 cursor-pointer text-left overflow-hidden
+        relative flex flex-col w-[300px] rounded-lg border transition-all duration-150 cursor-pointer text-left overflow-hidden
         ${isSelected
           ? 'border-violet-500/70 bg-violet-500/10 ring-1 ring-violet-500/40'
           : 'border-border bg-surface-1 hover:border-border-strong hover:bg-surface-2'
         }
       `}
     >
-      {/* Mermaid diagram area — 2:3 aspect */}
-      <div className="w-full aspect-[2/3] bg-surface-2 p-3 flex items-center justify-center">
+      {/* Mermaid diagram area — 2:3 aspect, locked so a tall SVG can't push the card */}
+      <div className="w-full aspect-[2/3] min-h-0 overflow-hidden bg-surface-2 p-3 flex items-center justify-center">
         <MermaidDiagram source={workflow.mermaid} className="w-full h-full" />
       </div>
 
@@ -39,7 +39,7 @@ export function WorkflowCard({ workflow, isSelected, onClick }: WorkflowCardProp
             <CheckCircle2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
           )}
         </div>
-        <p className="text-[0.7rem] text-muted-foreground leading-snug line-clamp-2">
+        <p className="text-[0.7rem] text-muted-foreground leading-snug line-clamp-3">
           {workflow.description}
         </p>
       </div>

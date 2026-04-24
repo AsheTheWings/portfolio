@@ -15,6 +15,10 @@ import {
   Label,
   Input,
   Separator,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  AvatarGroup,
 } from '@/features/shared/components/shadcn';
 
 import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
@@ -22,8 +26,8 @@ import { useAgent } from '../hooks/useAgent';
 import { useAgentSessionMetadata } from '../hooks/useAgentSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
 import { createAgent } from '../lib/agent-api';
+import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { SavedAgent as _SavedAgent } from '../types';
-import { isLightColor } from '../utils/color';
 
 interface AgentSessionPopoverProps {
   sessionId?: string;
@@ -85,7 +89,7 @@ export function AgentSessionPopover({
   return (
     <Popover modal onOpenChange={(open) => { if (!open) setShowExportForm(false); }}>
       <PopoverTrigger asChild>
-        <button className="flex items-start gap-2.5 w-full text-left hover:opacity-80 transition-opacity cursor-pointer py-0.5">
+        <button className="flex items-center gap-2.5 w-full text-left hover:opacity-80 transition-opacity cursor-pointer">
           {(() => {
             // Resolve agent display info
             const rawAgentInfos = agents.map(a => {
@@ -125,35 +129,7 @@ export function AgentSessionPopover({
 
             return (
               <>
-                <div className="flex items-center flex-shrink-0">
-                  {stackedAgents.map((info, i) => {
-                    const textColor = isLightColor(info.color) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
-                    return (
-                      <div
-                        key={i}
-                        className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 relative outline outline-2 outline-background"
-                        style={{
-                          backgroundColor: info.color,
-                          marginLeft: i > 0 ? '-8px' : 0,
-                          zIndex: stackedAgents.length - i,
-                        }}
-                      >
-                        {info.avatarImage ? (
-                          <img src={info.avatarImage} alt={info.name} className="absolute inset-0 w-full h-full object-cover" />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span 
-                              className="text-xs font-bold antialiased"
-                              style={{ color: textColor, textRendering: 'optimizeLegibility' }}
-                            >
-                              {info.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <AgentAvatarStack agents={stackedAgents} />
                 <span className="text-xs font-medium text-foreground break-words leading-tight min-w-0">
                   {displayName}
                 </span>
@@ -305,6 +281,36 @@ export function AgentSessionPopover({
 }
 
 // ============================================================
+// Agent avatar stack — renders 1..3 overlapping avatars with the
+// per-agent color as the fallback background. Built on shadcn's
+// AvatarGroup so spacing/ring styling stays consistent with the rest
+// of the app.
+// ============================================================
+
+interface AgentAvatarInfo {
+  name: string;
+  color: string;
+  avatarImage: string | null;
+}
+
+function AgentAvatarStack({ agents }: { agents: AgentAvatarInfo[] }) {
+  return (
+    <AvatarGroup className="flex-shrink-0">
+      {agents.map((info, i) => (
+        <Avatar key={i}>
+          {info.avatarImage && (
+            <AvatarImage src={info.avatarImage} alt={info.name} />
+          )}
+          <AvatarFallback color={info.color}>
+            {info.name.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+    </AvatarGroup>
+  );
+}
+
+// ============================================================
 // Export Agent Form — replaces entire popover content
 // ============================================================
 
@@ -321,13 +327,27 @@ function ExportAgentForm({ onBack }: { onBack: () => void }) {
     if (!name.trim() || !agentConfig) return;
     setSaving(true);
     try {
-      await createAgent({
+      const created = await createAgent({
         name: name.trim(),
         description: description.trim() || undefined,
         agentConfig,
         isPublic,
         isConfigurable: isPublic ? isConfigurable : false,
       });
+
+      // Seed the acquired-agents map optimistically so the popover/config panel
+      // can resolve the new agent's name/avatar immediately, then revalidate
+      // against the server for the canonical record (e.g. once the avatar is ready).
+      const store = useAgentStore.getState();
+      const merged = [...Object.values(store.acquiredAgents), created];
+      store.setAcquiredAgents(merged);
+
+      // Add to the active session list and bring to front (auto-select).
+      store.addAgent(created.id, created.agentConfig);
+      store.setFrontAgent(created.id);
+
+      revalidateAcquiredAgents();
+
       setSaved(true);
       setTimeout(() => onBack(), 1500);
     } catch (err) {
