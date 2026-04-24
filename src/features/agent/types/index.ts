@@ -80,11 +80,20 @@ export interface McpConfig {
   servers: McpServerConfig[];
 }
 
-// Workflow specification
-export interface WorkflowSpec {
-  id: string;           // Unique identifier
-  name: string;         // Display name
-  description: string;  // What the workflow does
+// Workflow specification — mirrors the backend registry shape exactly
+export interface Workflow {
+  id: string;
+  description: string;
+  mermaid: string;
+  isDefault?: boolean;
+}
+
+/** Derives a human-readable display name from a snake_case workflow id. */
+export function workflowDisplayName(id: string): string {
+  return id
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 // Model specification
@@ -154,10 +163,6 @@ export interface AgentConfig {
   enableTools: boolean;       // Enable tool calling
   availableTools: Tool[];     // Tools selected from pool (original server/tool names)
   maxConcurrentTools: number; // Max concurrent tool executions
-  
-  // Workflow configuration
-  enableWorkflows: boolean;   // Enable workflow orchestration
-  selectedWorkflows: string[]; // IDs of active workflows
   
   // Structured output (optional, for JSON responses)
   responseSchema?: Record<string, unknown>;  // JSON schema for structured output
@@ -243,7 +248,7 @@ export interface AgentSessionMetadata {
   titleLocked?: boolean;
   agentName: string;
   rootSessionId?: string;  // NULL for roots, points to root for branches
-  workflow?: 'default' | 'timeline';  // Workflow used for this session
+  workflow?: string;  // Workflow id used for this session
   topRole?: 'user' | 'client';        // Highest role level for app users
 }
 
@@ -253,12 +258,6 @@ export interface AgentSessionMetadata {
 export interface ToolEffects {
   // Session-handled effects
   appendTurnInstructions?: string;
-  
-  // Workflow activation (silently ignored if workflow not enabled)
-  activateWorkflow?: {
-    type: string;               // Workflow type ID
-    data?: unknown;                 // Workflow-specific data
-  };
   
   // UI-handled effects
   updateConfig?: Partial<AgentConfig>;
@@ -586,8 +585,11 @@ export interface AgentState {
   
   // Tool state
   toolsPool: Tool[];
-  workflowsPool: WorkflowSpec[];
+  workflowsPool: Workflow[];
   modelsPool: ModelSpec[];
+  
+  // Active session workflow selection (persisted in localStorage)
+  selectedWorkflowId: string;
   
   // Scroll state
   scrollToComponentId: string | null;
@@ -641,7 +643,8 @@ export interface AgentState {
   
   // Tool management
   setToolsPool: (tools: Tool[]) => void;
-  setWorkflowsPool: (workflows: WorkflowSpec[]) => void;
+  setWorkflowsPool: (workflows: Workflow[]) => void;
+  setSelectedWorkflowId: (id: string) => void;
   setModelsPool: (models: ModelSpec[]) => void;
   
   // UI component actions

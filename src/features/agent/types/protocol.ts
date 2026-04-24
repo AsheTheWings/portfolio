@@ -61,7 +61,7 @@ export interface WsUserMessageMessage {
   data: {
     message: string;
     agents: Agent[];             // Ordered agent configs, [0] = active
-    workflow?: 'default' | 'timeline';  // Session workflow — only read on new session creation
+    workflow?: string;  // Session workflow id — only read on new session creation
     libraryItemIds?: string[];
     metadata?: Record<string, unknown>;
   };

@@ -12,13 +12,13 @@ import { AuthGate } from '@/features/authentication/components/AuthGate';
 import { AgentConnectionProvider } from '@/features/agent/hooks/useAgentConnection';
 import { AgentPlayground } from '@/features/agent';
 import type { UserPublic } from '@/features/authentication/types';
-import type { Tool, WorkflowSpec, ModelSpec } from '@/features/agent/types';
+import type { Tool, Workflow, ModelSpec } from '@/features/agent/types';
 import type { WireAgentSessionEvent } from '@/features/agent/types/protocol';
 
 interface AgentHomeProps {
   initialUser: UserPublic | null;
   initialTools: Tool[];
-  initialWorkflows: WorkflowSpec[];
+  initialWorkflows: Workflow[];
   initialModels?: ModelSpec[];
   initialEvents?: WireAgentSessionEvent[] | null;
 }

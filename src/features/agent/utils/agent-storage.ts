@@ -111,11 +111,40 @@ export function saveUIFlags(uiInterface: 'chat' | 'flat', flags: UIFlags): void 
   }
 }
 
+// ============================================================
+// Selected Workflow Persistence
+// ============================================================
+
+const WORKFLOW_KEY = 'timeline:agent:selectedWorkflowId';
+
 /**
- * Current Session ID Management
- * Persists session ID as a non-httpOnly cookie so both client and server can read it.
- * Server reads it in page.tsx to redirect `/` → `/<sessionId>` without a client round-trip.
+ * Persist the user's selected workflow id to localStorage.
  */
+export function saveSelectedWorkflowId(id: string): void {
+  try {
+    localStorage.setItem(WORKFLOW_KEY, id);
+  } catch {
+    // Silently ignore storage errors
+  }
+}
+
+/**
+ * Load the persisted workflow id. Returns null if nothing stored.
+ */
+export function loadSelectedWorkflowId(): string | null {
+  try {
+    return localStorage.getItem(WORKFLOW_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// Current Session ID Management
+//
+// Persists session ID as a non-httpOnly cookie so both client and server can read it.
+// Server reads it in page.tsx to redirect `/` → `/<sessionId>` without a client round-trip.
+// ============================================================
 
 const SESSION_COOKIE_NAME = 'timeline_last_session';
 const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days

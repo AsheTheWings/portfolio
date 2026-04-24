@@ -44,6 +44,7 @@ export function useAgent() {
   
   // Workflow state
   const workflowsPool = useAgentStore((state) => state.workflowsPool);
+  const selectedWorkflowId = useAgentStore((state) => state.selectedWorkflowId);
   
   // Models state
   const modelsPool = useAgentStore((state) => state.modelsPool);
@@ -160,6 +161,7 @@ export function useAgent() {
     
     // Workflow state
     workflowsPool,
+    selectedWorkflowId,
     
     // Models state
     modelsPool,

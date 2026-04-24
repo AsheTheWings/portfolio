@@ -3,14 +3,14 @@
  * Called from Server Components — fetches directly from the backend.
  */
 
-import type { Tool, WorkflowSpec, ModelSpec } from '../types';
+import type { Tool, Workflow, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 export interface AgentServerData {
   tools: Tool[];
-  workflows: WorkflowSpec[];
+  workflows: Workflow[];
   models: ModelSpec[];
 }
 

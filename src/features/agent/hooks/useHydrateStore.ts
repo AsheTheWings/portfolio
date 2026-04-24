@@ -8,12 +8,12 @@
 
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
-import { loadAgents } from '../utils/agent-storage';
-import type { Tool, WorkflowSpec, ModelSpec, AgentState } from '../types';
+import { loadAgents, loadSelectedWorkflowId, saveSelectedWorkflowId } from '../utils/agent-storage';
+import type { Tool, Workflow, ModelSpec, AgentState } from '../types';
 
 interface HydrateOptions {
   initialTools?: Tool[];
-  initialWorkflows?: WorkflowSpec[];
+  initialWorkflows?: Workflow[];
   initialModels?: ModelSpec[];
 }
 
@@ -36,7 +36,15 @@ export function useHydrateStore({ initialTools, initialWorkflows, initialModels 
       useAgentStore.getState().setToolsPool(initialToolsRef.current);
     }
     if (initialWorkflowsRef.current?.length) {
-      useAgentStore.getState().setWorkflowsPool(initialWorkflowsRef.current);
+      const workflows = initialWorkflowsRef.current;
+      useAgentStore.getState().setWorkflowsPool(workflows);
+
+      // Resolve selectedWorkflowId: persisted id → valid registry entry → default
+      const storedId = loadSelectedWorkflowId();
+      const defaultId = (workflows.find((w) => w.isDefault) ?? workflows[0])?.id ?? '';
+      const resolved = storedId && workflows.some((w) => w.id === storedId) ? storedId : defaultId;
+      useAgentStore.getState().setSelectedWorkflowId(resolved);
+      if (resolved !== storedId) saveSelectedWorkflowId(resolved);
     }
     if (initialModelsRef.current?.length) {
       useAgentStore.getState().setModelsPool(initialModelsRef.current);

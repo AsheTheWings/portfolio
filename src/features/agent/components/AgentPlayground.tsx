@@ -22,7 +22,7 @@ import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { AgentSessionComponentType, Tool, WorkflowSpec, ModelSpec } from '../types';
+import type { AgentSessionComponentType, Tool, Workflow, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 import { hasActiveAgent } from '../utils/agent-status';
@@ -33,7 +33,7 @@ interface AgentPlaygroundProps {
   /** Server-fetched tools (hydrated into store on mount) */
   initialTools?: Tool[];
   /** Server-fetched workflows (hydrated into store on mount) */
-  initialWorkflows?: WorkflowSpec[];
+  initialWorkflows?: Workflow[];
   /** Server-fetched models (hydrated into store on mount) */
   initialModels?: ModelSpec[];
   /** Server-fetched session events (SSR) */

@@ -85,7 +85,7 @@ export function AgentSessionPopover({
   return (
     <Popover modal onOpenChange={(open) => { if (!open) setShowExportForm(false); }}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity cursor-pointer">
+        <button className="flex items-start gap-2.5 w-full text-left hover:opacity-80 transition-opacity cursor-pointer py-0.5">
           {(() => {
             // Resolve agent display info
             const rawAgentInfos = agents.map(a => {
@@ -154,7 +154,7 @@ export function AgentSessionPopover({
                     );
                   })}
                 </div>
-                <span className="text-xs font-medium text-foreground truncate">
+                <span className="text-xs font-medium text-foreground break-words leading-tight min-w-0">
                   {displayName}
                 </span>
               </>

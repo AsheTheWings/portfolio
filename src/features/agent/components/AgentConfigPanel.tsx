@@ -31,7 +31,7 @@ import { McpConfigCardContent } from './McpConfigCardContent';
 
 export function AgentsConfigPanel() {
   // Store state
-  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, workflowsPool, modelsPool, removeComponent, uiInterface } = useAgent();
+  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, removeComponent, uiInterface } = useAgent();
   const userId = useAuthStore((s) => s.user?.id);
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
@@ -491,64 +491,6 @@ export function AgentsConfigPanel() {
                     <p className="text-xs text-muted-foreground">
                       No native tools available for this model
                     </p>
-                  )}
-                </div>
-              )}
-
-              {/* Workflows Section */}
-              {supportsToolCalling && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                  <Label>Workflows</Label>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center">
-                      <MuiCheckbox
-                        id="enableWorkflows"
-                        checked={config.enableWorkflows ?? true}
-                        onChange={(e) => updateConfig({ enableWorkflows: e.target.checked })}
-                        size="small"
-                        disableRipple
-                        sx={{
-                          padding: '2px',
-                          color: 'var(--color-border)',
-                          '&.Mui-checked': { color: 'var(--color-primary)' },
-                        }}
-                      />
-                      <Label htmlFor="enableWorkflows" className="font-normal text-[0.805rem] cursor-pointer">
-                        Enable Workflows
-                      </Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-1">
-                      Workflows add orchestration to agent execution
-                    </p>
-                  </div>
-                  {(config.enableWorkflows ?? true) && (
-                    <div className="flex flex-wrap gap-2 p-2 max-h-[280px] border border-border rounded-md">
-                      {workflowsPool.map(workflow => {
-                        const isEnabled = config.selectedWorkflows?.includes(workflow.id) ?? false;
-                        return (
-                          <button
-                            key={workflow.id}
-                            onClick={() => {
-                              const current = config.selectedWorkflows || [];
-                              const updated = isEnabled
-                                ? current.filter(id => id !== workflow.id)
-                                : [...current, workflow.id];
-                              updateConfig({ selectedWorkflows: updated });
-                            }}
-                            className={`
-                              px-3 py-1 rounded-sm text-[0.68rem] font-mono transition-all cursor-pointer
-                              ${isEnabled
-                                ? 'bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/50 hover:bg-violet-500/30'
-                                : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80'
-                              }
-                            `}
-                            title={workflow.description}
-                          >
-                            {workflow.name}
-                          </button>
-                        );
-                      })}
-                    </div>
                   )}
                 </div>
               )}

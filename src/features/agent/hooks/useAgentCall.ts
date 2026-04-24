@@ -18,39 +18,36 @@ export function useAgentCall() {
 
   /**
    * Send user message to backend via WS.
-   * If no sessionId exists, backend creates a new session (session_created msg).
-   * Workflow is derived from agent configuration:
-   * - 'timeline' when any non-assistant agent is present in the agents array
-   * - 'default' for assistant-only sessions
+   * If no sessionId exists, backend creates a new session (session_created msg)
+   * using the workflow id carried in the payload.
    */
   const submitMessage = useCallback((
     message: string,
     libraryItemIds?: string[]
   ) => {
     const store = useAgentStore.getState();
-    
+
     console.log(`[AgentCall] submitMessage — sessionId=${store.currentSessionId ?? '(none)'} message="${message.slice(0, 60)}..."`);
-    
+
     // Clear system panels when user sends a new message
     store.clearSystemPanels();
     // Mark every configured agent as 'processing' so each bubble lights up
     // while waiting for its first model event.
     store.resetAllAgentStatuses('processing');
-    
+
     // Track in user messages history
     store.appendToUserMessagesHistory(message);
 
-    // Resolve workflow: timeline when any non-assistant agent is active
-    const hasNonAssistantAgent = store.agents.some(a => a.agentId !== 'none');
-    const workflow: 'default' | 'timeline' = hasNonAssistantAgent ? 'timeline' : 'default';
-
+    // `selectedWorkflowId` is resolved to the registry default during hydration
+    // (see useHydrateStore). If it's still empty here, the backend will apply
+    // its own registry default — we deliberately don't hardcode one on the client.
     send({
       type: 'user_message',
       sessionId: store.currentSessionId ?? undefined,
       data: {
         message,
         agents: store.agents.map(a => ({ agentId: a.agentId, config: a.config })),
-        workflow,
+        workflow: store.selectedWorkflowId || undefined,
         libraryItemIds,
       },
     });

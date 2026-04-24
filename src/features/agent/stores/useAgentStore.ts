@@ -89,8 +89,9 @@ const initialState = {
   
   // Tools
   toolsPool: [] as import('../types').Tool[],
-  workflowsPool: [] as import('../types').WorkflowSpec[],
+  workflowsPool: [] as import('../types').Workflow[],
   modelsPool: [] as import('../types').ModelSpec[],
+  selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
   
   // Per-agent runtime status (ephemeral)
   agentStatuses: { none: 'idle' } as Record<string, AgentStatus>,
@@ -177,6 +178,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       map[agent.id] = agent;
     }
     set({ acquiredAgents: map });
+
+    // Prune active agents that no longer exist in the acquired set
+    // (e.g. deleted or released — locally or from another tab).
+    // 'none' is the built-in assistant and always retained.
+    const active = get().agents;
+    const pruned = active.filter(a => a.agentId === 'none' || map[a.agentId]);
+    if (pruned.length !== active.length) {
+      get().setAgents(pruned);
+    }
   },
 
   getAcquiredAgent: (id: string) => {
@@ -305,6 +315,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setWorkflowsPool: (workflowsPool) => {
     set({ workflowsPool });
+  },
+
+  setSelectedWorkflowId: (selectedWorkflowId) => {
+    set({ selectedWorkflowId });
   },
 
   setModelsPool: (modelsPool) => {

@@ -106,8 +106,6 @@ export function createDefaultAgentConfig(
     enableTools: true,
     availableTools: [],
     maxConcurrentTools: 5,
-    enableWorkflows: true,
-    selectedWorkflows: [],
   };
 }
 
