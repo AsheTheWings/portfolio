@@ -24,6 +24,52 @@ import { toAgentSessionComponents, processEventIntoComponents } from '../utils/t
 import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
 
 /**
+ * Sentinel id for the ephemeral staged-message preview synthesized by Insert
+ * in the timeline 'developer' compose mode. The component lives inside
+ * `sessionComponents` (mirroring the system-panel pattern) so every consumer
+ * — interfaces, scroll hooks, click handlers — sees a single coherent list.
+ */
+const STAGED_PREVIEW_ID = '__staged_user_preview__';
+
+function buildStagedComponent(message: string): AgentSessionComponent {
+  return {
+    id: STAGED_PREVIEW_ID,
+    type: 'user-message',
+    role: 'user',
+    isStreaming: false,
+    data: { message },
+  } as unknown as AgentSessionComponent;
+}
+
+/**
+ * Pure helper: re-inject any active "ambient" components (system panels +
+ * staged developer preview) into a freshly-derived `sessionComponents`
+ * array. Used by every full-rederivation path (`hydrateFromEvents`,
+ * `setUiInterface`).
+ */
+function injectAmbient(
+  components: AgentSessionComponent[],
+  activePanels: Map<string, AgentSessionComponentType>,
+  stagedUserMessage: string | null,
+): AgentSessionComponent[] {
+  for (const [panelId, panelType] of activePanels) {
+    components.push({
+      id: panelId,
+      role: 'system',
+      type: panelType,
+      isStreaming: false,
+      data: {},
+    });
+  }
+  // Staged preview always trails (it's a pending compose, conceptually
+  // "after" the most recent persisted event).
+  if (stagedUserMessage !== null) {
+    components.push(buildStagedComponent(stagedUserMessage));
+  }
+  return components;
+}
+
+/**
  * Enforce business rules on agent config to maintain invariants.
  * Extracted from setAgentConfig for reuse by multi-agent actions.
  */
@@ -75,7 +121,7 @@ const initialState = {
   _hasShownInitialConfig: false,
   
   // Timeline workflow composition state
-  viewMode: 'user' as 'user' | 'client',
+  viewMode: 'developer' as 'developer' | 'client',
   stagedUserMessage: null as string | null,
 
   // UI
@@ -335,8 +381,19 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   appendEvent: (event: AgentSessionEvent) => {
     set((state) => {
       const agentSessionEvents = [...state.agentSessionEvents, event];
-      const sessionComponents = [...state.sessionComponents];
+
+      // Pull the staged preview out, run event processing on the
+      // event-derived list, then re-append the staged preview at the tail.
+      // Keeps the staged bubble visually "after" the latest persisted event
+      // even when chunks stream in mid-compose (rare in practice — the user
+      // would have to Insert before any event lands — but cheap to maintain).
+      const stagedIdx = state.sessionComponents.findIndex(c => c.id === STAGED_PREVIEW_ID);
+      const staged = stagedIdx >= 0 ? state.sessionComponents[stagedIdx] : null;
+      const sessionComponents = staged
+        ? state.sessionComponents.filter(c => c.id !== STAGED_PREVIEW_ID)
+        : [...state.sessionComponents];
       processEventIntoComponents(sessionComponents, event, state.uiInterface);
+      if (staged) sessionComponents.push(staged);
 
       const agentStatuses = { ...state.agentStatuses };
       let activeFeedbackRequest = state.activeFeedbackRequest;
@@ -388,22 +445,23 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   hydrateFromEvents: (events: AgentSessionEvent[]) => {
-    const { activePanels, uiInterface } = get();
-    const sessionComponents = toAgentSessionComponents(events, uiInterface);
-    // Re-inject active system panels
-    for (const [panelId, panelType] of activePanels) {
-      sessionComponents.push({
-        id: panelId,
-        role: 'system',
-        type: panelType,
-        isStreaming: false,
-        data: {},
-      });
-    }
+    const { activePanels, uiInterface, stagedUserMessage } = get();
+    const sessionComponents = injectAmbient(
+      toAgentSessionComponents(events, uiInterface),
+      activePanels,
+      stagedUserMessage,
+    );
     set({ agentSessionEvents: events, sessionComponents });
   },
 
-  clearEvents: () => set({ agentSessionEvents: [], sessionComponents: [], activePanels: new Map() }),
+  clearEvents: () => set({
+    agentSessionEvents: [],
+    sessionComponents: [],
+    activePanels: new Map(),
+    // A fresh session has no pending compose — the staged preview is tied
+    // to the just-cleared session context.
+    stagedUserMessage: null,
+  }),
 
   clearSystemPanels: () =>
     set((state) => ({
@@ -450,17 +508,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Control actions
   setUiInterface: (uiInterface: UIInterface) => {
-    const { agentSessionEvents, activePanels } = get();
-    const sessionComponents = toAgentSessionComponents(agentSessionEvents, uiInterface);
-    for (const [panelId, panelType] of activePanels) {
-      sessionComponents.push({
-        id: panelId,
-        role: 'system',
-        type: panelType,
-        isStreaming: false,
-        data: {},
-      });
-    }
+    const { agentSessionEvents, activePanels, stagedUserMessage } = get();
+    const sessionComponents = injectAmbient(
+      toAgentSessionComponents(agentSessionEvents, uiInterface),
+      activePanels,
+      stagedUserMessage,
+    );
     set({ uiInterface, sessionComponents });
   },
 
@@ -475,9 +528,25 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   // View mode actions (timeline workflow)
   setViewMode: (mode) => {
     set({ viewMode: mode });
+    // Switching away from 'developer' compose mode invalidates any staged
+    // developer-text bubble (the Insert button is hidden in client mode,
+    // so the user could no longer reach the staged content). Delegate to
+    // setStagedUserMessage so the synthetic component is removed from
+    // sessionComponents in the same swing.
+    if (mode !== 'developer') {
+      get().setStagedUserMessage(null);
+    }
   },
   setStagedUserMessage: (message) => {
-    set({ stagedUserMessage: message });
+    set((state) => {
+      // Always strip any pre-existing staged component first — idempotent
+      // for both insert (replace text) and clear paths.
+      const sessionComponents = state.sessionComponents.filter(c => c.id !== STAGED_PREVIEW_ID);
+      if (message !== null) {
+        sessionComponents.push(buildStagedComponent(message));
+      }
+      return { stagedUserMessage: message, sessionComponents };
+    });
   },
   
   // User messages history actions

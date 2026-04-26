@@ -4,7 +4,6 @@
  * AgentCard — Single agent card for the AgentsHub grid.
  */
 
-import { Lock } from 'lucide-react';
 import { Badge, Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
 import type { SavedAgent } from '../types';
 import { isLightColor } from '../utils/color';
@@ -85,12 +84,6 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
           {agent.isPublic && (
             <Badge variant="outline" className={`text-xs px-1.5 py-0 flex items-center gap-0.5 ${isSelected ? `border-current/30 ${textClass} opacity-80` : 'text-muted-foreground'}`}>
               Public
-            </Badge>
-          )}
-          {!agent.isConfigurable && (
-            <Badge variant="outline" className={`text-xs px-1.5 py-0 flex items-center gap-0.5 ${isSelected ? `border-current/30 ${textClass} opacity-80` : 'text-muted-foreground'}`}>
-              <Lock className="w-2.5 h-2.5" />
-              Locked
             </Badge>
           )}
         </div>

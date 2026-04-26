@@ -318,7 +318,6 @@ function ExportAgentForm({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
-  const [isConfigurable, setIsConfigurable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const agentConfig = useAgentStore((s) => s.agents[0]?.config ?? null);
@@ -332,7 +331,6 @@ function ExportAgentForm({ onBack }: { onBack: () => void }) {
         description: description.trim() || undefined,
         agentConfig,
         isPublic,
-        isConfigurable: isPublic ? isConfigurable : false,
       });
 
       // Seed the acquired-agents map optimistically so the popover/config panel
@@ -390,29 +388,13 @@ function ExportAgentForm({ onBack }: { onBack: () => void }) {
         <label className="flex items-center gap-1 text-xs cursor-pointer">
           <MuiCheckbox
             checked={isPublic}
-            onChange={(e) => {
-              setIsPublic(e.target.checked);
-              if (!e.target.checked) setIsConfigurable(false);
-            }}
+            onChange={(e) => setIsPublic(e.target.checked)}
             size="small"
             disableRipple
             sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
           />
           Public
         </label>
-
-        {isPublic && (
-          <label className="flex items-center gap-1 text-xs cursor-pointer">
-            <MuiCheckbox
-              checked={isConfigurable}
-              onChange={(e) => setIsConfigurable(e.target.checked)}
-              size="small"
-              disableRipple
-              sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
-            />
-            Configurable
-          </label>
-        )}
       </div>
 
       <div className="flex gap-2 justify-end">

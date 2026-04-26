@@ -11,3 +11,4 @@ export { useAgentConnection } from './useAgentConnection';
 export { useAcquiredAgentsQuery, revalidateAcquiredAgents } from './useAcquiredAgentsQuery';
 export { useAgentSearch } from './useAgentSearch';
 export { useAcquireAgent, useReleaseAgent, useDeleteAgent } from './useAgentMutations';
+export { useWorkflowSwitcher } from './useWorkflowSwitcher';

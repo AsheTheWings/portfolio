@@ -23,15 +23,15 @@ export function useUserInput() {
   /**
    * Submit user input — handles viewMode routing.
    * - Client mode: wraps message in <client> tags automatically
-   * - User mode with staged: combines staged user text + <client> wrapped current text
-   * - User mode without staged: sends plain developer message
+   * - Developer mode with staged: combines staged developer text + <client> wrapped current text
+   * - Developer mode without staged: sends plain developer message
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     if (viewMode === 'client') {
-      // Client mode — wrap in <client> tags, no user text
+      // Client mode — wrap in <client> tags, no developer text
       submitMessage(`<client>${message}</client>`, libraryItemIds);
     } else if (stagedUserMessage !== null) {
-      // User mode with staged developer text — combine with client content
+      // Developer mode with staged text — combine with client content
       const clientPart = message.trim() ? `<client>${message}</client>` : '';
       const combined = clientPart
         ? `${stagedUserMessage}\n${clientPart}`
@@ -39,13 +39,13 @@ export function useUserInput() {
       useAgentStore.getState().setStagedUserMessage(null);
       submitMessage(combined, libraryItemIds);
     } else {
-      // User mode — plain developer message
+      // Developer mode — plain developer message
       submitMessage(message, libraryItemIds);
     }
   }, [viewMode, stagedUserMessage, submitMessage]);
 
   /**
-   * Insert action (user mode only) — stages the current input text without submitting.
+   * Insert action (developer mode only) — stages the current input text without submitting.
    * The staged text will be combined with client content on next Submit.
    */
   const insertUserMessage = useCallback((text: string) => {

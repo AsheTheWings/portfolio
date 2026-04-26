@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
 import { Wrench, ArrowLeft, Pen } from 'lucide-react';
 import {
@@ -25,7 +25,6 @@ import {
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { createDefaultAgentConfig, getModelSpec, hasCapability } from '../services/models-registry';
 
 import { ModelCapability } from '../types';
@@ -35,7 +34,6 @@ import { McpConfigCardContent } from './McpConfigCardContent';
 export function AgentsConfigPanel() {
   // Store state
   const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, removeComponent, uiInterface } = useAgent();
-  const userId = useAuthStore((s) => s.user?.id);
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
 
@@ -47,21 +45,7 @@ export function AgentsConfigPanel() {
   // Front agent + config (single source of truth)
   const frontAgent: Agent | undefined = agents[0];
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
-  const _acquiredAgent = frontAgent && frontAgent.agentId !== 'none' ? acquiredAgentsMap[frontAgent.agentId] : undefined;
 
-  // Build configurable agents list for the dropdown
-  // Include 'none' (assistant) + owned agents + non-owned agents that are configurable
-  // Filter out: non-owned AND non-configurable
-  const configurableAgents = useMemo(() => {
-    return agents.filter((a) => {
-      if (a.agentId === 'none') return true;
-      const saved = acquiredAgentsMap[a.agentId];
-      if (!saved) return true; // Defensive: unknown agent, keep it
-      const isOwner = saved.userId === userId;
-      if (isOwner) return true; // Owned agents always listed
-      return saved.isConfigurable; // Non-owned: must be configurable
-    });
-  }, [agents, acquiredAgentsMap, userId]);
   const config = agentConfig || createDefaultAgentConfig();
   const setAgentConfig = updateFrontAgentConfig;
 
@@ -204,7 +188,7 @@ export function AgentsConfigPanel() {
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
                 <Label htmlFor="agent-select">Agent</Label>
                   <div className="flex flex-col gap-1">
-                    {configurableAgents.map((a) => {
+                    {agents.map((a) => {
                       const saved = a.agentId !== 'none' ? acquiredAgentsMap[a.agentId] : undefined;
                       const name = saved?.name ?? 'Assistant';
                       const color = saved?.color ?? '#E2E8F0';

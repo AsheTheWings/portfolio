@@ -88,7 +88,7 @@ export async function deleteAgentSession(sessionId: string): Promise<void> {
 
 export async function updateAgentSession(
   sessionId: string,
-  updates: { title?: string; titleLocked?: boolean },
+  updates: { title?: string; titleLocked?: boolean; workflow?: string },
 ): Promise<void> {
   const res = await fetch(`${BASE}/sessions/${sessionId}`, {
     method: 'PATCH',
@@ -134,7 +134,6 @@ export async function createAgent(data: {
   description?: string;
   agentConfig: AgentConfig;
   isPublic?: boolean;
-  isConfigurable?: boolean;
 }): Promise<SavedAgent> {
   const res = await fetch(`${BASE}/agents`, {
     method: 'POST',
@@ -148,7 +147,7 @@ export async function createAgent(data: {
 
 export async function updateAgent(
   agentId: string,
-  updates: { name?: string; description?: string; isPublic?: boolean; isConfigurable?: boolean },
+  updates: { name?: string; description?: string; isPublic?: boolean },
 ): Promise<SavedAgent> {
   const res = await fetch(`${BASE}/agents/${agentId}`, {
     method: 'PATCH',

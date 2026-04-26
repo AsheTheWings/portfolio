@@ -18,7 +18,8 @@ import { useAgentStore } from '../stores/useAgentStore';
 import type { SavedAgent } from '../types';
 import { useAgentSearch } from '../hooks/useAgentSearch';
 import { useAcquireAgent, useReleaseAgent, useDeleteAgent } from '../hooks/useAgentMutations';
-import { WorkflowSection } from './WorkflowSection';
+import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
+import { WorkflowCard } from './WorkflowCard';
 import { AgentCard } from './AgentCard';
 
 interface AgentsHubProps {
@@ -38,6 +39,9 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
   const setFrontAgent = useAgentStore((s) => s.setFrontAgent);
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
   const agents = useAgentStore((s) => s.agents);
+  const workflowsPool = useAgentStore((s) => s.workflowsPool);
+  const selectedWorkflowId = useAgentStore((s) => s.selectedWorkflowId);
+  const { switchTo: switchWorkflow } = useWorkflowSwitcher();
   const selectedAgentIds = useMemo(() => {
     const ids = new Set<string>();
     for (const a of agents) {
@@ -214,8 +218,26 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
           </div>
         )}
 
-        {/* Workflow selector */}
-        <WorkflowSection />
+        {/* Workflow selector — switching is non-destructive: server-side
+            session metadata is updated via PATCH so the next turn dispatches
+            against the new workflow (see useWorkflowSwitcher). */}
+        {workflowsPool.length > 0 && (
+          <div className="px-6 py-4 border-b border-border-subtle">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Workflow
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              {workflowsPool.map((w) => (
+                <WorkflowCard
+                  key={w.id}
+                  workflow={w}
+                  isSelected={w.id === selectedWorkflowId}
+                  onClick={() => { void switchWorkflow(w.id); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <ConfirmationDialog

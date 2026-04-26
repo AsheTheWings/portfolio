@@ -82,6 +82,8 @@ export function ChatInterface() {
     ephemeral,
   } = useAgent();
 
+  // sessionComponents already includes the staged developer-mode preview
+  // (managed by the store, mirroring the system-panel pattern).
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<MessageInputRef>(null);
 

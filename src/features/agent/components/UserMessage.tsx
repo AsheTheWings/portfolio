@@ -52,6 +52,16 @@ interface UserMessageProps {
   component: AgentSessionComponent;
 }
 
+/**
+ * Timeline composition styling:
+ *   - In `developer` viewMode the outer bubble flips to cyan (developer
+ *     authored the turn) and the embedded `<client>` section inverts to
+ *     a neutral slate look so the contrast still reads.
+ *   - In `client` viewMode the bubble keeps the regular slate gradient
+ *     and the inner client highlight uses cyan.
+ * Derived from the store — no prop drilling.
+ */
+
 // ────────────────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────────────────
@@ -251,17 +261,21 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       data-placeholder="Edit message..."
       ref={editingElRef}
     />
-  ) : viewMode === 'user' && clientText !== null ? (
-    // User view mode: show developer text + highlighted client section
+  ) : viewMode === 'developer' && clientText !== null ? (
+    // Developer view mode: show developer text + highlighted client section.
+    // Outer bubble is cyan (see render below), so the inner client section
+    // inverts to a neutral slate look for contrast.
     <div className="flex flex-col gap-1.5">
       {userText && (
         <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
           <MentionHighlightedText content={userText} onPathClick={handlePathClick} isDark />
         </pre>
       )}
-      <div className="rounded-lg bg-cyan-600/25 border border-cyan-400/40 px-2.5 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-300/70 block mb-0.5">client</span>
-        <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0 text-cyan-50">
+      <div className="rounded-lg bg-slate-700/60 border border-slate-400/30 px-2.5 py-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-200/80 block mb-0.5">
+          client
+        </span>
+        <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0 text-white">
           {clientText}
         </pre>
       </div>
@@ -290,7 +304,11 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
     <div className="flex flex-col items-end">
       {hasContent && (
         <div
-          className="session-component rounded-2xl relative min-w-[160px] max-w-[56%] bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md"
+          className={`session-component rounded-2xl relative min-w-[160px] max-w-[56%] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md ${
+            viewMode === 'developer'
+              ? 'bg-gradient-to-br from-cyan-600 to-cyan-700 dark:from-cyan-600 dark:to-cyan-800'
+              : 'bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700'
+          }`}
         >
           {isEditMode && (
             <BorderBeam colorFrom="#06b6d4" colorTo="#22d3ee" borderWidth={3} pixelsPerSecond={500} />

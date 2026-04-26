@@ -28,7 +28,7 @@ interface MessageInputProps {
   collapsed?: boolean;
   onExpand?: () => void;
   isAnimating?: boolean;
-  viewMode?: 'user' | 'client';        // Timeline: affects placeholder + Insert action
+  viewMode?: 'developer' | 'client';   // Timeline: affects placeholder + Insert action
   hasStagedMessage?: boolean;          // Timeline: staged user text is pending
 }
 
@@ -111,8 +111,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;
 
-  // Show Insert button when: user mode, not collapsed, not processing, onInsert is provided
-  const showInsert = !collapsed && !isAnimating && !isProcessing && !disabled && viewMode === 'user' && !hasStagedMessage && !!onInsert;
+  // Show Insert button when: developer mode, not collapsed, not processing, onInsert is provided
+  const showInsert = !collapsed && !isAnimating && !isProcessing && !disabled && viewMode === 'developer' && !hasStagedMessage && !!onInsert;
 
   // Handle Insert action: stage current text, clear input, keep focus
   const handleInsert = () => {
@@ -124,6 +124,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Visual collapsed state: stays collapsed-looking during GSAP animation
   const visuallyCollapsed = collapsed || isAnimating;
+
+  // Timeline 'developer' composition mode — turns the input border + submit button cyan
+  const isDeveloperComposeMode = viewMode === 'developer' && !visuallyCollapsed;
 
   // Delayed placeholder: appears 300ms after expansion animation completes
   const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
@@ -168,7 +171,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         ref={formRef}
         onSubmit={collapsed ? (e) => { e.preventDefault(); onExpand?.(); } : handleSubmit}
         onClick={collapsed ? onExpand : undefined}
-        className={`w-full flex justify-center items-center gap-3 bg-surface-1 p-3 shadow-depth-md transition-all duration-350 hover:shadow-depth-lg border border-border-subtle ${
+        className={`w-full flex justify-center items-center gap-3 bg-surface-1 p-3 shadow-depth-md transition-all duration-350 hover:shadow-depth-lg border ${
+          isDeveloperComposeMode ? 'border-cyan-400/70' : 'border-border-subtle'
+        } ${
           visuallyCollapsed ? 'cursor-pointer rounded-full' : 'rounded-4xl'
         }`}
         style={{
@@ -248,8 +253,12 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               type={collapsed ? 'button' : 'submit'}
               disabled={collapsed ? false : (!hasContent || disabled)}
               size="icon-lg"
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-              title={collapsed ? 'Open input (Enter)' : viewMode === 'client' ? 'Send as client' : hasStagedMessage ? 'Send combined message' : 'Send message'}
+              className={`rounded-full ${
+                isDeveloperComposeMode && hasContent
+                  ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
+              title={collapsed ? 'Open input (Enter)' : viewMode === 'client' ? 'Send as client' : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
               tabIndex={collapsed ? -1 : 0}
               data-gsap="submit-btn"
             >

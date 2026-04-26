@@ -118,7 +118,6 @@ export interface SavedAgent {
   color: string | null;
   agentConfig: AgentConfig;
   isPublic: boolean;
-  isConfigurable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -249,7 +248,6 @@ export interface AgentSessionMetadata {
   agentName: string;
   rootSessionId?: string;  // NULL for roots, points to root for branches
   workflow?: string;  // Workflow id used for this session
-  topRole?: 'user' | 'client';        // Highest role level for app users
 }
 
 // Tool effects (applied after tool execution)
@@ -570,7 +568,7 @@ export interface AgentState {
   _hydrated: boolean;
   
   // View mode for message composition (timeline workflow)
-  viewMode: 'user' | 'client';
+  viewMode: 'developer' | 'client';
   // Staged user message (Insert action — waiting for client content)
   stagedUserMessage: string | null;
 
@@ -664,7 +662,7 @@ export interface AgentState {
   setEphemeral: (ephemeral: boolean) => void;
 
   // View mode actions (timeline workflow)
-  setViewMode: (mode: 'user' | 'client') => void;
+  setViewMode: (mode: 'developer' | 'client') => void;
   setStagedUserMessage: (message: string | null) => void;
   
   // User messages history actions
