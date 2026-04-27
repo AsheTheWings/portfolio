@@ -40,19 +40,14 @@ export function useAgentCall() {
 
     // `selectedWorkflowId` is resolved to the registry default during hydration
     // (see useHydrateStore). If it's still empty here, the backend will apply
-    // its own registry default — we deliberately don't hardcode one on the client.
-    // Mailbox excludes the `'none'` default Assistant — it has no identity
-    // and can't participate as a peer. Backend defends in depth.
-    const payloadAgents = store.selectedWorkflowId === 'mailbox'
-      ? store.agents.filter(a => a.agentId !== 'none')
-      : store.agents;
-
+    // its own registry default. The agents array is forwarded verbatim — the
+    // backend owns all roster-shaping rules.
     send({
       type: 'user_message',
       sessionId: store.currentSessionId ?? undefined,
       data: {
         message,
-        agents: payloadAgents.map(a => ({ agentId: a.agentId, config: a.config })),
+        agents: store.agents.map(a => ({ agentId: a.agentId, config: a.config })),
         workflow: store.selectedWorkflowId || undefined,
         libraryItemIds,
       },
