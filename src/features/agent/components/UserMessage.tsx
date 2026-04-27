@@ -229,6 +229,22 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   // ── Determine if content is present ─────────────────────
   const hasContent = content?.trim() || hasImages || hasLibraryItems || isEditMode;
 
+  // ── Build control bar config ────────────────────────────
+  // Computed before the early-return guard below: hook count must stay stable
+  // across renders (the `isClientOnlyMessage` branch flips on viewMode toggle).
+  const controlBarConfig = useMemo(() => ({
+    controls,
+    eventId: id,
+    componentId: id,
+    role: 'user' as const,
+    translationText: undefined,
+    isEditMode,
+    isValidForSubmit: true,
+    onStartEdit: handleStartEdit,
+    onSubmitEdit: handleSubmitEdit,
+    onRevert: handleRevert,
+  }), [controls, id, isEditMode, handleStartEdit, handleSubmitEdit, handleRevert]);
+
   // In client mode, skip messages that have no client content (developer-only messages)
   if (isClientOnlyMessage && !hasImages && !hasLibraryItems) return null;
 
@@ -285,20 +301,6 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       <MentionHighlightedText content={content} onPathClick={handlePathClick} isDark />
     </pre>
   );
-
-  // ── Build control bar config ────────────────────────────
-  const controlBarConfig = useMemo(() => ({
-    controls,
-    eventId: id,
-    componentId: id,
-    role: 'user' as const,
-    translationText: undefined,
-    isEditMode,
-    isValidForSubmit: true,
-    onStartEdit: handleStartEdit,
-    onSubmitEdit: handleSubmitEdit,
-    onRevert: handleRevert,
-  }), [controls, id, isEditMode, handleStartEdit, handleSubmitEdit, handleRevert]);
 
   return (
     <div className="flex flex-col items-end">
