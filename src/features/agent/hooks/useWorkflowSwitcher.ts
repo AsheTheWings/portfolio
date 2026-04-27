@@ -19,6 +19,7 @@
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { saveSelectedWorkflowId } from '../utils/agent-storage';
+import { isWorkflowEligible } from '../utils/workflow-eligibility';
 import { updateAgentSession } from '../lib/agent-api';
 
 export function useWorkflowSwitcher() {
@@ -29,12 +30,19 @@ export function useWorkflowSwitcher() {
     const state = useAgentStore.getState();
     if (workflowId === state.selectedWorkflowId) return;
 
+    // Eligibility gate — driven by the workflow's `minAcquiredAgents`. Backend
+    // defends in depth (`resolveEffectiveWorkflow` in `agent/session.ts`);
+    // this is the primary UX layer that prevents the case from reaching the
+    // server. Unknown ids fall through (caller passed garbage) — no-op.
+    const workflow = state.workflowsPool.find(w => w.id === workflowId);
+    if (!workflow || !isWorkflowEligible(workflow, state.agents)) return;
+
     // Local state + persistence first — UI is responsive even if PATCH lags.
     setSelectedWorkflowId(workflowId);
     saveSelectedWorkflowId(workflowId);
 
     // Reset the developer/client compose mode whenever the workflow changes.
-    // The developer toggle is timeline-specific and any staged developer
+    // The developer toggle is mailbox-specific and any staged developer
     // bubble belongs to the previous workflow context — `setViewMode`'s own
     // invariant takes care of clearing `stagedUserMessage` here.
     setViewMode('client');
@@ -56,11 +64,12 @@ export function useWorkflowSwitcher() {
    * No-op if the pool has fewer than two entries.
    */
   const cycle = useCallback(async (): Promise<void> => {
-    const { workflowsPool, selectedWorkflowId } = useAgentStore.getState();
-    if (workflowsPool.length < 2) return;
-    const idx = workflowsPool.findIndex((w) => w.id === selectedWorkflowId);
-    const nextIdx = idx === -1 ? 0 : (idx + 1) % workflowsPool.length;
-    const next = workflowsPool[nextIdx];
+    const { workflowsPool, selectedWorkflowId, agents } = useAgentStore.getState();
+    const eligible = workflowsPool.filter(w => isWorkflowEligible(w, agents));
+    if (eligible.length < 2) return;
+    const idx = eligible.findIndex((w) => w.id === selectedWorkflowId);
+    const nextIdx = idx === -1 ? 0 : (idx + 1) % eligible.length;
+    const next = eligible[nextIdx];
     if (next) await switchTo(next.id);
   }, [switchTo]);
 

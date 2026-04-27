@@ -29,10 +29,10 @@ export function QuickAccessHeader() {
     selectedWorkflowId,
   } = useAgent();
 
-  // Timeline-only viewMode toggle (developer/client roles)
+  // Mailbox-only viewMode toggle (developer/client roles)
   const viewMode = useAgentStore((s) => s.viewMode);
   const setViewMode = useAgentStore((s) => s.setViewMode);
-  const isTimeline = selectedWorkflowId === 'timeline';
+  const isMailbox = selectedWorkflowId === 'mailbox';
 
   // Workflow cycling (next id, wrap-around). Disabled when only one option.
   const { cycle: cycleWorkflow } = useWorkflowSwitcher();
@@ -101,10 +101,10 @@ export function QuickAccessHeader() {
           />
         </div>
 
-        {/* Developer Switch (timeline workflow only) — composes against
+        {/* Developer Switch (mailbox workflow only) — composes against
             the developer role; clearing of any staged developer text on
             switch-off is enforced by the store action itself. */}
-        {isTimeline && (
+        {isMailbox && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-foreground font-light">Developer</span>
             <Switch

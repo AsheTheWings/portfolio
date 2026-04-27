@@ -21,6 +21,7 @@ import { useAcquireAgent, useReleaseAgent, useDeleteAgent } from '../hooks/useAg
 import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
 import { WorkflowCard } from './WorkflowCard';
 import { AgentCard } from './AgentCard';
+import { workflowLockReason } from '../utils/workflow-eligibility';
 
 interface AgentsHubProps {
   onClose: () => void;
@@ -227,14 +228,19 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
               Workflow
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              {workflowsPool.map((w) => (
-                <WorkflowCard
-                  key={w.id}
-                  workflow={w}
-                  isSelected={w.id === selectedWorkflowId}
-                  onClick={() => { void switchWorkflow(w.id); }}
-                />
-              ))}
+              {workflowsPool.map((w) => {
+                const lockReason = workflowLockReason(w, agents);
+                return (
+                  <WorkflowCard
+                    key={w.id}
+                    workflow={w}
+                    isSelected={w.id === selectedWorkflowId}
+                    disabled={lockReason !== null}
+                    disabledReason={lockReason ?? undefined}
+                    onClick={() => { void switchWorkflow(w.id); }}
+                  />
+                );
+              })}
             </div>
           </div>
         )}

@@ -86,6 +86,12 @@ export interface Workflow {
   description: string;
   mermaid: string;
   isDefault?: boolean;
+  /**
+   * Minimum acquired agents (non-`'none'`) required to run this workflow.
+   * Defaults to 0. The single source of truth for eligibility on both
+   * sides — see `agent/utils/workflow-eligibility.ts`.
+   */
+  minAcquiredAgents?: number;
 }
 
 /** Derives a human-readable display name from a snake_case workflow id. */

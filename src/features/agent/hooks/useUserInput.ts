@@ -6,8 +6,8 @@
  * Consolidates user input handling:
  * - Normal mode: sends user_message via WS
  * - Feedback mode: sends submit_feedback via WS
- * - Timeline client mode: wraps message in <client> tags
- * - Timeline user mode: supports Insert (stage) + Submit (combine)
+ * - Mailbox client mode: wraps message in <client_message> tags
+ * - Mailbox developer mode: supports Insert (stage) + Submit (combine)
  */
 
 import { useCallback } from 'react';
@@ -22,17 +22,17 @@ export function useUserInput() {
 
   /**
    * Submit user input — handles viewMode routing.
-   * - Client mode: wraps message in <client> tags automatically
-   * - Developer mode with staged: combines staged developer text + <client> wrapped current text
+   * - Client mode: wraps message in <client_message> tags automatically
+   * - Developer mode with staged: combines staged developer text + <client_message> wrapped current text
    * - Developer mode without staged: sends plain developer message
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     if (viewMode === 'client') {
-      // Client mode — wrap in <client> tags, no developer text
-      submitMessage(`<client>${message}</client>`, libraryItemIds);
+      // Client mode — wrap in <client_message> tags, no developer text
+      submitMessage(`<client_message>${message}</client_message>`, libraryItemIds);
     } else if (stagedUserMessage !== null) {
       // Developer mode with staged text — combine with client content
-      const clientPart = message.trim() ? `<client>${message}</client>` : '';
+      const clientPart = message.trim() ? `<client_message>${message}</client_message>` : '';
       const combined = clientPart
         ? `${stagedUserMessage}\n${clientPart}`
         : stagedUserMessage;

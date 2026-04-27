@@ -12,7 +12,7 @@
  *   - Encoded images flex layout
  *   - Library items grid (LightAssetGrid)
  *   - Inline contentEditable editing
- *   - Timeline: client/user view mode rendering for <client> tagged content
+ *   - Mailbox: client/developer view mode rendering for <client_message> tagged content
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
@@ -34,13 +34,13 @@ import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../t
 
 /**
  * Split a message into developer text and client text.
- * Client text lives inside <client>...</client> tags.
+ * Client text lives inside <client_message>...</client_message> tags.
  */
 function parseClientContent(message: string): { userText: string; clientText: string | null } {
-  const match = message.match(/<client>([\s\S]*?)<\/client>/);
+  const match = message.match(/<client_message>([\s\S]*?)<\/client_message>/);
   if (!match) return { userText: message, clientText: null };
   const clientText = match[1] ?? '';
-  const userText = message.replace(/<client>[\s\S]*?<\/client>/g, '').trim();
+  const userText = message.replace(/<client_message>[\s\S]*?<\/client_message>/g, '').trim();
   return { userText, clientText };
 }
 
@@ -53,9 +53,9 @@ interface UserMessageProps {
 }
 
 /**
- * Timeline composition styling:
+ * Mailbox composition styling:
  *   - In `developer` viewMode the outer bubble flips to cyan (developer
- *     authored the turn) and the embedded `<client>` section inverts to
+ *     authored the turn) and the embedded `<client_message>` section inverts to
  *     a neutral slate look so the contrast still reads.
  *   - In `client` viewMode the bubble keeps the regular slate gradient
  *     and the inner client highlight uses cyan.

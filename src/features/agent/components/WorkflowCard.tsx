@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Lock } from 'lucide-react';
 import type { Workflow } from '../types';
 import { workflowDisplayName } from '../types';
 import { MermaidDiagram } from './MermaidDiagram';
@@ -9,19 +9,36 @@ interface WorkflowCardProps {
   workflow: Workflow;
   isSelected: boolean;
   onClick: () => void;
+  /** When true, the card is rendered as locked: muted styling + ignored clicks. */
+  disabled?: boolean;
+  /** Inline hint shown below the description when `disabled` is true. */
+  disabledReason?: string;
 }
 
-export function WorkflowCard({ workflow, isSelected, onClick }: WorkflowCardProps) {
+export function WorkflowCard({
+  workflow,
+  isSelected,
+  onClick,
+  disabled = false,
+  disabledReason,
+}: WorkflowCardProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      aria-disabled={disabled || undefined}
+      title={disabled ? disabledReason : undefined}
       className={`
-        relative flex flex-col w-[300px] rounded-lg border transition-all duration-150 cursor-pointer text-left overflow-hidden
-        ${isSelected
+        relative flex flex-col w-[300px] rounded-lg border transition-all duration-150 text-left overflow-hidden
+        ${disabled
+          ? 'cursor-not-allowed opacity-50 border-border bg-surface-1'
+          : 'cursor-pointer'}
+        ${!disabled && isSelected
           ? 'border-violet-500/70 bg-violet-500/10 ring-1 ring-violet-500/40'
-          : 'border-border bg-surface-1 hover:border-border-strong hover:bg-surface-2'
-        }
+          : ''}
+        ${!disabled && !isSelected
+          ? 'border-border bg-surface-1 hover:border-border-strong hover:bg-surface-2'
+          : ''}
       `}
     >
       {/* Mermaid diagram area — 2:3 aspect, locked so a tall SVG can't push the card */}
@@ -35,13 +52,20 @@ export function WorkflowCard({ workflow, isSelected, onClick }: WorkflowCardProp
           <span className="text-sm font-medium leading-tight">
             {workflowDisplayName(workflow.id)}
           </span>
-          {isSelected && (
+          {disabled ? (
+            <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          ) : isSelected ? (
             <CheckCircle2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-          )}
+          ) : null}
         </div>
         <p className="text-[0.7rem] text-muted-foreground leading-snug line-clamp-3">
           {workflow.description}
         </p>
+        {disabled && disabledReason && (
+          <p className="mt-1 text-[0.7rem] font-medium text-amber-400/90 leading-snug">
+            {disabledReason}
+          </p>
+        )}
       </div>
     </button>
   );
