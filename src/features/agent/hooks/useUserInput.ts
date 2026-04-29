@@ -6,13 +6,18 @@
  * Consolidates user input handling:
  * - Normal mode: sends user_message via WS
  * - Feedback mode: sends submit_feedback via WS
- * - Mailbox client mode: wraps message in <client_message> tags
- * - Mailbox developer mode: supports Insert (stage) + Submit (combine)
+ * - Mailbox client viewMode: wraps the typed text in <user_message>
+ * - Mailbox developer viewMode: wraps the typed text in <developer_message>;
+ *   when staged developer text exists, combines staged <developer_message>
+ *   with current <user_message>
  */
 
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentCall } from './useAgentCall';
+
+const wrapUser = (text: string) => `<user_message>\n${text}\n</user_message>`;
+const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</developer_message>`;
 
 export function useUserInput() {
   const activeFeedbackRequest = useAgentStore((s) => s.activeFeedbackRequest);
@@ -21,26 +26,29 @@ export function useUserInput() {
   const { submitMessage, submitFeedback } = useAgentCall();
 
   /**
-   * Submit user input — handles viewMode routing.
-   * - Client mode: wraps message in <client_message> tags automatically
-   * - Developer mode with staged: combines staged developer text + <client_message> wrapped current text
-   * - Developer mode without staged: sends plain developer message
+   * Submit user input — wraps each authored block in its author tag so
+   * the backend persists a single user-turn message that the model parses
+   * by tag (see backend `instructions-registry.ts` Conversational Roles).
+   *
+   *   - Client viewMode: outgoing payload is `<user_message>…</user_message>`.
+   *   - Developer viewMode with staged text: payload is
+   *     `<developer_message>STAGED</developer_message>` followed by the
+   *     current input wrapped as `<user_message>…</user_message>` (when
+   *     non-empty).
+   *   - Developer viewMode with no staged text: the typed message is
+   *     treated as the operator's voice and wrapped as `<developer_message>`.
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     if (viewMode === 'client') {
-      // Client mode — wrap in <client_message> tags, no developer text
-      submitMessage(`<client_message>${message}</client_message>`, libraryItemIds);
+      submitMessage(wrapUser(message), libraryItemIds);
     } else if (stagedUserMessage !== null) {
-      // Developer mode with staged text — combine with client content
-      const clientPart = message.trim() ? `<client_message>${message}</client_message>` : '';
-      const combined = clientPart
-        ? `${stagedUserMessage}\n${clientPart}`
-        : stagedUserMessage;
+      const stagedBlock = wrapDeveloper(stagedUserMessage);
+      const userPart = message.trim() ? wrapUser(message) : '';
+      const combined = userPart ? `${stagedBlock}\n${userPart}` : stagedBlock;
       useAgentStore.getState().setStagedUserMessage(null);
       submitMessage(combined, libraryItemIds);
     } else {
-      // Developer mode — plain developer message
-      submitMessage(message, libraryItemIds);
+      submitMessage(wrapDeveloper(message), libraryItemIds);
     }
   }, [viewMode, stagedUserMessage, submitMessage]);
 

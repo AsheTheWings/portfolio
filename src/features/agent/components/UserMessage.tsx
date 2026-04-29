@@ -12,7 +12,7 @@
  *   - Encoded images flex layout
  *   - Library items grid (LightAssetGrid)
  *   - Inline contentEditable editing
- *   - Mailbox: client/developer view mode rendering for <client_message> tagged content
+ *   - Mailbox: client/developer view mode rendering for <user_message> and <developer_message> tagged content
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
@@ -29,19 +29,45 @@ import { DebugView } from './DebugView';
 import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
 
 // ────────────────────────────────────────────────────────────
-// Client content parsing
+// Tagged content parsing
 // ────────────────────────────────────────────────────────────
 
 /**
- * Split a message into developer text and client text.
- * Client text lives inside <client_message>...</client_message> tags.
+ * Split a persisted user-turn message into its developer-voice and
+ * user-voice parts. The backend agreement is that everything in the
+ * persisted message is wrapped in either `<developer_message>…` or
+ * `<user_message>…` blocks (see backend `instructions-registry.ts`).
+ *
+ * Returns:
+ *   - `developerText`: concatenation of all `<developer_message>` blocks (or null)
+ *   - `userText`     : concatenation of all `<user_message>` blocks (or null)
+ *
+ * Untagged residue (legacy messages or unwrapped fragments) is treated
+ * as developer text so nothing is silently dropped from the developer
+ * view.
  */
-function parseClientContent(message: string): { userText: string; clientText: string | null } {
-  const match = message.match(/<client_message>([\s\S]*?)<\/client_message>/);
-  if (!match) return { userText: message, clientText: null };
-  const clientText = match[1] ?? '';
-  const userText = message.replace(/<client_message>[\s\S]*?<\/client_message>/g, '').trim();
-  return { userText, clientText };
+function parseTaggedContent(
+  message: string,
+): { developerText: string | null; userText: string | null } {
+  const userBlocks: string[] = [];
+  const developerBlocks: string[] = [];
+
+  const userRe = /<user_message>([\s\S]*?)<\/user_message>/g;
+  const devRe = /<developer_message>([\s\S]*?)<\/developer_message>/g;
+
+  for (const m of message.matchAll(userRe)) userBlocks.push((m[1] ?? '').trim());
+  for (const m of message.matchAll(devRe)) developerBlocks.push((m[1] ?? '').trim());
+
+  const residue = message
+    .replace(userRe, '')
+    .replace(devRe, '')
+    .trim();
+  if (residue) developerBlocks.push(residue);
+
+  return {
+    developerText: developerBlocks.length ? developerBlocks.join('\n\n') : null,
+    userText: userBlocks.length ? userBlocks.join('\n\n') : null,
+  };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -55,10 +81,10 @@ interface UserMessageProps {
 /**
  * Mailbox composition styling:
  *   - In `developer` viewMode the outer bubble flips to cyan (developer
- *     authored the turn) and the embedded `<client_message>` section inverts to
+ *     authored the turn) and the embedded `<user_message>` section inverts to
  *     a neutral slate look so the contrast still reads.
  *   - In `client` viewMode the bubble keeps the regular slate gradient
- *     and the inner client highlight uses cyan.
+ *     and only the user-message content is rendered.
  * Derived from the store — no prop drilling.
  */
 
@@ -114,15 +140,16 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
 
   // ── Content ─────────────────────────────────────────────
   const rawContent = data.message || '';
-  const { userText, clientText } = useMemo(() => parseClientContent(rawContent), [rawContent]);
+  const { developerText, userText } = useMemo(() => parseTaggedContent(rawContent), [rawContent]);
 
-  // In client view mode, only show client text (if present)
-  const content = (viewMode === 'client' && clientText !== null)
-    ? clientText
+  // In client view mode, only show <user_message> content if present.
+  // In developer view mode, show the raw composite (parser splits it for rendering below).
+  const content = (viewMode === 'client' && userText !== null)
+    ? userText
     : rawContent;
 
-  // Skip rendering entirely if in client mode and there's no client content
-  const isClientOnlyMessage = viewMode === 'client' && clientText === null && !isEditMode;
+  // Skip rendering entirely if in client mode and there's no user-tagged content
+  const isClientOnlyMessage = viewMode === 'client' && userText === null && !isEditMode;
 
   const editingMessage = editingData?.message || '';
   const editingElRef = useRef<HTMLDivElement | null>(null);
@@ -277,22 +304,22 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       data-placeholder="Edit message..."
       ref={editingElRef}
     />
-  ) : viewMode === 'developer' && clientText !== null ? (
-    // Developer view mode: show developer text + highlighted client section.
-    // Outer bubble is cyan (see render below), so the inner client section
-    // inverts to a neutral slate look for contrast.
+  ) : viewMode === 'developer' && userText !== null ? (
+    // Developer view mode: developer text on top, highlighted user section
+    // below. Outer bubble is cyan (see render below), so the inner user
+    // section inverts to a neutral slate look for contrast.
     <div className="flex flex-col gap-1.5">
-      {userText && (
+      {developerText && (
         <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
-          <MentionHighlightedText content={userText} onPathClick={handlePathClick} isDark />
+          <MentionHighlightedText content={developerText} onPathClick={handlePathClick} isDark />
         </pre>
       )}
       <div className="rounded-lg bg-slate-700/60 border border-slate-400/30 px-2.5 py-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-200/80 block mb-0.5">
-          client
+          user
         </span>
         <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0 text-white">
-          {clientText}
+          {userText}
         </pre>
       </div>
     </div>

@@ -260,9 +260,6 @@ export interface AgentSessionMetadata {
 // Tools can return effects to be processed by Session or UI
 // Each key is an effect type, value is the effect data
 export interface ToolEffects {
-  // Session-handled effects
-  appendTurnInstructions?: string;
-  
   // UI-handled effects
   updateConfig?: Partial<AgentConfig>;
   sessionComponents?: (Omit<AgentSessionComponent, 'data'> & { data: AgentSessionComponent['data'] })[];
