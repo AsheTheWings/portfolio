@@ -605,12 +605,6 @@ export interface AgentState {
   // Branching state
   showingBranchesForComponent: string | null;
   
-  // Tool-based interaction state (feedback mode)
-  activeFeedbackRequest: {
-    toolCallEventId: string;
-    userActions: Record<string, FeedbackAction[]>;
-  } | null;
-  
   // Translation state
   preferredTranslationLanguage: string | null;
   translationCache: Record<string, Record<string, string>>;
@@ -694,10 +688,6 @@ export interface AgentState {
   showBranches: (componentId: string) => void;
   hideBranches: () => void;
   scrollToComponent: (componentId: string) => void;
-  
-  // Feedback mode actions
-  setActiveFeedbackRequest: (request: { toolCallEventId: string; userActions: Record<string, FeedbackAction[]> } | null) => void;
-  clearActiveFeedbackRequest: () => void;
   
   // Translation actions
   setPreferredTranslationLanguage: (language: string | null) => void;

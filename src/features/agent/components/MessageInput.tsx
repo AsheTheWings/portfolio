@@ -17,12 +17,12 @@ import { LibraryPathBrowser } from '@/features/library';
 interface MessageInputProps {
   onSend: (message: string, assetIds?: string[]) => void;
   onInsert?: (text: string) => void;  // User mode: stage text without submitting
-  onStop?: () => void;
-  isProcessing: boolean;
-  isThinking?: boolean;
-  isToolCalling?: boolean;
-  isResponding?: boolean;
-  disabled?: boolean;
+  /** Single working cue — any agent in a non-idle status. Drives the subtle
+   *  pulsing dot only; does not disable the input. */
+  isAgentWorking?: boolean;
+  /** Pause running agents (sends stop_agent over WS). Button only renders
+   *  while `isAgentWorking` is true. */
+  onPause?: () => void;
   placeholder?: string;
   onMentionOpenChange?: (isOpen: boolean) => void;
   collapsed?: boolean;
@@ -30,6 +30,7 @@ interface MessageInputProps {
   isAnimating?: boolean;
   viewMode?: 'developer' | 'user';   // Timeline: affects placeholder + Insert action
   hasStagedMessage?: boolean;          // Timeline: staged user text is pending
+  onContentChange?: (hasContent: boolean) => void;
 }
 
 export interface MessageInputRef {
@@ -40,7 +41,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onInsert, onStop, isProcessing, isThinking, isToolCalling, isResponding, disabled, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage }, ref) => {
+  ({ onSend, onInsert, isAgentWorking, onPause, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -67,7 +68,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
   } = useMessageComposer({
     onSend: handleSend,
     onMentionOpenChange,
-    disabled: isProcessing || disabled,
     allowEmptySubmit: pendingLibraryItemIds.length > 0,
   });
 
@@ -84,35 +84,20 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     upsertSystemPanel('asset-picker-panel', 'asset-picker-panel');
   };
 
-  // Auto-focus input when processing state changes
-  useEffect(() => {
-    focus();
-  }, [isProcessing, focus]);
-
   // Handle form submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     submit();
   };
 
-  // Get contextual processing message based on agent state
-  const getProcessingMessage = () => {
-    if (isProcessing) {
-      if (isThinking) return 'Agent is thinking...';
-      if (isToolCalling) return 'Agent is calling tools...';
-      if (isResponding) return 'Agent is responding...';
-      return 'Agent is processing...';
-    }
-    if (disabled) return 'Waiting for agent response...';
-    if (viewMode === 'user') return 'Type your message...';;
-    if (hasStagedMessage) return 'Type your message...';
-    return `${placeholder}`;
-  };
-
   const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;
 
-  // Show Insert button when: developer mode, not collapsed, not processing, onInsert is provided
-  const showInsert = !collapsed && !isAnimating && !isProcessing && !disabled && viewMode === 'developer' && !hasStagedMessage && !!onInsert;
+  useEffect(() => {
+    onContentChange?.(hasContent);
+  }, [hasContent, onContentChange]);
+
+  // Show Insert button when: developer mode, not collapsed, no staged text, onInsert provided
+  const showInsert = !collapsed && !isAnimating && viewMode === 'developer' && !hasStagedMessage && !!onInsert;
 
   // Handle Insert action: stage current text, clear input, keep focus
   const handleInsert = () => {
@@ -127,6 +112,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Timeline 'developer' composition mode — turns the input border + submit button cyan
   const isDeveloperComposeMode = viewMode === 'developer' && !visuallyCollapsed;
+  const showPauseAction = !!isAgentWorking && !hasContent && !!onPause;
 
   // Delayed placeholder: appears 300ms after expansion animation completes
   const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
@@ -187,85 +173,88 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
             variant="ghost"
             size="icon-sm"
             onClick={(e) => { e.stopPropagation(); openAssetPicker(); }}
-            disabled={isProcessing || disabled}
             className="rounded-full text-muted-foreground hover:text-foreground hover:bg-surface-2 shrink-0"
             title="Attach assets from library"
           >
             <Plus size={20} />
           </Button>
-        
+
           <span className="text-primary font-bold text-sm leading-none flex items-center">›</span>
-          {isProcessing && (
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          {isAgentWorking && (
+            <div
+              className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
+              title="An agent is working — submitting will interrupt it"
+            />
           )}
         </div>
-        
-        {/* Textarea - visible as soon as expanding starts; sr-only only when truly collapsed */}
+
+        {/* Textarea — visible as soon as expanding starts; sr-only only when truly collapsed */}
         <textarea
           ref={inputRef}
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
-          disabled={isProcessing || disabled}
           className={collapsed
             ? 'sr-only'
-            : 'bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground disabled:opacity-50 resize-none field-sizing-content max-h-[8rem] scrollbar-inner flex-1 animate-in fade-in duration-200'
+            : 'bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground resize-none field-sizing-content max-h-[8rem] scrollbar-inner flex-1 animate-in fade-in duration-200'
           }
-          placeholder={showPlaceholder ? getProcessingMessage() : ''}
+          placeholder={showPlaceholder ? placeholder : ''}
           rows={1}
           tabIndex={collapsed ? -1 : 0}
           aria-hidden={collapsed}
         />
-        
-        {isProcessing ? (
+
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          {/* Primary action: pause while working with empty input, otherwise submit/open. */}
+          {/* Insert button — developer mode only, before staging */}
+          {showInsert && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleInsert}
+              disabled={!hasTextContent}
+              className="rounded-full text-xs px-3 h-8 border-border-subtle text-muted-foreground hover:text-foreground hover:bg-surface-2"
+              title="Stage as developer text, then add client message"
+            >
+              Insert
+            </Button>
+          )}
           <Button
             ref={buttonRef}
-            type="button"
-            onClick={onStop}
+            type={showPauseAction || collapsed ? 'button' : 'submit'}
+            disabled={showPauseAction ? false : collapsed ? false : !hasContent}
             size="icon-lg"
-            className="ml-auto relative rounded-full bg-black text-white hover:bg-black/80 shrink-0"
-            title="Pause agent"
+            onClick={showPauseAction ? (e) => { e.stopPropagation(); onPause?.(); } : undefined}
+            className={`rounded-full transition-transform duration-200 ease-out hover:scale-105 active:scale-95 ${
+              showPauseAction
+                ? 'relative bg-primary text-primary-foreground hover:bg-primary/90'
+                : isDeveloperComposeMode && hasContent
+                ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
+            title={showPauseAction
+              ? 'Pause agents'
+              : collapsed
+              ? 'Open input (Enter)'
+              : isAgentWorking
+                ? 'Interrupt agents and send'
+                : viewMode === 'user'
+                  ? 'Send message'
+                  : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
+            tabIndex={collapsed ? -1 : 0}
+            data-gsap="submit-btn"
           >
-            {/* Spinning cyan ring */}
-            <span className="absolute inset-0 rounded-full border-3 border-transparent border-t-cyan-400 border-r-cyan-400/50 animate-spin" />
-            <span className="relative z-10">
-              <IconPause size="20" />
-            </span>
+            {showPauseAction ? (
+              <>
+                <span className="absolute inset-0 rounded-full border-3 border-transparent border-t-cyan-400 border-r-cyan-400/50 animate-spin" />
+                <span className="relative z-10">
+                  <IconPause size="20" />
+                </span>
+              </>
+            ) : collapsed ? <Keyboard size={20} /> : <IconSend size="24" />}
           </Button>
-        ) : (
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            {/* Insert button — user mode only, before staging */}
-            {showInsert && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleInsert}
-                disabled={!hasTextContent}
-                className="rounded-full text-xs px-3 h-8 border-border-subtle text-muted-foreground hover:text-foreground hover:bg-surface-2"
-                title="Stage as developer text, then add client message"
-              >
-                Insert
-              </Button>
-            )}
-            <Button
-              ref={buttonRef}
-              type={collapsed ? 'button' : 'submit'}
-              disabled={collapsed ? false : (!hasContent || disabled)}
-              size="icon-lg"
-              className={`rounded-full ${
-                isDeveloperComposeMode && hasContent
-                  ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
-              title={collapsed ? 'Open input (Enter)' : viewMode === 'user' ? 'Send message' : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
-              tabIndex={collapsed ? -1 : 0}
-              data-gsap="submit-btn"
-            >
-              {collapsed ? <Keyboard size={20} /> : <IconSend size="24" />}
-            </Button>
-          </div>
-        )}
+        </div>
       </form>
     </div>
   );

@@ -63,7 +63,6 @@ export function useAgentSessionLifecycle() {
         store.setCurrentAgentSessionId(sessionId);
         store.clearEvents();
         saveCurrentAgentSessionId(sessionId);
-        store.clearActiveFeedbackRequest();
 
         store.hydrateFromEvents(events);
 
@@ -133,7 +132,6 @@ export function useAgentSessionLifecycle() {
       store.setCurrentAgentSessionId(null);
       store.clearEvents();
       store.clearUserMessagesHistory();
-      store.clearActiveFeedbackRequest();
       store.resetAllAgentStatuses('idle');
       store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session

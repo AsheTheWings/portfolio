@@ -3,20 +3,18 @@
 /**
  * InteractionArea Component
  * Self-contained interaction handler
- * - Displays MessageInput and FeedbackPanel
- * - Delegates business logic to useUserInput hook
- * - GSAP-driven morph animation for the input container
+ * - Hosts MessageInput; never gated by agent status
+ * - Tool-triggered feedback lives inside AgentMessage; not handled here
+ * - GSAP-driven morph animation for the input container (collapse when empty)
  */
 
 import { MessageInput, MessageInputRef } from './MessageInput';
-import { FeedbackPanel } from './FeedbackPanel';
 import { forwardRef, useRef, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
-import { hasAgentStatus, hasActiveAgent } from '../utils/agent-status';
+import { hasActiveAgent } from '../utils/agent-status';
 
 gsap.registerPlugin(useGSAP);
 
@@ -25,49 +23,38 @@ type InteractionAreaProps = object;
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { activeFeedbackRequest, submitTrigger, userMessagesHistory, stopAgent, resumeAgent, agentStatuses } = useAgent();
+    const { submitTrigger, userMessagesHistory, agentStatuses, stopAgent } = useAgent();
 
-    // Aggregate flags derived from per-agent statuses
-    const isProcessing = hasActiveAgent(agentStatuses);
-    const isThinking = hasAgentStatus(agentStatuses, 'thinking');
-    const isToolCalling = hasAgentStatus(agentStatuses, 'toolCalling');
-    const isResponding = hasAgentStatus(agentStatuses, 'responding');
-    const isInterrupted = hasAgentStatus(agentStatuses, 'interrupted');
-    const isPaused = hasAgentStatus(agentStatuses, 'paused');
-    const isIdle = !isProcessing && !isInterrupted && !isPaused;
+    // Single derived flag — "any agent is actively producing output".
+    // The input never disables; this only drives the working cue inside MessageInput.
+    const isAgentWorking = hasActiveAgent(agentStatuses);
 
-    // Collapsed state: auto-collapse when idle, expand on user interaction
-    const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
-    const isCollapsed = isIdle && !isManuallyExpanded;
+    // Collapsed state: empty composer stays collapsed; content or user interaction expands it.
+    const [isOpenWithoutContent, setIsOpenWithoutContent] = useState(false);
+    const [hasInputContent, setHasInputContent] = useState(false);
+    const isCollapsed = !hasInputContent && !isOpenWithoutContent;
 
-    // Auto-collapse when returning to idle
+    // Auto-collapse whenever the composer becomes empty again.
     useEffect(() => {
-      if (isIdle) {
-        setIsManuallyExpanded(false);
+      if (!hasInputContent) {
+        setIsOpenWithoutContent(false);
       }
-    }, [isIdle]);
+    }, [hasInputContent]);
 
-    // Escape key collapses (via agent:collapseAll event) — discard input
+    // Escape key collapses (via agent:collapseAll event) and discards input.
     useEffect(() => {
       const onCollapseAll = () => {
-        if (isIdle) {
-          setIsManuallyExpanded(false);
-          // Clear input text on collapse
-          if (ref && typeof ref !== 'function' && ref.current) {
-            ref.current.setValue('');
-          }
+        setIsOpenWithoutContent(false);
+        if (ref && typeof ref !== 'function' && ref.current) {
+          ref.current.setValue('');
         }
       };
       window.addEventListener('agent:collapseAll', onCollapseAll);
       return () => window.removeEventListener('agent:collapseAll', onCollapseAll);
-    }, [isIdle, ref]);
+    }, [ref]);
 
-    // Disable input if processing or hanging input (user message pending)
-    const isInputDisabled = isProcessing || isInterrupted;
-    const showResume = isInterrupted || isPaused;
-    
     // Use consolidated user input handler
-    const { submitUserInput, insertUserMessage, submitAction, viewMode, stagedUserMessage, isFeedbackMode } = useUserInput();
+    const { submitUserInput, insertUserMessage, viewMode, stagedUserMessage } = useUserInput();
 
     const lastSubmitTriggerRef = useRef(0);
     
@@ -83,7 +70,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     useEffect(() => {
       if (submitTrigger && submitTrigger !== lastSubmitTriggerRef.current) {
         lastSubmitTriggerRef.current = submitTrigger;
-        setIsManuallyExpanded(true);
+        setIsOpenWithoutContent(true);
         // Focus the input to allow user to type (delayed to allow render)
         requestAnimationFrame(() => {
           if (ref && typeof ref !== 'function' && ref.current) {
@@ -99,8 +86,6 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
      */
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-        if (isProcessing) return;
-        
         // Disable history navigation when mention search is open
         if (isMentionOpen) return;
         
@@ -154,7 +139,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [historyIndex, draftMessage, userMessagesHistory, isProcessing, isMentionOpen, ref]);
+    }, [historyIndex, draftMessage, userMessagesHistory, isMentionOpen, ref]);
     
     /**
      * Reset history navigation when user starts typing or loses focus
@@ -184,9 +169,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       }
     }, [historyIndex]);
 
-    // Auto-expand and focus when user starts typing while collapsed
-    // The textarea is always in the DOM (sr-only when collapsed),
-    // so we detect the first keystroke, expand, and inject the character.
+    // Auto-expand and focus when user starts typing while collapsed.
+    // The textarea is always in the DOM (sr-only when collapsed), so we
+    // detect the first keystroke, expand, and inject the character.
     useEffect(() => {
       if (!isCollapsed) return;
       
@@ -202,7 +187,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
           // because keydown was dispatched to window, not the textarea
           const char = e.key.length === 1 ? e.key : '';
           
-          setIsManuallyExpanded(true);
+          setIsOpenWithoutContent(true);
           
           // Inject character and focus after React re-renders the visible textarea
           requestAnimationFrame(() => {
@@ -219,7 +204,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     }, [isCollapsed, ref]);
 
     const expandInput = () => {
-      setIsManuallyExpanded(true);
+      setIsOpenWithoutContent(true);
       requestAnimationFrame(() => {
         if (ref && typeof ref !== 'function' && ref.current) {
           ref.current.focus();
@@ -227,16 +212,13 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       });
     };
 
-    // GSAP morph animation for the input container
+    // GSAP morph animation for the input container — collapse to a pill when
+    // empty, expand to 50% when active. No status-driven width branching: the
+    // input is always available regardless of whether agents are working.
     const morphRef = useRef<HTMLDivElement>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     const ANIM_DURATION = 0.4;
-    // Active states (processing/interrupted/paused) get narrow width; normal expanded gets 50%
-    const isActiveState = isProcessing || isInterrupted || isPaused;
-    const expandedWidth = isActiveState ? '25%' : '50%';
-    const expandedMarginRight = isActiveState ? '6rem' : '25%';
 
-    // Set initial GSAP state on mount (no React style prop to avoid conflicts)
     useGSAP(() => {
       if (!morphRef.current) return;
       gsap.set(morphRef.current, { width: '142px', marginRight: '6rem' });
@@ -247,73 +229,21 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       setIsAnimating(true);
 
       gsap.to(morphRef.current, {
-        width: isCollapsed ? '142px' : expandedWidth,
+        width: isCollapsed ? '142px' : '50%',
         minWidth: isCollapsed ? '0px' : '320px',
-        marginRight: isCollapsed ? '6rem' : expandedMarginRight,
+        marginRight: isCollapsed ? '6rem' : '25%',
         duration: ANIM_DURATION,
         ease: 'power2.inOut',
         onComplete: () => {
           setIsAnimating(false);
         },
       });
-    }, { dependencies: [isCollapsed, isActiveState] });
+    }, { dependencies: [isCollapsed] });
 
     return (
       <div className="w-full min-h-[72px] overflow-hidden flex items-center">
-        {/* Feedback panels - fills available space left of input */}
-        <div className="flex-1 flex justify-center items-endgap-4  pointer-events-auto min-w-0">
-          <AnimatePresence mode="wait">
-          {(isFeedbackMode && activeFeedbackRequest) ? (
-            (() => {
-              const [prompt, actions] = Object.entries(activeFeedbackRequest.userActions)[0] || ['', []];
-              return (
-                <motion.div
-                  key="feedback"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 'auto', opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="flex justify-center items-center overflow-hidden whitespace-nowrap"
-                >
-                  <FeedbackPanel
-                    prompt={prompt}
-                    actions={actions}
-                    layout="horizontal"
-                    onAction={submitAction}
-                    disabled={isProcessing}
-                  />
-                </motion.div>
-              );
-            })()
-          ) : showResume ? (
-            <motion.div
-              key="resume"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 'auto', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="flex justify-center items-center overflow-hidden whitespace-nowrap"
-            >
-              <FeedbackPanel
-                prompt={isInterrupted
-                  ? "Agent turn was interrupted. Would you like to resume?"
-                  : "Agent was paused. Resume or send a new message."}
-                actions={[
-                  { 
-                    id: 'resume', 
-                    label: 'Resume Turn', 
-                    primary: true
-                  }
-                ]}
-                layout="horizontal"
-                onAction={(actionId) => {
-                  if (actionId === 'resume') resumeAgent();
-                }}
-              />
-            </motion.div>
-          ) : null}
-          </AnimatePresence>
-        </div>
+        {/* Spacer fills available space left of the input */}
+        <div className="flex-1 min-w-0" />
 
         {/* Morphing container: GSAP-driven width + marginRight animation */}
         <div
@@ -324,19 +254,16 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             ref={ref}
             onSend={submitUserInput}
             onInsert={insertUserMessage}
-            onStop={stopAgent}
-            isProcessing={isProcessing}
-            disabled={isInputDisabled}
-            isThinking={isThinking}
-            isToolCalling={isToolCalling}
-            isResponding={isResponding}
-            placeholder={isFeedbackMode ? 'Provide feedback...' : viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
+            isAgentWorking={isAgentWorking}
+            onPause={stopAgent}
+            placeholder={viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}
             onExpand={expandInput}
             isAnimating={isAnimating}
             viewMode={viewMode}
             hasStagedMessage={stagedUserMessage !== null}
+            onContentChange={setHasInputContent}
           />
         </div>
       </div>

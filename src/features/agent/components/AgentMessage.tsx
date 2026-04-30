@@ -4,11 +4,12 @@
  * AgentMessage — Composite carousel component for agent responses
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Check, X } from 'lucide-react';
 import { AgentThoughts } from './AgentThoughts';
 import { DebugView } from './DebugView';
 import { ToolCall } from './ToolCall';
+import { FeedbackPanel } from './FeedbackPanel';
 import { getToolDisplayName, getToolStatus } from '../utils/tool-call';
 import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
@@ -17,9 +18,19 @@ import type { BranchInfo, ParentBranchInfo } from './ComponentShell';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
 import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
-import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
+import { useAgentCall } from '../hooks/useAgentCall';
+import type { AgentSessionComponent, AgentSessionEvent, EditingData, FeedbackAction } from '../types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
 import { getAgentStatus, statusLabel } from '../utils/agent-status';
+
+// ────────────────────────────────────────────────────────────
+// View slots — discriminated union of carousel views
+// ────────────────────────────────────────────────────────────
+
+type ViewSlot =
+  | { kind: 'debug' }
+  | { kind: 'item'; item: AgentSessionComponent }
+  | { kind: 'feedback'; toolCallEventId: string; prompt: string; actions: FeedbackAction[] };
 
 // ────────────────────────────────────────────────────────────
 // Props
@@ -38,21 +49,10 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const items: AgentSessionComponent[] = data.items || [];
   const agentId = data.agentId as string | undefined;
 
-  // ── View mode: single derivation fork ───────────────────
-  // Read viewMode first so effectiveItems and hasDebugView can be derived
-  // before any further hooks. In user mode we suppress thoughts, tool-calls,
-  // and the debug view — ComponentShell already hides carousel nav when
-  // viewCount ≤ 1, so no structural branching is needed downstream.
+  // ── View mode ───────────────────────────────────────────
   const viewMode = useAgentStore((s) => s.viewMode);
   const isUserMode = viewMode === 'user';
-  const effectiveItems: AgentSessionComponent[] = isUserMode
-    ? items.filter((c) => c.type === 'message')
-    : items;
   const hasDebugView = isUserMode ? false : !!controls?.debug;
-  const itemOffset = hasDebugView ? 1 : 0;
-
-  // ── View state ──────────────────────────────────────────
-  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultViewIndex(effectiveItems, itemOffset));
 
   // ── Store selectors ─────────────────────────────────────
   const editingEventId = useAgentStore((s) => s.editingEventId);
@@ -61,69 +61,120 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
-  // Read only this agent's status — not the whole map — to avoid re-rendering on unrelated updates
   const agentStatus = useAgentStore((s) => getAgentStatus(s.agentStatuses, agentId));
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
     agentId && agentId !== 'none' ? s.acquiredAgents[agentId] : undefined
   );
-  // Resolve agent display info (same pattern as AgentSessionPopover)
   const agentName = agentId === 'none' || !agentId ? 'Assistant' : (acquiredAgent?.name ?? 'Agent');
   const agentColor = agentId === 'none' || !agentId ? '#E2E8F0' : (acquiredAgent?.color ?? '#E2E8F0');
   const avatarImage = acquiredAgent?.avatarImage ?? null;
 
-  // ── Branching ───────────────────────────────────────────
+  // ── Hooks ───────────────────────────────────────────────
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
   const { loadAgentSession } = useAgentSessionLifecycle();
+  const { submitFeedback } = useAgentCall();
 
-  // ── Session events (aggregated from effectiveItems + composite) ──
+  // ── Session events (aggregated from items + composite) ──
   const allSessionEvents = useMemo<AgentSessionEvent[]>(() => {
     const seen = new Set<string>();
     const events: AgentSessionEvent[] = [];
-    // Composite-level events
     for (const e of data.sessionEvents || []) {
       if (!seen.has(e.eventId)) { seen.add(e.eventId); events.push(e); }
     }
-    // Sub-item events
-    for (const item of effectiveItems) {
+    for (const item of items) {
       for (const e of item.data.sessionEvents || []) {
         if (!seen.has(e.eventId)) { seen.add(e.eventId); events.push(e); }
       }
     }
     events.sort((a, b) => a.sequence - b.sequence);
     return events;
-  }, [data.sessionEvents, effectiveItems]);
+  }, [data.sessionEvents, items]);
 
-  // ── Debug view as carousel view (always index 0) ────────
-  const totalViews = effectiveItems.length + (hasDebugView ? 1 : 0);
+  // ── Build view slots ────────────────────────────────────
+  // Slot order: [debug?] then for each item: the item (filtered for user mode)
+  // followed by a synthesized feedback slot when the item is a tool-call with
+  // pending userActions (toolEffects.userActions present and no matching
+  // user-feedback-result event yet).
+  const viewSlots: ViewSlot[] = useMemo(() => {
+    const resolvedFeedbackIds = new Set(
+      allSessionEvents
+        .filter((e) => e.type === 'user-feedback-result' && e.toolCallEventId)
+        .map((e) => e.toolCallEventId as string),
+    );
+    const slots: ViewSlot[] = [];
+    if (hasDebugView) slots.push({ kind: 'debug' });
+    for (const it of items) {
+      const pending =
+        it.type === 'tool-call' &&
+        it.data.toolEffects?.userActions &&
+        !resolvedFeedbackIds.has(it.id)
+          ? it.data.toolEffects.userActions
+          : undefined;
+      // Filter for user mode — keep only message items, plus feedback views
+      // (tool-calls themselves are hidden but their feedback surface remains).
+      if (!isUserMode || it.type === 'message') {
+        slots.push({ kind: 'item', item: it });
+      }
+      if (pending) {
+        slots.push({
+          kind: 'feedback',
+          toolCallEventId: it.id,
+          prompt: pending.prompt,
+          actions: pending.actions,
+        });
+      }
+    }
+    return slots;
+  }, [items, isUserMode, hasDebugView, allSessionEvents]);
 
-  // ── Active item ─────────────────────────────────────────
+  const totalViews = viewSlots.length;
+
+  // ── View state ──────────────────────────────────────────
+  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultSlotIndex(viewSlots));
+
+  // ── Active slot ─────────────────────────────────────────
   const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
-  const isShowingDebug = hasDebugView && clampedIndex === 0;
-  const activeItem = isShowingDebug ? undefined : effectiveItems[clampedIndex - itemOffset];
+  const activeSlot: ViewSlot | undefined = viewSlots[clampedIndex];
+  const isShowingDebug = activeSlot?.kind === 'debug';
+  const activeItem = activeSlot?.kind === 'item' ? activeSlot.item : undefined;
+  const activeFeedback = activeSlot?.kind === 'feedback' ? activeSlot : undefined;
 
   // ── Determine if active item is being edited ────────────
   const isEditMode = !!activeItem && editingEventId === activeItem.id;
   const [isValidForSubmit, setIsValidForSubmit] = useState(true);
 
-  // ── Auto-advance to latest streaming item ───────────────
+  // ── Auto-advance: prefer pending feedback > streaming tail ──
+  // Track which feedback slots we've already auto-advanced to so that
+  // dismissing/navigating away does not bounce the user back.
+  const advancedFeedbacksRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!isStreaming) return;
-    const lastIdx = effectiveItems.length - 1;
-    if (lastIdx >= 0) {
-      setActiveViewIndex(lastIdx + itemOffset);
+    // 1. New pending feedback → jump to it once.
+    const pendingIdx = viewSlots.findIndex(
+      (s) => s.kind === 'feedback' && !advancedFeedbacksRef.current.has(s.toolCallEventId),
+    );
+    if (pendingIdx !== -1) {
+      const slot = viewSlots[pendingIdx] as { kind: 'feedback'; toolCallEventId: string };
+      advancedFeedbacksRef.current.add(slot.toolCallEventId);
+      setActiveViewIndex(pendingIdx);
+      return;
     }
-  }, [isStreaming, effectiveItems.length, itemOffset]);
+    // 2. Streaming → advance to the last item slot.
+    if (isStreaming) {
+      const lastItemIdx = viewSlots.findLastIndex((s) => s.kind === 'item');
+      if (lastItemIdx !== -1) setActiveViewIndex(lastItemIdx);
+    }
+  }, [viewSlots, isStreaming]);
 
   // ── Collapse listener (agent:collapseAll) ───────────────
   useEffect(() => {
     const onCollapse = () => {
-      setActiveViewIndex(defaultViewIndex(effectiveItems, itemOffset));
+      setActiveViewIndex(defaultSlotIndex(viewSlots));
     };
     window.addEventListener('agent:collapseAll', onCollapse);
     return () => window.removeEventListener('agent:collapseAll', onCollapse);
-  }, [effectiveItems, itemOffset]);
+  }, [viewSlots]);
 
   // ── Escape to cancel edit ───────────────────────────────
   useEffect(() => {
@@ -155,15 +206,15 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [allSessionEvents]);
 
   // ── Height mode per active view type ────────────────────
-  const heightMode = isShowingDebug
-    ? 'fixed'
-    : activeItem
-      ? (activeItem.type === 'message' ? 'auto' : 'fixed')
-      : 'auto';
+  // Only the message view is content-sized; everything else (debug,
+  // thoughts, tool-call, feedback) is fixed-height per ComponentShell.
+  const heightMode =
+    activeSlot?.kind === 'item' && activeSlot.item.type === 'message' ? 'auto' : 'fixed';
 
   // ── View title (centered in top bar, last view/messages get none) ──
   const viewTitle = useMemo(() => {
     if (isShowingDebug) return 'Agent Session Events';
+    if (activeFeedback) return 'Feedback';
     if (!activeItem) return undefined;
     if (activeItem.type === 'agent-thoughts') return 'Thoughts';
     if (activeItem.type === 'tool-call') {
@@ -179,7 +230,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       );
     }
     return undefined;
-  }, [isShowingDebug, activeItem]);
+  }, [isShowingDebug, activeFeedback, activeItem]);
 
   // ── Streaming status label ──────────────────────────────
   const streamingStatus = isStreaming ? statusLabel(agentStatus) : undefined;
@@ -251,6 +302,20 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const renderActiveView = () => {
     if (isShowingDebug) {
       return <DebugView sessionEvents={allSessionEvents} />;
+    }
+    if (activeFeedback) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <FeedbackPanel
+            prompt={activeFeedback.prompt}
+            actions={activeFeedback.actions}
+            layout="vertical"
+            onAction={(actionId) =>
+              submitFeedback(activeFeedback.toolCallEventId, { action: actionId })
+            }
+          />
+        </div>
+      );
     }
     if (!activeItem) return null;
     return (
@@ -365,15 +430,17 @@ function SubViewRenderer({
 // Helpers
 // ────────────────────────────────────────────────────────────
 
-/** Default view index: response (last message item) if available, otherwise last item.
- *  debugOffset shifts all item indices when debug view occupies index 0. */
-function defaultViewIndex(items: AgentSessionComponent[], debugOffset: number = 0): number {
-  if (items.length === 0) return 0;
-  // Prefer the last 'message' type item (the response)
-  for (let i = items.length - 1; i >= 0; i--) {
-    if (items[i].type === 'message') return i + debugOffset;
+/** Default slot index: prefer pending feedback > last message item > last slot. */
+function defaultSlotIndex(slots: ViewSlot[]): number {
+  if (slots.length === 0) return 0;
+  // Pending feedback wins — it's user-actionable.
+  const feedbackIdx = slots.findIndex((s) => s.kind === 'feedback');
+  if (feedbackIdx !== -1) return feedbackIdx;
+  // Otherwise the last message item (the response).
+  for (let i = slots.length - 1; i >= 0; i--) {
+    const s = slots[i];
+    if (s.kind === 'item' && s.item.type === 'message') return i;
   }
-  // Fallback to last item
-  return items.length - 1 + debugOffset;
+  return slots.length - 1;
 }
 

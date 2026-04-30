@@ -26,9 +26,6 @@ export function useAgent() {
   const scrollToComponentId = useAgentStore((state) => state.scrollToComponentId);
   const submitTrigger = useAgentStore((state) => state.submitTrigger);
   
-  // Feedback mode
-  const activeFeedbackRequest = useAgentStore((state) => state.activeFeedbackRequest);
-  
   // UI interface
   const uiInterface = useAgentStore((state) => state.uiInterface);
   const setUiInterface = useAgentStore((state) => state.setUiInterface);
@@ -76,8 +73,6 @@ export function useAgent() {
   const setAgentSessionComponents = useAgentStore((state) => state.setAgentSessionComponents);
   const cancelEdit = useAgentStore((state) => state.cancelEdit);
   const triggerSubmit = useAgentStore((state) => state.triggerSubmit);
-  const setActiveFeedbackRequest = useAgentStore((state) => state.setActiveFeedbackRequest);
-  
   // Hook dependencies
   const { loadAgentSession, clearAgentSession } = useAgentSessionLifecycle();
   const { submitMessage, stopAgent, submitFeedback, resumeAgent } = useAgentCall();
@@ -110,10 +105,6 @@ export function useAgent() {
     error,
     scrollToComponentId,
     submitTrigger,
-    
-    // Feedback mode
-    activeFeedbackRequest,
-    setActiveFeedbackRequest,
     
     // UI interface
     uiInterface,

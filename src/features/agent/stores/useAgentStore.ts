@@ -156,9 +156,6 @@ const initialState = {
   // Branching
   showingBranchesForComponent: null as string | null,
   
-  // Feedback mode
-  activeFeedbackRequest: null as AgentState['activeFeedbackRequest'],
-  
   // Translation state
   preferredTranslationLanguage: null as string | null,
   translationCache: {} as Record<string, Record<string, string>>,
@@ -396,7 +393,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       if (staged) sessionComponents.push(staged);
 
       const agentStatuses = { ...state.agentStatuses };
-      let activeFeedbackRequest = state.activeFeedbackRequest;
 
       // user-turn-completed is session-scoped: mark every known agent as 'processing'
       // so each one lights up while waiting for its first model event.
@@ -405,14 +401,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       } else {
         const agentKey = event.agentId || 'none';
 
-        // Tool-effects with pending userActions → that agent is waiting for feedback
+        // Tool-effects with pending userActions → that agent is waiting for feedback.
+        // The feedback view itself is rendered inside AgentMessage (derived from
+        // the tool-call sub-item's toolEffects.userActions); no global request
+        // state is needed.
         if (event.type === 'tool-effects') {
           const { toolEffects } = event.data as ToolEffectsData;
           if (toolEffects?.userActions) {
-            activeFeedbackRequest = {
-              toolCallEventId: event.toolCallEventId!,
-              userActions: { [toolEffects.userActions.prompt]: toolEffects.userActions.actions },
-            };
             agentStatuses[agentKey] = 'waitingFeedback';
           } else {
             const mapped = statusFromEvent(event);
@@ -428,7 +423,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         agentSessionEvents,
         sessionComponents,
         agentStatuses,
-        activeFeedbackRequest,
       };
     });
 
@@ -602,15 +596,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   // Scroll actions
   scrollToComponent: (componentId: string) => {
     set({ scrollToComponentId: componentId });
-  },
-
-  // Feedback mode actions
-  setActiveFeedbackRequest: (request) => {
-    set({ activeFeedbackRequest: request });
-  },
-
-  clearActiveFeedbackRequest: () => {
-    set({ activeFeedbackRequest: null });
   },
 
   // Translation actions

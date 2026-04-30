@@ -76,10 +76,7 @@ export function useAgentCall() {
   ) => {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;
-    
-    // Clear feedback UI state
-    useAgentStore.getState().clearActiveFeedbackRequest();
-    
+
     send({
       type: 'submit_feedback',
       sessionId,

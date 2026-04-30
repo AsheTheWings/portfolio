@@ -4,12 +4,15 @@
  * useUserInput Hook
  *
  * Consolidates user input handling:
- * - Normal mode: sends user_message via WS
- * - Feedback mode: sends submit_feedback via WS
+ * - Sends user_message via WS
  * - Mailbox client viewMode: wraps the typed text in <user_message>
  * - Mailbox developer viewMode: wraps the typed text in <developer_message>;
  *   when staged developer text exists, combines staged <developer_message>
  *   with current <user_message>
+ *
+ * Note: tool-triggered feedback is rendered as a sub-view inside
+ * `AgentMessage` and dispatched directly via `useAgentCall().submitFeedback`.
+ * The input area is always available and never enters a "feedback mode".
  */
 
 import { useCallback } from 'react';
@@ -20,10 +23,9 @@ const wrapUser = (text: string) => `<user_message>\n${text}\n</user_message>`;
 const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</developer_message>`;
 
 export function useUserInput() {
-  const activeFeedbackRequest = useAgentStore((s) => s.activeFeedbackRequest);
   const viewMode = useAgentStore((s) => s.viewMode);
   const stagedUserMessage = useAgentStore((s) => s.stagedUserMessage);
-  const { submitMessage, submitFeedback } = useAgentCall();
+  const { submitMessage } = useAgentCall();
 
   /**
    * Submit user input — wraps each authored block in its author tag so
@@ -60,23 +62,10 @@ export function useUserInput() {
     useAgentStore.getState().setStagedUserMessage(text);
   }, []);
 
-  /**
-   * Submit action button click (feedback mode only)
-   */
-  const submitAction = useCallback(async (actionId: string) => {
-    if (!activeFeedbackRequest) {
-      console.warn('Cannot submit action: Not in feedback mode');
-      return;
-    }
-    submitFeedback(activeFeedbackRequest.toolCallEventId, { action: actionId });
-  }, [activeFeedbackRequest, submitFeedback]);
-
   return {
     submitUserInput,
     insertUserMessage,
-    submitAction,
     viewMode,
     stagedUserMessage,
-    isFeedbackMode: activeFeedbackRequest !== null,
   };
 }

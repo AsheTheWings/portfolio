@@ -101,7 +101,7 @@ export interface ComponentShellProps {
 // Constants
 // ────────────────────────────────────────────────────────────
 
-const FIXED_HEIGHT = 320; // px min-height for thoughts/tool-call views
+const FIXED_HEIGHT = 360; // px hard height for non-message views (thoughts/tool-call/debug/feedback)
 
 const HOVER_BUTTON_CLASS = `
   p-1 rounded-md
@@ -223,10 +223,15 @@ export function ComponentShell({
           }}
           onClose={() => setShowBranchList(false)}
         />
+      ) : heightMode === 'fixed' ? (
+        <div className="px-4 pt-8 pb-4" style={{ height: FIXED_HEIGHT }}>
+          <div className="h-full overflow-auto scrollbar-inner">
+            {children}
+          </div>
+        </div>
       ) : (
         <div
           className="px-4 py-8"
-          style={heightMode === 'fixed' ? { minHeight: FIXED_HEIGHT } : undefined}
         >
           {children}
         </div>
