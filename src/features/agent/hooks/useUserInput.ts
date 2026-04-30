@@ -39,7 +39,7 @@ export function useUserInput() {
    *     treated as the operator's voice and wrapped as `<developer_message>`.
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
-    if (viewMode === 'client') {
+    if (viewMode === 'user') {
       submitMessage(wrapUser(message), libraryItemIds);
     } else if (stagedUserMessage !== null) {
       const stagedBlock = wrapDeveloper(stagedUserMessage);

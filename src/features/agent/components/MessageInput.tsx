@@ -28,7 +28,7 @@ interface MessageInputProps {
   collapsed?: boolean;
   onExpand?: () => void;
   isAnimating?: boolean;
-  viewMode?: 'developer' | 'client';   // Timeline: affects placeholder + Insert action
+  viewMode?: 'developer' | 'user';   // Timeline: affects placeholder + Insert action
   hasStagedMessage?: boolean;          // Timeline: staged user text is pending
 }
 
@@ -104,8 +104,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       return 'Agent is processing...';
     }
     if (disabled) return 'Waiting for agent response...';
-    if (viewMode === 'client') return 'Type client message...';
-    if (hasStagedMessage) return 'Type client message...';
+    if (viewMode === 'user') return 'Type your message...';;
+    if (hasStagedMessage) return 'Type your message...';
     return `${placeholder}`;
   };
 
@@ -258,7 +258,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
                   ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
-              title={collapsed ? 'Open input (Enter)' : viewMode === 'client' ? 'Send as client' : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
+              title={collapsed ? 'Open input (Enter)' : viewMode === 'user' ? 'Send message' : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
               tabIndex={collapsed ? -1 : 0}
               data-gsap="submit-btn"
             >

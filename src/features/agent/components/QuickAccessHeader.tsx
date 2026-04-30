@@ -101,19 +101,17 @@ export function QuickAccessHeader() {
           />
         </div>
 
-        {/* Developer Switch (mailbox workflow only) — composes against
-            the developer role; clearing of any staged developer text on
-            switch-off is enforced by the store action itself. */}
-        {isMailbox && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-foreground font-light">Developer</span>
-            <Switch
-              checked={viewMode === 'developer'}
-              onCheckedChange={(checked) => setViewMode(checked ? 'developer' : 'client')}
-              aria-label="Toggle developer composition mode"
-            />
-          </div>
-        )}
+        {/* Developer Switch — decouple view mode from workflow; always visible.
+            In developer mode: composes against the developer role with cyan bubble.
+            In user mode: shows only user-facing content (clean user-facing view). */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-foreground font-light">Developer</span>
+          <Switch
+            checked={viewMode === 'developer'}
+            onCheckedChange={(checked) => setViewMode(checked ? 'developer' : 'user')}
+            aria-label="Toggle developer composition mode"
+          />
+        </div>
       </div>
 
       {/* Interface Section */}

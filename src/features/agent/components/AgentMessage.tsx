@@ -38,12 +38,21 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const items: AgentSessionComponent[] = data.items || [];
   const agentId = data.agentId as string | undefined;
 
-  // Debug view is always view #1 (index 0) in the carousel
-  const hasDebugView = !!controls?.debug;
+  // ── View mode: single derivation fork ───────────────────
+  // Read viewMode first so effectiveItems and hasDebugView can be derived
+  // before any further hooks. In user mode we suppress thoughts, tool-calls,
+  // and the debug view — ComponentShell already hides carousel nav when
+  // viewCount ≤ 1, so no structural branching is needed downstream.
+  const viewMode = useAgentStore((s) => s.viewMode);
+  const isUserMode = viewMode === 'user';
+  const effectiveItems: AgentSessionComponent[] = isUserMode
+    ? items.filter((c) => c.type === 'message')
+    : items;
+  const hasDebugView = isUserMode ? false : !!controls?.debug;
   const itemOffset = hasDebugView ? 1 : 0;
 
   // ── View state ──────────────────────────────────────────
-  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultViewIndex(items, itemOffset));
+  const [activeViewIndex, setActiveViewIndex] = useState(() => defaultViewIndex(effectiveItems, itemOffset));
 
   // ── Store selectors ─────────────────────────────────────
   const editingEventId = useAgentStore((s) => s.editingEventId);
@@ -68,7 +77,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const { submitEdit, revertToComponent } = useAgentSessionBranching();
   const { loadAgentSession } = useAgentSessionLifecycle();
 
-  // ── Session events (aggregated from all items + composite) ──
+  // ── Session events (aggregated from effectiveItems + composite) ──
   const allSessionEvents = useMemo<AgentSessionEvent[]>(() => {
     const seen = new Set<string>();
     const events: AgentSessionEvent[] = [];
@@ -77,22 +86,22 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       if (!seen.has(e.eventId)) { seen.add(e.eventId); events.push(e); }
     }
     // Sub-item events
-    for (const item of items) {
+    for (const item of effectiveItems) {
       for (const e of item.data.sessionEvents || []) {
         if (!seen.has(e.eventId)) { seen.add(e.eventId); events.push(e); }
       }
     }
     events.sort((a, b) => a.sequence - b.sequence);
     return events;
-  }, [data.sessionEvents, items]);
+  }, [data.sessionEvents, effectiveItems]);
 
   // ── Debug view as carousel view (always index 0) ────────
-  const totalViews = items.length + (hasDebugView ? 1 : 0);
+  const totalViews = effectiveItems.length + (hasDebugView ? 1 : 0);
 
   // ── Active item ─────────────────────────────────────────
   const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
   const isShowingDebug = hasDebugView && clampedIndex === 0;
-  const activeItem = isShowingDebug ? undefined : items[clampedIndex - itemOffset];
+  const activeItem = isShowingDebug ? undefined : effectiveItems[clampedIndex - itemOffset];
 
   // ── Determine if active item is being edited ────────────
   const isEditMode = !!activeItem && editingEventId === activeItem.id;
@@ -101,20 +110,20 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   // ── Auto-advance to latest streaming item ───────────────
   useEffect(() => {
     if (!isStreaming) return;
-    const lastIdx = items.length - 1;
+    const lastIdx = effectiveItems.length - 1;
     if (lastIdx >= 0) {
       setActiveViewIndex(lastIdx + itemOffset);
     }
-  }, [isStreaming, items.length, itemOffset]);
+  }, [isStreaming, effectiveItems.length, itemOffset]);
 
   // ── Collapse listener (agent:collapseAll) ───────────────
   useEffect(() => {
     const onCollapse = () => {
-      setActiveViewIndex(defaultViewIndex(items, itemOffset));
+      setActiveViewIndex(defaultViewIndex(effectiveItems, itemOffset));
     };
     window.addEventListener('agent:collapseAll', onCollapse);
     return () => window.removeEventListener('agent:collapseAll', onCollapse);
-  }, [items, itemOffset]);
+  }, [effectiveItems, itemOffset]);
 
   // ── Escape to cancel edit ───────────────────────────────
   useEffect(() => {

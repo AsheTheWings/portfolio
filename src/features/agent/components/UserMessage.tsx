@@ -83,7 +83,7 @@ interface UserMessageProps {
  *   - In `developer` viewMode the outer bubble flips to cyan (developer
  *     authored the turn) and the embedded `<user_message>` section inverts to
  *     a neutral slate look so the contrast still reads.
- *   - In `client` viewMode the bubble keeps the regular slate gradient
+ *   - In `user` viewMode the bubble keeps the regular slate gradient
  *     and only the user-message content is rendered.
  * Derived from the store — no prop drilling.
  */
@@ -144,12 +144,12 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
 
   // In client view mode, only show <user_message> content if present.
   // In developer view mode, show the raw composite (parser splits it for rendering below).
-  const content = (viewMode === 'client' && userText !== null)
+  const content = (viewMode === 'user' && userText !== null)
     ? userText
     : rawContent;
 
-  // Skip rendering entirely if in client mode and there's no user-tagged content
-  const isClientOnlyMessage = viewMode === 'client' && userText === null && !isEditMode;
+  // Skip rendering entirely if in user mode and there's no user-tagged content
+  const isClientOnlyMessage = viewMode === 'user' && userText === null && !isEditMode;
 
   const editingMessage = editingData?.message || '';
   const editingElRef = useRef<HTMLDivElement | null>(null);

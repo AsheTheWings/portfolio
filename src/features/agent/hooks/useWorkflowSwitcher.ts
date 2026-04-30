@@ -40,12 +40,8 @@ export function useWorkflowSwitcher() {
     // Local state + persistence first — UI is responsive even if PATCH lags.
     setSelectedWorkflowId(workflowId);
     saveSelectedWorkflowId(workflowId);
-
-    // Reset the developer/client compose mode whenever the workflow changes.
-    // The developer toggle is mailbox-specific and any staged developer
-    // bubble belongs to the previous workflow context — `setViewMode`'s own
-    // invariant takes care of clearing `stagedUserMessage` here.
-    setViewMode('client');
+  
+    setViewMode('user');
 
     // If a session is live, sync server-side metadata so the next turn
     // dispatches against the new workflow.

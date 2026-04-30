@@ -571,7 +571,7 @@ export interface AgentState {
   _hydrated: boolean;
   
   // View mode for message composition (timeline workflow)
-  viewMode: 'developer' | 'client';
+  viewMode: 'developer' | 'user';
   // Staged user message (Insert action — waiting for client content)
   stagedUserMessage: string | null;
 
@@ -665,7 +665,7 @@ export interface AgentState {
   setEphemeral: (ephemeral: boolean) => void;
 
   // View mode actions (timeline workflow)
-  setViewMode: (mode: 'developer' | 'client') => void;
+  setViewMode: (mode: 'developer' | 'user') => void;
   setStagedUserMessage: (message: string | null) => void;
   
   // User messages history actions

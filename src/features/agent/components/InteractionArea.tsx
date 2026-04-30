@@ -330,7 +330,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             isThinking={isThinking}
             isToolCalling={isToolCalling}
             isResponding={isResponding}
-            placeholder={isFeedbackMode ? 'Provide feedback...' : viewMode === 'client' ? 'Type client message...' : 'Type a message...'}
+            placeholder={isFeedbackMode ? 'Provide feedback...' : viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}
             onExpand={expandInput}

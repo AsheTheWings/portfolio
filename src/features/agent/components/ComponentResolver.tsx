@@ -12,6 +12,7 @@
 
 import React from 'react';
 import type { AgentSessionComponent } from '../types';
+import { useAgentStore } from '../stores/useAgentStore';
 import { AgentsConfigPanel } from './AgentsConfigPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { HistoryPanel } from './HistoryPanel';
@@ -54,12 +55,34 @@ export function resolveSystemPanel(
 export function resolveComponent(
   component: AgentSessionComponent,
 ): React.ReactNode {
+  // Read view mode once — used by multiple cases below.
+  // useAgentStore.getState() is synchronous and safe to call outside hooks.
+  const { viewMode, selectedWorkflowId } = useAgentStore.getState();
+  const isUserMode = viewMode === 'user';
+
   switch (component.type) {
     // Chat-mode composites
     case 'user-message':
       return <UserMessage component={component} />;
-    case 'agent-message':
+
+    case 'agent-message': {
+      // Streaming guard: in user mode suppress the composite until the agent
+      // turn completes (isStreaming flips to false).
+      if (isUserMode && component.isStreaming) return null;
+
+      // SKIP filter: mailbox workflow only — hide responses whose sole
+      // message content is the literal word "SKIP". Developer mode always
+      // shows them for inspection.
+      if (isUserMode && selectedWorkflowId === 'mailbox') {
+        const messageItems = component.data.items?.filter((c) => c.type === 'message') ?? [];
+        const isAllSkip =
+          messageItems.length > 0 &&
+          messageItems.every((c) => (c.data.message ?? '').trim() === 'SKIP');
+        if (isAllSkip) return null;
+      }
+
       return <AgentMessage component={component} />;
+    }
 
     // Shared types (both modes)
     case 'user-feedback':
@@ -69,13 +92,20 @@ export function resolveComponent(
 
     // Flat-mode standalone types (not reached in chat mode)
     case 'agent-thoughts':
+      // In user mode: suppress thoughts entirely.
+      if (isUserMode) return null;
       return <AgentThoughts thoughts={component.data.thoughts} isStreaming={component.isStreaming} />;
+
     case 'tool-call':
+      // In user mode: suppress tool-call cards entirely.
+      if (isUserMode) return null;
       return <ToolCall data={component.data} />;
+
     case 'message':
-      return component.role === 'agent'
-        ? <FlatAgentResponse component={component} />
-        : null;
+      if (component.role !== 'agent') return null;
+      // In user mode: suppress while streaming (flat interface parallel to chat guard).
+      if (isUserMode && component.isStreaming) return null;
+      return <FlatAgentResponse component={component} />;
 
     // System panels
     case 'config-panel':

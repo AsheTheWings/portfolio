@@ -121,7 +121,7 @@ const initialState = {
   _hasShownInitialConfig: false,
   
   // Timeline workflow composition state
-  viewMode: 'developer' as 'developer' | 'client',
+  viewMode: 'developer' as 'developer' | 'user',
   stagedUserMessage: null as string | null,
 
   // UI
