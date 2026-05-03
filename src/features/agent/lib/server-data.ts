@@ -12,6 +12,7 @@ export interface AgentServerData {
   tools: Tool[];
   workflows: Workflow[];
   models: ModelSpec[];
+  defaultModelId: string | null;
 }
 
 /**
@@ -21,7 +22,7 @@ export interface AgentServerData {
  */
 export async function fetchAgentServerData(token: string): Promise<AgentServerData> {
   const headers = { Authorization: `Bearer ${token}` };
-  const empty: AgentServerData = { tools: [], workflows: [], models: [] };
+  const empty: AgentServerData = { tools: [], workflows: [], models: [], defaultModelId: null };
 
   try {
     const [toolsRes, workflowsRes, modelsRes] = await Promise.all([
@@ -32,9 +33,21 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
 
     const tools = toolsRes.ok ? (await toolsRes.json()).tools ?? [] : [];
     const workflows = workflowsRes.ok ? (await workflowsRes.json()).workflows ?? [] : [];
-    const models = modelsRes.ok ? (await modelsRes.json()).models ?? [] : [];
+    const modelsData = modelsRes.ok ? await modelsRes.json() : {};
 
-    return { tools, workflows, models };
+    // Contract guard: reject unexpected wire shape
+    if (modelsRes.ok && modelsData.contractVersion !== 1) {
+      console.warn(
+        '[agent/server-data] Unsupported model contract version:',
+        modelsData.contractVersion
+      );
+      return { ...empty, tools, workflows };
+    }
+
+    const models = modelsData.models ?? [];
+    const defaultModelId = modelsData.defaultModelId ?? null;
+
+    return { tools, workflows, models, defaultModelId };
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch:', err instanceof Error ? err.message : String(err));
     return empty;

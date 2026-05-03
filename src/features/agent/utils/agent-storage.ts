@@ -1,12 +1,16 @@
 /**
  * Agent Configuration Management
  * LocalStorage utilities for Agent[] persistence
+ *
+ * Shape is v2 only — no migration. Old localStorage data is discarded
+ * on shape mismatch. The store reconciliation (via useHydrateStore)
+ * resets to backend-provided defaultModelId if needed.
  */
 
 import type { Agent } from '../types';
-import { createDefaultAgentConfig, createAssistantAgent } from '../services/models-registry';
+import { createAssistantAgent } from '../utils/agent-factory';
 
-const AGENTS_KEY = 'timeline:agent:agents';
+const AGENTS_KEY = 'timeline:agent:agents:v2';
 
 // ============================================================
 // agents[] persistence
@@ -14,32 +18,37 @@ const AGENTS_KEY = 'timeline:agent:agents';
 
 /**
  * Load agents array from localStorage.
- * Returns [defaultAgent] if nothing stored.
+ * Returns [defaultAgent] if nothing stored or shape mismatch.
  */
 export function loadAgents(): Agent[] {
   try {
     const stored = localStorage.getItem(AGENTS_KEY);
     if (stored) {
       const agents = JSON.parse(stored) as Agent[];
-      if (Array.isArray(agents) && agents.length > 0) {
-        // Merge each config with defaults to ensure all fields exist
-        const merged = agents.map(a => ({
-          agentId: a.agentId,
-          config: { ...createDefaultAgentConfig(), ...a.config },
-        }));
+      if (
+        Array.isArray(agents) &&
+        agents.length > 0 &&
+        agents.every(
+          a =>
+            typeof a.agentId === 'string' &&
+            typeof a.config?.modelId === 'string' &&
+            Array.isArray(a.config?.selectedNativeToolIds)
+        )
+      ) {
         // Invariant: ensure 'none' (assistant) always exists
-        if (!merged.some(a => a.agentId === 'none')) {
-          merged.unshift(createAssistantAgent());
+        if (!agents.some(a => a.agentId === 'none')) {
+          agents.unshift(createAssistantAgent());
         }
-        return merged;
+        return agents;
       }
+      // Shape mismatch: discard
+      localStorage.removeItem(AGENTS_KEY);
     }
-
-    return [createAssistantAgent()];
   } catch (err) {
     console.error('Failed to load agents:', err);
-    return [createAssistantAgent()];
   }
+
+  return [createAssistantAgent()];
 }
 
 /**

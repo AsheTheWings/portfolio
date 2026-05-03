@@ -17,11 +17,34 @@ import type {
   UIInterface,
   ToolEffectsData,
 } from '../types';
-import { createDefaultAgentConfig, hasCapability, createAssistantAgent, syncModelsRegistry } from '../services/models-registry';
+import { createDefaultAgentConfig, createAssistantAgent } from '../utils/agent-factory';
 import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
 import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
+import type { ModelSpec } from '../types';
+
+// ============================================================
+// Pure model selectors (no mutable module-level registry)
+// ============================================================
+
+export function selectModelsById(modelsPool: ModelSpec[]): Record<string, ModelSpec> {
+  const map: Record<string, ModelSpec> = {};
+  for (const m of modelsPool) map[m.id] = m;
+  return map;
+}
+
+export function selectModelById(modelsPool: ModelSpec[], id: string): ModelSpec | undefined {
+  return selectModelsById(modelsPool)[id];
+}
+
+export function selectHasCapability(
+  modelsPool: ModelSpec[],
+  modelId: string,
+  capability: ModelCapability,
+): boolean {
+  return selectModelById(modelsPool, modelId)?.capabilities.includes(capability) ?? false;
+}
 
 /**
  * Sentinel id for the ephemeral staged-message preview synthesized by Insert
@@ -74,36 +97,36 @@ function injectAmbient(
  * Extracted from setAgentConfig for reuse by multi-agent actions.
  */
 function enforceConfigInvariants(
-  config: AgentConfig, 
-  currentConfig: AgentConfig | null, 
-  toolsPool: import('../types').Tool[]
+  config: AgentConfig,
+  currentConfig: AgentConfig | null,
+  toolsPool: import('../types').Tool[],
+  modelsPool: ModelSpec[]
 ): AgentConfig {
   const finalConfig = { ...config };
-  
+
   // Rule 1: If model doesn't support thinking, disable enableThinking
-  const supportsThinking = hasCapability(finalConfig.model, ModelCapability.THINKING);
-  if (!supportsThinking) {
+  if (!selectHasCapability(modelsPool, finalConfig.modelId, ModelCapability.THINKING)) {
     finalConfig.enableThinking = false;
   }
-  
+
   // Rule 2: includeThoughtsInResponse requires enableThinking
   if (!finalConfig.enableThinking) {
     finalConfig.includeThoughtsInResponse = false;
     finalConfig.includeThoughtsInContext = false;
   }
-  
+
   // Rule 3: Can't combine MCP tools with native tools
   if (finalConfig.enableTools) {
-    finalConfig.selectedNativeTools = [];
+    finalConfig.selectedNativeToolIds = [];
   }
-  
+
   // Rule 4: Auto-populate availableTools when enabling tools
   if (finalConfig.enableTools && !currentConfig?.enableTools) {
     finalConfig.availableTools = toolsPool;
   } else if (!finalConfig.enableTools) {
     finalConfig.availableTools = [];
   }
-  
+
   return finalConfig;
 }
 
@@ -137,6 +160,7 @@ const initialState = {
   toolsPool: [] as import('../types').Tool[],
   workflowsPool: [] as import('../types').Workflow[],
   modelsPool: [] as import('../types').ModelSpec[],
+  defaultModelId: null as string | null,
   selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
   
   // Per-agent runtime status (ephemeral)
@@ -293,8 +317,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       : configOrUpdater;
     
     // Enforce business rules
-    const finalConfig = enforceConfigInvariants(rawConfig, currentConfig, get().toolsPool);
-    
+    const finalConfig = enforceConfigInvariants(rawConfig, currentConfig, get().toolsPool, get().modelsPool);
+
     const updated = [...currentAgents];
     updated[0] = { ...updated[0], config: finalConfig };
     saveAgents(updated);
@@ -323,12 +347,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     if (!agentConfig) return;
 
-    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool);
-    
+    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool, get().modelsPool);
+
     const updated = currentAgents.length > 0
       ? [{ ...currentAgents[0], config: finalConfig }, ...currentAgents.slice(1)]
       : [{ agentId: 'none', config: finalConfig }];
-    
+
     saveAgents(updated);
     set({ agents: updated });
   },
@@ -364,9 +388,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ selectedWorkflowId });
   },
 
-  setModelsPool: (modelsPool) => {
-    syncModelsRegistry(modelsPool);
-    set({ modelsPool });
+  setModelsPool: (modelsPool, defaultModelId?: string) => {
+    set({ modelsPool, defaultModelId: defaultModelId ?? null });
   },
 
   // UI component actions

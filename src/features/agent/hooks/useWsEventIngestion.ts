@@ -188,6 +188,11 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         for (const [agentId, status] of Object.entries(statuses)) {
           store.setAgentStatus(agentId, status);
         }
+        // Close any composites still in streaming state — agent-turn-completed is not
+        // emitted on abort, so no event will close them.
+        store.setAgentSessionComponents(
+          (components) => components.map((c) => (c.isStreaming ? { ...c, isStreaming: false } : c)),
+        );
       } else if (msg.status === 'resuming') {
         // Re-derive components after backend cleanup
         if (msg.deletedEventIds?.length) {

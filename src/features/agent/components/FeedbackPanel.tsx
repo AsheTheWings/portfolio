@@ -17,6 +17,8 @@ interface FeedbackPanelProps {
   layout?: 'vertical' | 'horizontal' | 'grid';
   onAction: (actionId: string) => void;
   disabled?: boolean;
+  /** When true, renders the prompt above the action buttons instead of beside them. */
+  stackPrompt?: boolean;
 }
 
 export function FeedbackPanel({
@@ -25,6 +27,7 @@ export function FeedbackPanel({
   layout = 'vertical',
   onAction,
   disabled = false,
+  stackPrompt = false,
 }: FeedbackPanelProps) {
   /**
    * Handle keyboard shortcuts
@@ -65,8 +68,11 @@ export function FeedbackPanel({
   }, [handleKeyDown]);
 
   return (
-    <div className="w-fit rounded-2xl border border-border/50 bg-muted/60 backdrop-blur-xl shadow-sm">
-      <div className="flex items-center gap-3 px-5 py-3">
+    <div className="w-fit">
+      <div className={cn(
+        "flex gap-3 px-5 py-3",
+        stackPrompt ? "flex-col items-center" : "items-center",
+      )}>
       {/* Prompt text */}
       {prompt && (
         <span className="text-sm font-medium text-foreground whitespace-nowrap">

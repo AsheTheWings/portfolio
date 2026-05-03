@@ -36,13 +36,15 @@ interface AgentPlaygroundProps {
   initialWorkflows?: Workflow[];
   /** Server-fetched models (hydrated into store on mount) */
   initialModels?: ModelSpec[];
+  /** Server-fetched default model id (from /agent/models) */
+  initialDefaultModelId?: string | null;
   /** Server-fetched session events (SSR) */
   initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialEvents }: AgentPlaygroundProps) {
+export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialDefaultModelId, initialEvents }: AgentPlaygroundProps) {
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
-  useHydrateStore({ initialTools, initialWorkflows, initialModels });
+  useHydrateStore({ initialTools, initialWorkflows, initialModels, initialDefaultModelId });
   
   // Fetch acquired agents (owned + subscribed) and push into store
   useAcquiredAgentsQuery();

@@ -31,22 +31,25 @@ import {
   AvatarFallback,
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
-import { useAgentStore } from '../stores/useAgentStore';
-import { createDefaultAgentConfig, getModelSpec, hasCapability } from '../services/models-registry';
+import { useAgentStore, selectModelById, selectHasCapability } from '../stores/useAgentStore';
+import { createDefaultAgentConfig } from '../utils/agent-factory';
 
 import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
+import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { McpConfigCardContent } from './McpConfigCardContent';
+import { ModelPickerView } from './ModelPickerView';
 
 export function AgentsConfigPanel() {
   // Store state
-  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, removeComponent, uiInterface } = useAgent();
+  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, removeComponent, uiInterface, upsertSystemPanel } = useAgent();
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
 
   // UI state (not part of agent config)
   const [showMcpConfig, setShowMcpConfig] = useState(false);
   const [showSystemInstructions, setShowSystemInstructions] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const [showNativeToolsWarning, setShowNativeToolsWarning] = useState(false);
 
   // Front agent + config (single source of truth)
@@ -54,14 +57,17 @@ export function AgentsConfigPanel() {
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
   const acquiredAgent = frontAgent && frontAgent.agentId !== 'none' ? acquiredAgentsMap[frontAgent.agentId] : undefined;
 
-  const config = agentConfig || createDefaultAgentConfig();
+  const config = agentConfig || createDefaultAgentConfig(undefined, modelsPool);
   const setAgentConfig = updateFrontAgentConfig;
 
   // Model capabilities (dynamically from backend-discovered models)
   const modelOptions = modelsPool;
-  const selectedModelSpec = getModelSpec(config.model);
-  const supportsThinking = hasCapability(config.model, ModelCapability.THINKING);
-  const supportsToolCalling = hasCapability(config.model, ModelCapability.TOOL_CALLING);
+  const selectedModelSpec = selectModelById(modelsPool, config.modelId);
+  const supportsThinking = selectHasCapability(modelsPool, config.modelId, ModelCapability.THINKING);
+  const supportsToolCalling = selectHasCapability(modelsPool, config.modelId, ModelCapability.TOOL_CALLING);
+
+  // Provider key status (lifted out of picker for pure UI)
+  const configuredProviders = useConfiguredProviders();
 
   // Group models by provider for the dropdown
   const modelsByProvider = modelOptions.reduce<Record<string, typeof modelOptions>>((acc, model) => {
@@ -96,19 +102,18 @@ export function AgentsConfigPanel() {
     updateConfig({ availableTools: tools });
   };
 
-  // Helper to update selectedNativeTools
-  const updateSelectedNativeTools = (tools: NativeTool[]) => {
-    updateConfig({ selectedNativeTools: tools });
+  // Helper to update selectedNativeToolIds
+  const updateSelectedNativeToolIds = (ids: string[]) => {
+    updateConfig({ selectedNativeToolIds: ids });
   };
 
   // Helper to handle model change with thinking capability auto-update
-  const handleModelChange = (modelName: string) => {
-    const newModelSpec = getModelSpec(modelName);
-    const newSupportsThinking = hasCapability(modelName, ModelCapability.THINKING);
-    
+  const handleModelChange = (modelId: string) => {
+    const newModelSpec = selectModelById(modelsPool, modelId);
+    const newSupportsThinking = newModelSpec?.capabilities.includes(ModelCapability.THINKING) ?? false;
+
     updateConfig({
-      model: modelName,
-      provider: newModelSpec?.provider || 'google',
+      modelId,
       enableThinking: newSupportsThinking,
       includeThoughtsInResponse: newSupportsThinking,
     });
@@ -116,15 +121,15 @@ export function AgentsConfigPanel() {
 
   // Helper to check if a native tool is selected
   const isNativeToolSelected = (tool: NativeTool) => {
-    return config.selectedNativeTools.some(t => t.id === tool.id);
+    return config.selectedNativeToolIds.includes(tool.id);
   };
 
   // Helper to toggle native tool selection
   const toggleNativeTool = (tool: NativeTool, checked: boolean) => {
     if (checked) {
-      updateSelectedNativeTools([...config.selectedNativeTools, tool]);
+      updateSelectedNativeToolIds([...config.selectedNativeToolIds, tool.id]);
     } else {
-      updateSelectedNativeTools(config.selectedNativeTools.filter(t => t.id !== tool.id));
+      updateSelectedNativeToolIds(config.selectedNativeToolIds.filter(id => id !== tool.id));
     }
   };
 
@@ -152,13 +157,22 @@ export function AgentsConfigPanel() {
         </CardAction>
       </CardHeader>
 
-      <CardContent className={`h-full pb-4 lg:overflow-y-auto lg:[scrollbar-gutter:stable] scrollbar-inner`}>
+      <CardContent className={`h-full lg:overflow-y-auto lg:[scrollbar-gutter:stable] scrollbar-inner`}>
         {/* Additional Content */}
         {/* MCP Config Editor */}
-        {(showMcpConfig || showSystemInstructions) ? (
+        {(showMcpConfig || showSystemInstructions || showModelPicker) ? (
           <div className="h-full">
             {showMcpConfig ? (
                 <McpConfigCardContent onClose={() => setShowMcpConfig(false)} />
+              ) : showModelPicker ? (
+                  <ModelPickerView
+                  models={modelsPool}
+                  selectedModelId={config.modelId}
+                  configuredProviders={configuredProviders}
+                  onSelect={handleModelChange}
+                  onClose={() => setShowModelPicker(false)}
+                  onOpenSettings={() => upsertSystemPanel('settings-panel', 'settings-panel')}
+                />
               ) :
               showSystemInstructions && (
               /* System Instructions Editor */
@@ -190,7 +204,7 @@ export function AgentsConfigPanel() {
           ) : (
 
           /* Main Content */
-          <div className={`flex flex-col ${isStandalone ? 'lg:block lg:h-full lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-6' : ''}`}>
+          <div className={`flex flex-col pb-4 ${isStandalone ? 'lg:block lg:h-full lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-6' : ''}`}>
             <div>
               {/* Agent Selection */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
@@ -245,35 +259,14 @@ export function AgentsConfigPanel() {
               {/* Model Selection */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
                 <Label>Model</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <span className="flex-1 text-left truncate">{selectedModelSpec?.displayName || config.model}</span>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-80 overflow-y-auto">
-                    {Object.entries(modelsByProvider).map(([provider, models], idx) => (
-                      <DropdownMenuGroup key={provider}>
-                        {idx > 0 && <DropdownMenuSeparator />}
-                        <DropdownMenuLabel>{providerLabels[provider] || provider}</DropdownMenuLabel>
-                        {models.map((model) => (
-                          <DropdownMenuItem
-                            key={model.id}
-                            onClick={() => handleModelChange(model.id)}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="flex-1 truncate">{model.displayName || model.id}</span>
-                            {config.model === model.id && <Check className="w-4 h-4 text-primary" />}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuGroup>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  type="button"
+                  onClick={() => setShowModelPicker(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring hover:bg-accent transition-colors"
+                >
+                  <span className="flex-1 text-left truncate">{selectedModelSpec?.displayName || config.modelId}</span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </button>
                 <p className="text-xs text-muted-foreground">
                   Max tokens: {selectedModelSpec?.maxTokens?.toLocaleString() || 'Unknown'}
                 </p>

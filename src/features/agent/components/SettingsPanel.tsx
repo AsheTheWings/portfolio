@@ -12,9 +12,207 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, 
 import { useAgent } from '../hooks/useAgent';
 import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
+import { httpClient } from '@/features/shared/utils/http-client';
+
+// ============================================================
+// BYOK — Provider definitions
+// ============================================================
+
+interface ProviderDef {
+  id: string;
+  label: string;
+  placeholder: string;
+  helpUrl: string;
+}
+
+const PROVIDERS: ProviderDef[] = [
+  {
+    id: 'google',
+    label: 'Google (Gemini)',
+    placeholder: 'AIza...',
+    helpUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    id: 'fireworks',
+    label: 'Fireworks AI',
+    placeholder: 'fw_...',
+    helpUrl: 'https://fireworks.ai/api-keys',
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    placeholder: 'sk-or-...',
+    helpUrl: 'https://openrouter.ai/keys',
+  },
+  {
+    id: 'fal',
+    label: 'Fal.ai',
+    placeholder: 'fal-key-...',
+    helpUrl: 'https://fal.ai/dashboard/keys',
+  },
+];
+
+// ============================================================
+// API helpers
+// ============================================================
+
+async function fetchConfiguredProviders(): Promise<string[]> {
+  const data = await httpClient.get<{ configured: string[] }>('/api/settings/api-keys');
+  return data.configured;
+}
+
+async function saveProviderKey(provider: string, key: string): Promise<void> {
+  await httpClient.put(`/api/settings/api-keys/${provider}`, { key });
+}
+
+async function removeProviderKey(provider: string): Promise<void> {
+  await httpClient.delete(`/api/settings/api-keys/${provider}`);
+}
+
+// ============================================================
+// ApiKeyRow — manages one provider's input state
+// ============================================================
+
+interface ApiKeyRowProps {
+  provider: ProviderDef;
+  isConfigured: boolean;
+  onSaved: (provider: string) => void;
+  onRemoved: (provider: string) => void;
+}
+
+function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveProviderKey(provider.id, value.trim());
+      setValue('');
+      setEditing(false);
+      onSaved(provider.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save key');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setRemoving(true);
+    setError(null);
+    try {
+      await removeProviderKey(provider.id);
+      onRemoved(provider.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove key');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void handleSave();
+    if (e.key === 'Escape') { setValue(''); setEditing(false); setError(null); }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{provider.label}</span>
+          {isConfigured && !editing && (
+            <span className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="5.5" stroke="currentColor" strokeWidth="1" fill="none" />
+                <path d="M3.5 6L5.5 8L8.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Configured
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={provider.helpUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            title="Get API key"
+          >
+            Get key ↗
+          </a>
+          {isConfigured && !editing && (
+            <>
+              <button
+                onClick={() => { setEditing(true); setError(null); }}
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => void handleRemove()}
+                disabled={removing}
+                className="text-xs text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+              >
+                {removing ? '…' : 'Remove'}
+              </button>
+            </>
+          )}
+          {!isConfigured && !editing && (
+            <button
+              onClick={() => { setEditing(true); setError(null); }}
+              className="text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+
+      {editing && (
+        <div className="flex gap-2 items-center">
+          <Input
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={provider.placeholder}
+            className="flex-1 h-8 text-xs font-mono"
+            autoFocus
+          />
+          <button
+            onClick={() => void handleSave()}
+            disabled={saving || !value.trim()}
+            className="text-xs text-primary hover:text-primary/80 disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            onClick={() => { setValue(''); setEditing(false); setError(null); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive">{error}</p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// SettingsPanel
+// ============================================================
 
 export function SettingsPanel() {
-  const [apiKeys, setApiKeys] = useState<string[]>(['']);
   const { removeComponent, uiInterface, setUiInterface } = useAgent();
   // MCP is Phase 3 — stub as no-ops / not connected
   const connectMcp = useCallback(async (_config: unknown) => { /* Phase 3 */ }, []);
@@ -24,19 +222,16 @@ export function SettingsPanel() {
   const [mcpPort, setMcpPort] = useState(() => loadMcpConfig().port);
   const prevMcpPort = useRef(mcpPort);
 
-  const handleAddApiKey = () => {
-    setApiKeys([...apiKeys, '']);
-  };
+  // BYOK state
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
+  const [keysLoading, setKeysLoading] = useState(true);
 
-  const handleRemoveApiKey = (index: number) => {
-    setApiKeys(apiKeys.filter((_, i) => i !== index));
-  };
-
-  const handleApiKeyChange = (index: number, value: string) => {
-    const newKeys = [...apiKeys];
-    newKeys[index] = value;
-    setApiKeys(newKeys);
-  };
+  useEffect(() => {
+    fetchConfiguredProviders()
+      .then(setConfiguredProviders)
+      .catch(() => { /* silently ignore — panel still usable */ })
+      .finally(() => setKeysLoading(false));
+  }, []);
 
   const handleMcpEnabledToggle = async () => {
     const newEnabled = !mcpEnabled;
@@ -46,7 +241,6 @@ export function SettingsPanel() {
     config.enabled = newEnabled;
     saveMcpConfig(config);
     
-    // Connect or disconnect based on new state
     if (newEnabled) {
       try {
         await connectMcp(config);
@@ -62,7 +256,6 @@ export function SettingsPanel() {
     const portNum = parseInt(value, 10);
     if (!isNaN(portNum) && portNum > 0 && portNum < 65536) {
       setMcpPort(portNum);
-      
       const config = loadMcpConfig();
       config.port = portNum;
       saveMcpConfig(config);
@@ -71,21 +264,13 @@ export function SettingsPanel() {
 
   // Debounced auto-reconnect on port change
   useEffect(() => {
-    // Only reconnect if port actually changed
-    if (prevMcpPort.current === mcpPort) {
-      return;
-    }
-
-    // Only reconnect if MCP is enabled and was previously connected or in error state
+    if (prevMcpPort.current === mcpPort) return;
     if (!mcpEnabled || mcpHostStatus === 'notConnected') {
       prevMcpPort.current = mcpPort;
       return;
     }
-
-    // Debounce: wait 1 second after last port change
     const timeoutId = setTimeout(async () => {
       const config = loadMcpConfig();
-      
       try {
         prevMcpPort.current = mcpPort;
         await disconnectMcp();
@@ -94,7 +279,6 @@ export function SettingsPanel() {
         console.warn('[SettingsPanel] Reconnection failed:', err instanceof Error ? err.message : String(err));
       }
     }, 1000);
-
     return () => clearTimeout(timeoutId);
   }, [mcpPort, mcpEnabled, mcpHostStatus, connectMcp, disconnectMcp]);
 
@@ -212,51 +396,30 @@ export function SettingsPanel() {
           )}
         </div>
 
-        {/* API Keys Section */}
-        <div className="flex flex-col gap-3 pt-6 border-t border-border">
-          <Label>API Keys</Label>
-          
-          <div className="flex flex-col gap-2">
-            {apiKeys.map((key, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <Input
-                  type="password"
-                  value={key}
-                  onChange={(e) => handleApiKeyChange(index, e.target.value)}
-                  placeholder={`API Key ${index + 1}`}
-                  className="flex-1"
-                />
-                {apiKeys.length > 1 && (
-                  <button
-                    onClick={() => handleRemoveApiKey(index)}
-                    className="p-2 hover:bg-accent rounded transition-colors text-destructive"
-                    title="Remove API key"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Add API Key Button */}
-          <button
-            onClick={handleAddApiKey}
-            className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Add API Key
-          </button>
-
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              Note: API keys are managed on the frontend for now. No actual business logic is implemented yet.
+        {/* API Keys Section (BYOK) */}
+        <div className="flex flex-col gap-4 pt-6 border-t border-border">
+          <div>
+            <Label>API Keys</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Your keys are encrypted at rest and used only for your own inference requests.
             </p>
           </div>
+
+          {keysLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {PROVIDERS.map((provider) => (
+                <ApiKeyRow
+                  key={provider.id}
+                  provider={provider}
+                  isConfigured={configuredProviders.includes(provider.id)}
+                  onSaved={(id) => setConfiguredProviders((prev) => [...new Set([...prev, id])])}
+                  onRemoved={(id) => setConfiguredProviders((prev) => prev.filter((p) => p !== id))}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </>
   );
@@ -292,3 +455,4 @@ export function SettingsPanel() {
     </Card>
   );
 }
+

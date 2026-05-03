@@ -62,7 +62,7 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
               {agent.name}
             </div>
             <div className={`text-xs truncate ${isSelected ? `${textClass} opacity-70` : 'text-muted-foreground'}`}>
-              {agent.agentConfig.model}
+              {agent.agentConfig.modelId}
             </div>
           </div>
         </div>

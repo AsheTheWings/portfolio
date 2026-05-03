@@ -4,12 +4,10 @@
 
 import type { AgentStatus } from '../utils/agent-status';
 
-// Model capabilities
+// Model capabilities (kept in sync with backend enum)
 export enum ModelCapability {
   THINKING = 'thinking',
   VISION = 'vision',
-  AUDIO = 'audio',
-  VIDEO = 'video',
   IMAGE_GENERATION = 'image_generation',
   TOOL_CALLING = 'tool_calling',
 }
@@ -104,14 +102,13 @@ export function workflowDisplayName(id: string): string {
 
 // Model specification
 export interface ModelSpec {
-  id: string;
-  provider: 'google' | 'openai' | 'anthropic' | 'fireworks';
+  id: string;              // canonical: "provider:providerModelId"
+  provider: string;        // provider identifier (e.g. 'google', 'fireworks', 'openrouter')
+  providerModelId: string; // provider-native id sent to the provider API
   displayName?: string;
-  name?: string; // Legacy, same as id? or internal name? keeping for compat if needed, but registry uses id/displayName
   capabilities: ModelCapability[];
   nativeTools?: NativeTool[];
   maxTokens?: number;
-  supportsStreaming?: boolean;
 }
 
 // Saved agent record as returned by the REST API
@@ -137,9 +134,8 @@ export interface Agent {
 
 // Agent configuration (per-call settings)
 export interface AgentConfig {
-  // Provider and model selection
-  provider: string;
-  model: string;
+  // Model selection (canonical id: "provider:providerModelId")
+  modelId: string;
   
   // System instructions
   systemInstructions?: string;
@@ -152,8 +148,8 @@ export interface AgentConfig {
   temperature: number;
   topP: number;
   
-  // Native tools selection (available tools defined in ModelSpec)
-  selectedNativeTools: NativeTool[];
+  // Native tools selection (ids only — resolved against ModelSpec at runtime)
+  selectedNativeToolIds: string[];
   
   // Thinking mode
   enableThinking: boolean;
@@ -171,7 +167,7 @@ export interface AgentConfig {
   
   // Structured output (optional, for JSON responses)
   responseSchema?: Record<string, unknown>;  // JSON schema for structured output
-  responseMimeType?: string;             // e.g., 'application/json'
+  responseMimeType?: string;             // e.g. 'application/json'
 }
 
 // Base interface for all native tool metadata
@@ -588,7 +584,8 @@ export interface AgentState {
   toolsPool: Tool[];
   workflowsPool: Workflow[];
   modelsPool: ModelSpec[];
-  
+  defaultModelId: string | null;
+
   // Active session workflow selection (persisted in localStorage)
   selectedWorkflowId: string;
   
@@ -640,7 +637,7 @@ export interface AgentState {
   setToolsPool: (tools: Tool[]) => void;
   setWorkflowsPool: (workflows: Workflow[]) => void;
   setSelectedWorkflowId: (id: string) => void;
-  setModelsPool: (models: ModelSpec[]) => void;
+  setModelsPool: (models: ModelSpec[], defaultModelId?: string) => void;
   
   // UI component actions
   setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;

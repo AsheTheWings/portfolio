@@ -75,7 +75,7 @@ export function useAgent() {
   const triggerSubmit = useAgentStore((state) => state.triggerSubmit);
   // Hook dependencies
   const { loadAgentSession, clearAgentSession } = useAgentSessionLifecycle();
-  const { submitMessage, stopAgent, submitFeedback, resumeAgent } = useAgentCall();
+  const { stopAgent, submitFeedback, resumeAgent } = useAgentCall();
 
   return {
     // Session
@@ -142,7 +142,6 @@ export function useAgent() {
     clearAgentSession,
     
     // Agent actions (WS-driven)
-    submitMessage,
     stopAgent,
     submitFeedback,
     resumeAgent,

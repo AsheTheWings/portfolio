@@ -37,9 +37,10 @@ export interface AgentSessionEventsResponse {
 }
 
 export interface ModelsResponse {
+  contractVersion: number;
   models: ModelSpec[];
   providers: string[];
-  defaultConfig: AgentConfig;
+  defaultModelId: string;
 }
 
 export interface BranchResponse {

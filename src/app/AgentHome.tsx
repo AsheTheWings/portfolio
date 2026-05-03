@@ -20,10 +20,11 @@ interface AgentHomeProps {
   initialTools: Tool[];
   initialWorkflows: Workflow[];
   initialModels?: ModelSpec[];
+  initialDefaultModelId?: string | null;
   initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentHome({ initialUser, initialTools, initialWorkflows, initialModels, initialEvents }: AgentHomeProps) {
+export function AgentHome({ initialUser, initialTools, initialWorkflows, initialModels, initialDefaultModelId, initialEvents }: AgentHomeProps) {
   const { user, isAuthenticated, _hydrated, setUser } = useAuthStore();
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
@@ -46,7 +47,7 @@ export function AgentHome({ initialUser, initialTools, initialWorkflows, initial
 
   return (
     <AgentConnectionProvider>
-      <AgentPlayground sessionId={sessionId} initialTools={initialTools} initialWorkflows={initialWorkflows} initialModels={initialModels} initialEvents={initialEvents} />
+      <AgentPlayground sessionId={sessionId} initialTools={initialTools} initialWorkflows={initialWorkflows} initialModels={initialModels} initialDefaultModelId={initialDefaultModelId} initialEvents={initialEvents} />
     </AgentConnectionProvider>
   );
 }
