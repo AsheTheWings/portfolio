@@ -15,7 +15,7 @@ export function useConfiguredProviders(): Set<string> {
 
   useEffect(() => {
     httpClient
-      .get<{ configured: string[] }>('/api/settings/api-keys')
+      .get<{ configured: string[] }>('/settings/api-keys')
       .then((data) => setConfigured(new Set(data.configured)))
       .catch(() => { /* panel still usable without key status */ });
   }, []);

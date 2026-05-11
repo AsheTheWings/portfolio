@@ -17,10 +17,17 @@
  */
 
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Check, KeyRound, Search } from 'lucide-react';
+import { ArrowLeft, Check, Search } from 'lucide-react';
 import { Input } from '@/features/shared/components/shadcn';
 import type { ModelSpec } from '../types';
 import { ModelCapability } from '../types';
+import {
+  getModelCapabilities,
+  getModelContextLength,
+  getModelDisplayName,
+  getModelProvider,
+  getModelProviderName,
+} from '../utils/openrouter-models';
 
 // ============================================================
 // Types
@@ -29,9 +36,12 @@ import { ModelCapability } from '../types';
 export interface ModelPickerViewProps {
   models: ModelSpec[];
   selectedModelId: string;
-  configuredProviders: Set<string>;
-  onSelect: (modelId: string) => void;
+  selectedProviderId?: string;
+  onSelect: (selection: { providerId: string; modelId: string }) => void;
   onClose: () => void;
+  /** Whether the user has configured an OpenRouter API key */
+  hasApiKey: boolean;
+  /** Called when the user clicks to add an API key from the warning banner */
   onOpenSettings: () => void;
 }
 
@@ -109,7 +119,7 @@ const ALL_CAPABILITIES = [
   ModelCapability.TOOL_CALLING,
 ] as const;
 
-const CAPABILITY_LABELS: Record<ModelCapability, string> = {
+const CAPABILITY_LABELS: Record<(typeof ALL_CAPABILITIES)[number], string> = {
   [ModelCapability.THINKING]: 'Thinking',
   [ModelCapability.VISION]: 'Vision',
   [ModelCapability.IMAGE_GENERATION]: 'Img Gen',
@@ -123,9 +133,10 @@ const CAPABILITY_LABELS: Record<ModelCapability, string> = {
 export function ModelPickerView({
   models,
   selectedModelId,
-  configuredProviders,
+  selectedProviderId = 'openrouter',
   onSelect,
   onClose,
+  hasApiKey,
   onOpenSettings,
 }: ModelPickerViewProps) {
   const [query, setQuery] = useState('');
@@ -141,7 +152,7 @@ export function ModelPickerView({
   const providers = useMemo(() => {
     const seen = new Set<string>();
     for (const m of models) {
-      seen.add(m.provider);
+      seen.add(getModelProvider(m));
     }
     return Array.from(seen);
   }, [models]);
@@ -150,10 +161,12 @@ export function ModelPickerView({
   const grouped = useMemo(() => {
     const q = query.toLowerCase();
     const filtered = models.filter((m) => {
-      const matchProvider = activeProvider === 'all' || m.provider === activeProvider;
+      const provider = getModelProvider(m);
+      const displayName = getModelDisplayName(m);
+      const matchProvider = activeProvider === 'all' || provider === activeProvider;
       const matchQuery =
         !q ||
-        (m.displayName ?? m.id).toLowerCase().includes(q) ||
+        displayName.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q);
       return matchProvider && matchQuery;
     });
@@ -161,15 +174,15 @@ export function ModelPickerView({
     // Group by provider, preserving insertion order
     const groups = new Map<string, ModelSpec[]>();
     for (const m of filtered) {
-      if (!groups.has(m.provider)) groups.set(m.provider, []);
-      groups.get(m.provider)!.push(m);
+      const provider = getModelProvider(m);
+      if (!groups.has(provider)) groups.set(provider, []);
+      groups.get(provider)!.push(m);
     }
     return groups;
   }, [models, query, activeProvider]);
 
-  const handleSelect = (modelId: string, providerHasKey: boolean) => {
-    if (!providerHasKey) return; // ignore clicks on dimmed models
-    onSelect(modelId);
+  const handleSelect = (model: ModelSpec) => {
+    onSelect({ providerId: getModelProvider(model), modelId: model.id });
     onClose();
   };
 
@@ -232,8 +245,8 @@ export function ModelPickerView({
           <p className="text-xs text-muted-foreground text-center py-6">No models found</p>
         )}
         {Array.from(grouped.entries()).map(([provider, providerModels]) => {
-          const hasKey = configuredProviders.has(provider);
-          const label = PROVIDER_LABELS[provider] ?? provider;
+          const label = getModelProviderName(providerModels[0]) || PROVIDER_LABELS[provider] || provider;
+          const isOpenRouter = provider === 'openrouter';
 
           return (
             <div key={provider}>
@@ -242,52 +255,48 @@ export function ModelPickerView({
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">
                   {label}
                 </span>
-                {hasKey ? (
-                  <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
-                    <Check className="w-3 h-3" />
-                    Key configured
-                  </span>
-                ) : (
-                  <button
-                    onClick={onOpenSettings}
-                    className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors"
-                  >
-                    <KeyRound className="w-3 h-3" />
-                    Add API key
-                  </button>
-                )}
+                <span className="text-[10px] text-muted-foreground">{isOpenRouter ? 'built-in' : 'custom'}</span>
               </div>
 
               {/* Model rows */}
               {providerModels.map((model) => {
-                const isSelected = model.id === selectedModelId;
-                const dimmed = !hasKey;
-                const displayName = model.displayName ?? model.id;
+                const modelProviderId = getModelProvider(model);
+                const isSelected = model.id === selectedModelId && modelProviderId === selectedProviderId;
+                const displayName = getModelDisplayName(model);
+                const capabilities = getModelCapabilities(model);
 
                 return (
                   <button
                     key={model.id}
-                    onClick={() => handleSelect(model.id, hasKey)}
-                    disabled={dimmed}
+                    onClick={() => {
+                      if (!hasApiKey && isSelected) {
+                        onOpenSettings();
+                      } else {
+                        handleSelect(model);
+                      }
+                    }}
                     className={`w-full flex items-center gap-1 px-2 py-1.5 rounded-md text-left transition-colors text-sm
-                      ${dimmed
-                        ? 'opacity-35 cursor-default'
-                        : isSelected
+                      ${!hasApiKey && !isSelected ? 'opacity-50' : ''}
+                      ${isSelected
+                        ? hasApiKey
                           ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-accent text-foreground'
+                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                        : 'hover:bg-accent text-foreground'
                       }`}
                   >
                     <span className="flex-1 min-w-0 truncate text-xs">{displayName}</span>
                     <span className="w-10 text-center shrink-0 text-[10px] text-muted-foreground font-mono">
-                      {formatContext(model.maxTokens)}
+                      {formatContext(getModelContextLength(model))}
                     </span>
                     {ALL_CAPABILITIES.map((cap) => (
                       <span
                         key={cap}
                         title={CAPABILITY_LABELS[cap]}
                         className={`w-7 flex justify-center shrink-0 ${
-                          model.capabilities.includes(cap)
-                            ? dimmed ? 'text-foreground' : 'text-primary'
+                          capabilities.includes(cap)
+                            ? isSelected && !hasApiKey
+                              ? 'text-amber-700 dark:text-amber-400'
+                              : 'text-primary'
                             : 'text-transparent'
                         }`}
                       >
@@ -295,7 +304,11 @@ export function ModelPickerView({
                       </span>
                     ))}
                     <div className="w-4 flex justify-center shrink-0">
-                      {isSelected && !dimmed && <Check className="w-3 h-3 text-primary" />}
+                      {isSelected && (
+                        hasApiKey
+                          ? <Check className="w-3 h-3 text-primary" />
+                          : <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">→</span>
+                      )}
                     </div>
                   </button>
                 );

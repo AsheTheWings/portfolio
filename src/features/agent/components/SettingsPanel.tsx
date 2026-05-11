@@ -13,6 +13,7 @@ import { useAgent } from '../hooks/useAgent';
 import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import { httpClient } from '@/features/shared/utils/http-client';
+import { CustomModelProvidersSection } from './CustomModelProvidersSection';
 
 // ============================================================
 // BYOK — Provider definitions
@@ -27,18 +28,6 @@ interface ProviderDef {
 
 const PROVIDERS: ProviderDef[] = [
   {
-    id: 'google',
-    label: 'Google (Gemini)',
-    placeholder: 'AIza...',
-    helpUrl: 'https://aistudio.google.com/apikey',
-  },
-  {
-    id: 'fireworks',
-    label: 'Fireworks AI',
-    placeholder: 'fw_...',
-    helpUrl: 'https://fireworks.ai/api-keys',
-  },
-  {
     id: 'openrouter',
     label: 'OpenRouter',
     placeholder: 'sk-or-...',
@@ -52,21 +41,36 @@ const PROVIDERS: ProviderDef[] = [
   },
 ];
 
+const API_KEY_SECTIONS = [
+  {
+    id: 'llm',
+    title: 'LLM',
+    description: 'Language model inference providers used by chat and agent runs.',
+    providerIds: ['openrouter'],
+  },
+  {
+    id: 'media-generation',
+    title: 'Media Generation',
+    description: 'Image, video, and other media generation providers.',
+    providerIds: ['fal'],
+  },
+] as const;
+
 // ============================================================
 // API helpers
 // ============================================================
 
 async function fetchConfiguredProviders(): Promise<string[]> {
-  const data = await httpClient.get<{ configured: string[] }>('/api/settings/api-keys');
+  const data = await httpClient.get<{ configured: string[] }>('/settings/api-keys');
   return data.configured;
 }
 
 async function saveProviderKey(provider: string, key: string): Promise<void> {
-  await httpClient.put(`/api/settings/api-keys/${provider}`, { key });
+  await httpClient.put(`/settings/api-keys/${provider}`, { key });
 }
 
 async function removeProviderKey(provider: string): Promise<void> {
-  await httpClient.delete(`/api/settings/api-keys/${provider}`);
+  await httpClient.delete(`/settings/api-keys/${provider}`);
 }
 
 // ============================================================
@@ -122,88 +126,95 @@ function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProp
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{provider.label}</span>
-          {isConfigured && !editing && (
-            <span className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <circle cx="6" cy="6" r="5.5" stroke="currentColor" strokeWidth="1" fill="none" />
-                <path d="M3.5 6L5.5 8L8.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Configured
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={provider.helpUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            title="Get API key"
-          >
-            Get key ↗
-          </a>
-          {isConfigured && !editing && (
-            <>
+    <div className="rounded-md border border-input p-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">{provider.label}</span>
+              {isConfigured && !editing && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <circle cx="6" cy="6" r="5.5" stroke="currentColor" strokeWidth="1" fill="none" />
+                    <path d="M3.5 6L5.5 8L8.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Configured
+                </span>
+              )}
+              {!isConfigured && !editing && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  Not configured
+                </span>
+              )}
+            </div>
+            <a
+              href={provider.helpUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex text-xs text-cyan-600 transition-colors hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
+              title="Get API key"
+            >
+              Get API key
+            </a>
+          </div>
+
+          {!editing && (
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => { setEditing(true); setError(null); }}
-                className="text-xs text-primary hover:text-primary/80 transition-colors"
+                className="text-xs text-primary transition-colors hover:text-primary/80"
               >
-                Update
+                {isConfigured ? 'Update' : 'Add'}
+              </button>
+              {isConfigured && (
+                <button
+                  onClick={() => void handleRemove()}
+                  disabled={removing}
+                  className="text-xs text-destructive transition-colors hover:text-destructive/80 disabled:opacity-50"
+                >
+                  {removing ? 'Removing…' : 'Remove'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {editing && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={provider.placeholder}
+              className="h-8 flex-1 font-mono text-xs placeholder:text-xs"
+              autoComplete="new-password"
+              autoCorrect="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleSave()}
+                disabled={saving || !value.trim()}
+                className="text-xs text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
               </button>
               <button
-                onClick={() => void handleRemove()}
-                disabled={removing}
-                className="text-xs text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+                onClick={() => { setValue(''); setEditing(false); setError(null); }}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                {removing ? '…' : 'Remove'}
+                Cancel
               </button>
-            </>
-          )}
-          {!isConfigured && !editing && (
-            <button
-              onClick={() => { setEditing(true); setError(null); }}
-              className="text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              Add
-            </button>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p className="text-xs text-destructive">{error}</p>
+        )}
       </div>
-
-      {editing && (
-        <div className="flex gap-2 items-center">
-          <Input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={provider.placeholder}
-            className="flex-1 h-8 text-xs font-mono"
-            autoFocus
-          />
-          <button
-            onClick={() => void handleSave()}
-            disabled={saving || !value.trim()}
-            className="text-xs text-primary hover:text-primary/80 disabled:opacity-50 transition-colors whitespace-nowrap"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button
-            onClick={() => { setValue(''); setEditing(false); setError(null); }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
     </div>
   );
 }
@@ -282,61 +293,60 @@ export function SettingsPanel() {
     return () => clearTimeout(timeoutId);
   }, [mcpPort, mcpEnabled, mcpHostStatus, connectMcp, disconnectMcp]);
 
+  // Chat mode = standalone (centered card), side-by-side = inline
+  const isStandalone = uiInterface === 'chat';
+  const providersById = new Map(PROVIDERS.map((provider) => [provider.id, provider]));
+
   const content = (
-    <>
+    <div className="flex flex-col pb-4">
+      <div>
         {/* Interface Mode */}
-        <div className="flex flex-col gap-3">
+        <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
           <Label>Interface Mode</Label>
           <p className="text-xs text-muted-foreground">
-            Choose your preferred interface layout
+            Choose your preferred interface layout.
           </p>
-          
-          <div className="flex gap-2">
-            {/* Chat Layout */}
-            <div className="flex-1">
-              <button
-                onClick={() => setUiInterface('chat')}
-                className={`w-full p-4 rounded-lg border-2 transition-all ${
-                  uiInterface === 'chat'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <svg width="40" height="28" viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="2" width="36" height="24" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                  <span className="text-sm font-medium">Chat</span>
-                  <span className="text-xs text-muted-foreground text-center">Traditional chat interface</span>
-                </div>
-              </button>
-            </div>
 
-            {/* Flat Layout */}
-            <div className="flex-1">
-              <button
-                onClick={() => setUiInterface('flat')}
-                className={`w-full p-4 rounded-lg border-2 transition-all ${
-                  uiInterface === 'flat'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <svg width="40" height="28" viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="2" width="36" height="24" stroke="currentColor" strokeWidth="2" fill="none" />
-                    <line x1="20" y1="2" x2="20" y2="26" stroke="currentColor" strokeWidth="2" />
-                  </svg>
-                  <span className="text-sm font-medium">Flat</span>
-                  <span className="text-xs text-muted-foreground text-center">Linear event stream</span>
-                </div>
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setUiInterface('chat')}
+              className={`rounded-md border p-3 transition-all ${
+                uiInterface === 'chat'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-input hover:bg-secondary'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-2">
+                <svg width="40" height="28" viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="36" height="24" stroke="currentColor" strokeWidth="2" fill="none" />
+                </svg>
+                <span className="text-sm font-medium">Chat</span>
+                <span className="text-center text-xs text-muted-foreground">Traditional chat interface</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setUiInterface('flat')}
+              className={`rounded-md border p-3 transition-all ${
+                uiInterface === 'flat'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-input hover:bg-secondary'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-2">
+                <svg width="40" height="28" viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="36" height="24" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <line x1="20" y1="2" x2="20" y2="26" stroke="currentColor" strokeWidth="2" />
+                </svg>
+                <span className="text-sm font-medium">Flat</span>
+                <span className="text-center text-xs text-muted-foreground">Linear event stream</span>
+              </div>
+            </button>
           </div>
         </div>
 
         {/* Local MCP Host Section */}
-        <div className="flex flex-col gap-3 pt-6 border-t border-border">
+        <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
           <Label>Local MCP Host</Label>
           <div className="flex flex-col gap-1">
             <div className="flex items-center">
@@ -354,19 +364,19 @@ export function SettingsPanel() {
                   '&.Mui-checked': { color: 'var(--color-primary)' },
                 }}
               />
-              <Label htmlFor="mcp-enabled-settings" className="font-normal text-[0.805rem] cursor-pointer">
+              <Label htmlFor="mcp-enabled-settings" className="font-normal text-xs cursor-pointer">
                 Enable MCP Host
               </Label>
             </div>
             <p className="text-xs text-muted-foreground pl-1">
-              Configure connection to local MCP host service
+              Configure connection to local MCP host service.
             </p>
           </div>
 
           {mcpEnabled && (
-            <div className="flex">
-              <div className="w-[50%] flex items-center gap-2">
-                <Label htmlFor="mcp-port-settings" className="font-normal text-[0.805rem]">
+            <div className="grid grid-cols-2 gap-3 rounded-md border border-input p-3">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="mcp-port-settings" className="font-normal text-xs">
                   Port
                 </Label>
                 <Input
@@ -376,31 +386,36 @@ export function SettingsPanel() {
                   onChange={(e) => handleMcpPortChange(e.target.value)}
                   min="1"
                   max="65535"
-                  className="w-24 h-8 text-sm"
+                  className="h-8 w-24 text-xs"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
-              
-              <div className="w-[50%] flex items-center gap-2">
-                <Label className="font-normal text-[0.805rem]">Status</Label>
+
+              <div className="flex items-center gap-2">
+                <Label className="font-normal text-xs">Status</Label>
                 {mcpHostStatus === 'connected' && (
-                  <span className="text-sm text-green-600 dark:text-green-400">Connected</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">Connected</span>
                 )}
                 {mcpHostStatus === 'notConnected' && (
-                  <span className="text-sm text-muted-foreground">Not connected</span>
+                  <span className="text-xs text-muted-foreground">Not connected</span>
                 )}
                 {mcpHostStatus === 'error' && (
-                  <span className="text-sm text-red-600 dark:text-red-400">Error</span>
+                  <span className="text-xs text-red-600 dark:text-red-400">Error</span>
                 )}
               </div>
             </div>
           )}
         </div>
+      </div>
 
+      <div>
         {/* API Keys Section (BYOK) */}
-        <div className="flex flex-col gap-4 pt-6 border-t border-border">
+        <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
           <div>
             <Label>API Keys</Label>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               Your keys are encrypted at rest and used only for your own inference requests.
             </p>
           </div>
@@ -408,34 +423,51 @@ export function SettingsPanel() {
           {keysLoading ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
           ) : (
-            <div className="flex flex-col gap-4">
-              {PROVIDERS.map((provider) => (
-                <ApiKeyRow
-                  key={provider.id}
-                  provider={provider}
-                  isConfigured={configuredProviders.includes(provider.id)}
-                  onSaved={(id) => setConfiguredProviders((prev) => [...new Set([...prev, id])])}
-                  onRemoved={(id) => setConfiguredProviders((prev) => prev.filter((p) => p !== id))}
-                />
+            <div className="flex flex-col gap-6">
+              {API_KEY_SECTIONS.map((section) => (
+                <div key={section.id} className="flex flex-col gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">{section.title}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {section.providerIds.map((providerId) => {
+                      const provider = providersById.get(providerId);
+                      if (!provider) return null;
+
+                      return (
+                        <ApiKeyRow
+                          key={provider.id}
+                          provider={provider}
+                          isConfigured={configuredProviders.includes(provider.id)}
+                          onSaved={(id) => setConfiguredProviders((prev) => [...new Set([...prev, id])])}
+                          onRemoved={(id) => setConfiguredProviders((prev) => prev.filter((p) => p !== id))}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
-      </>
-  );
 
-  // Chat mode = standalone (centered card), side-by-side = inline
-  const isStandalone = uiInterface === 'chat';
+        <CustomModelProvidersSection />
+      </div>
+    </div>
+  );
 
   const handleClose = () => {
     removeComponent('settings-panel');
   };
 
   return (
-    <Card className={isStandalone ? "w-md min-w-[320px]" : "w-full border-none shadow-none bg-transparent"}>
+    <Card className={isStandalone ? "w-md min-w-[320px] lg:h-[76vh] lg:w-full" : "w-full border-none shadow-none bg-transparent"}>
       <CardHeader>
-        <CardTitle>Settings</CardTitle>
-        <CardDescription>Manage playground settings</CardDescription>
+        <div className="flex flex-col gap-1">
+          <CardTitle>Settings</CardTitle>
+          <CardDescription>Manage playground settings</CardDescription>
+        </div>
         <CardAction>
           <button
             onClick={handleClose}
@@ -449,7 +481,7 @@ export function SettingsPanel() {
         </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-6">
+      <CardContent className="h-full lg:overflow-y-auto lg:[scrollbar-gutter:stable] scrollbar-inner">
         {content}
       </CardContent>
     </Card>

@@ -26,7 +26,7 @@ import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
 import { parseLibraryPaths } from '../utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@/features/library';
 import { DebugView } from './DebugView';
-import type { AgentSessionComponent, AgentSessionEvent, EditingData } from '../types';
+import type { AgentSessionComponent, AgentSessionEvent } from '../types';
 
 // ────────────────────────────────────────────────────────────
 // Tagged content parsing

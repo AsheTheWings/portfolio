@@ -4,20 +4,13 @@
 
 import type { AgentStatus } from '../utils/agent-status';
 
-// Model capabilities (kept in sync with backend enum)
+// Frontend-derived OpenRouter capability labels.
 export enum ModelCapability {
   THINKING = 'thinking',
   VISION = 'vision',
   IMAGE_GENERATION = 'image_generation',
   TOOL_CALLING = 'tool_calling',
-}
-
-// Native tool definition (Generic)
-export interface NativeTool {
-  id: string;
-  name: string;
-  provider: string;
-  description?: string;
+  STRUCTURED_OUTPUT = 'structured_output',
 }
 
 // Tool handler function type
@@ -100,15 +93,54 @@ export function workflowDisplayName(id: string): string {
     .join(' ');
 }
 
-// Model specification
+export type ModelParameterType = 'number' | 'integer' | 'boolean' | 'string' | 'string[]' | 'enum' | 'object';
+
+export interface ModelParameterSchema {
+  key: string;
+  label: string;
+  description: string;
+  type: ModelParameterType;
+  default?: unknown;
+  constraints?: {
+    min?: number;
+    max?: number;
+    step?: number;
+    options?: Array<{ value: string; label: string }>;
+  };
+  control?: 'input' | 'slider' | 'select' | 'tri-state' | 'tags' | 'reasoning-budget';
+  group?: 'sampling' | 'penalties' | 'reasoning' | 'output' | 'advanced';
+}
+
+// Model object returned by the backend model registry.
 export interface ModelSpec {
-  id: string;              // canonical: "provider:providerModelId"
-  provider: string;        // provider identifier (e.g. 'google', 'fireworks', 'openrouter')
-  providerModelId: string; // provider-native id sent to the provider API
+  id: string;
+  name?: string;
   displayName?: string;
-  capabilities: ModelCapability[];
-  nativeTools?: NativeTool[];
+  provider?: string;
+  providerId?: string;
+  providerName?: string;
+  source?: 'built-in' | 'custom';
+  context_length?: number | null;
+  contextLength?: number | null;
   maxTokens?: number;
+  default_parameters?: Record<string, unknown> | null;
+  defaultParameters?: Record<string, unknown> | null;
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+    tokenizer?: string;
+    instruct_type?: string | null;
+    inputModalities?: string[];
+    outputModalities?: string[];
+    instructType?: string | null;
+    [key: string]: unknown;
+  };
+  supported_parameters?: string[];
+  supportedParameters?: string[];
+  pricing?: Record<string, unknown>;
+  top_provider?: Record<string, unknown>;
+  topProvider?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 // Saved agent record as returned by the REST API
@@ -134,40 +166,19 @@ export interface Agent {
 
 // Agent configuration (per-call settings)
 export interface AgentConfig {
-  // Model selection (canonical id: "provider:providerModelId")
   modelId: string;
-  
-  // System instructions
+  providerId?: string;
   systemInstructions?: string;
-  
-  // Streaming and output
   stream: boolean;
-  maxOutputTokens?: number;
-  
-  // Generation parameters
-  temperature: number;
-  topP: number;
-  
-  // Native tools selection (ids only — resolved against ModelSpec at runtime)
-  selectedNativeToolIds: string[];
-  
-  // Thinking mode
-  enableThinking: boolean;
-  thinkingBudget?: number;
-  includeThoughtsInResponse: boolean;  // Controls Gemini API output format
-  includeThoughtsInContext?: boolean;  // Controls whether thoughts are sent back to model
-  
-  // Iteration control
   maxModelCalls: number;
-  
-  // Tool configuration
-  enableTools: boolean;       // Enable tool calling
-  availableTools: Tool[];     // Tools selected from pool (original server/tool names)
-  maxConcurrentTools: number; // Max concurrent tool executions
-  
-  // Structured output (optional, for JSON responses)
-  responseSchema?: Record<string, unknown>;  // JSON schema for structured output
-  responseMimeType?: string;             // e.g. 'application/json'
+
+  // harness owned configuration
+  enableTools: boolean;
+  availableTools: Tool[];
+  maxConcurrentTools: number;
+
+  // OpenRouter/OpenAI-compatible request parameters using native snake_case keys.
+  providerParameters: Record<string, unknown>;
 }
 
 // Base interface for all native tool metadata
@@ -584,6 +595,7 @@ export interface AgentState {
   toolsPool: Tool[];
   workflowsPool: Workflow[];
   modelsPool: ModelSpec[];
+  modelParameters: Record<string, ModelParameterSchema>;
   defaultModelId: string | null;
 
   // Active session workflow selection (persisted in localStorage)
@@ -637,7 +649,7 @@ export interface AgentState {
   setToolsPool: (tools: Tool[]) => void;
   setWorkflowsPool: (workflows: Workflow[]) => void;
   setSelectedWorkflowId: (id: string) => void;
-  setModelsPool: (models: ModelSpec[], defaultModelId?: string) => void;
+  setModelsPool: (models: ModelSpec[], defaultModelId?: string, modelParameters?: Record<string, ModelParameterSchema>) => void;
   
   // UI component actions
   setAgentSessionComponents: (components: AgentSessionComponent[] | ((prev: AgentSessionComponent[]) => AgentSessionComponent[])) => void;

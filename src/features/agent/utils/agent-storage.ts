@@ -10,7 +10,7 @@
 import type { Agent } from '../types';
 import { createAssistantAgent } from '../utils/agent-factory';
 
-const AGENTS_KEY = 'timeline:agent:agents:v2';
+const AGENTS_KEY = 'timeline:agent:agents:v3';
 
 // ============================================================
 // agents[] persistence
@@ -32,7 +32,9 @@ export function loadAgents(): Agent[] {
           a =>
             typeof a.agentId === 'string' &&
             typeof a.config?.modelId === 'string' &&
-            Array.isArray(a.config?.selectedNativeToolIds)
+            (a.config.providerId === undefined || typeof a.config.providerId === 'string') &&
+            typeof a.config?.providerParameters === 'object' &&
+            a.config.providerParameters !== null
         )
       ) {
         // Invariant: ensure 'none' (assistant) always exists

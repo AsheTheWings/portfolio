@@ -9,7 +9,7 @@
  */
 
 import { MessageInput, MessageInputRef } from './MessageInput';
-import { forwardRef, useRef, useEffect, useState } from 'react';
+import { forwardRef, useRef, useEffect, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAgent } from '../hooks/useAgent';
@@ -63,6 +63,19 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const [draftMessage, setDraftMessage] = useState<string>(''); // Save current input when starting navigation
     const [isMentionOpen, setIsMentionOpen] = useState(false);
 
+    // Prevent global keyboard shortcuts from firing while another input is focused
+    const isForeignInput = useCallback(() => {
+      const active = document.activeElement;
+      if (!active) return false;
+      const composer = document.querySelector('textarea[data-message-input="composer"]');
+      if (active === composer) return false;
+      return (
+        active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        (active as HTMLElement).isContentEditable
+      );
+    }, []);
+
     /**
      * Watch submit trigger and focus input (from global keyboard shortcuts)
      * Also expand collapsed input
@@ -88,6 +101,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       const handleKeyDown = (e: KeyboardEvent) => {
         // Disable history navigation when mention search is open
         if (isMentionOpen) return;
+        
+        // Don't intercept when user is focused in another input field
+        if (isForeignInput()) return;
         
         if (e.key === 'ArrowUp') {
           e.preventDefault();
@@ -139,7 +155,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [historyIndex, draftMessage, userMessagesHistory, isMentionOpen, ref]);
+    }, [historyIndex, draftMessage, userMessagesHistory, isMentionOpen, ref, isForeignInput]);
     
     /**
      * Reset history navigation when user starts typing or loses focus
@@ -158,7 +174,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
         setDraftMessage('');
       };
       
-      const textarea = document.querySelector('textarea');
+      const textarea = document.querySelector('textarea[data-message-input="composer"]');
       if (textarea) {
         textarea.addEventListener('input', handleInput);
         textarea.addEventListener('blur', handleBlur);
@@ -178,6 +194,9 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (e.key === 'Escape' || e.key === 'Tab') return;
+        
+        // Don't intercept when user is focused in another input field
+        if (isForeignInput()) return;
         
         // Any printable key or Enter: expand and focus the (already-rendered) textarea
         if (e.key.length === 1 || (e.key === 'Enter' && !e.shiftKey)) {
@@ -201,7 +220,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isCollapsed, ref]);
+    }, [isCollapsed, ref, isForeignInput]);
 
     const expandInput = () => {
       setIsOpenWithoutContent(true);

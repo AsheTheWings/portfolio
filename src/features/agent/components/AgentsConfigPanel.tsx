@@ -16,22 +16,18 @@ import {
   CardContent,
   CardAction,
   Label,
-  Input,
   Textarea,
   Slider,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuGroup,
   Avatar,
   AvatarImage,
   AvatarFallback,
 } from '@/features/shared/components/shadcn';
-import type { AgentConfig, NativeTool, Tool, McpHostStatus, Agent } from '../types';
-import { useAgentStore, selectModelById, selectHasCapability } from '../stores/useAgentStore';
+import type { AgentConfig, Tool, McpHostStatus, Agent } from '../types';
+import { useAgentStore, selectModelById } from '../stores/useAgentStore';
 import { createDefaultAgentConfig } from '../utils/agent-factory';
 
 import { ModelCapability } from '../types';
@@ -39,10 +35,20 @@ import { useAgent } from '../hooks/useAgent';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { McpConfigCardContent } from './McpConfigCardContent';
 import { ModelPickerView } from './ModelPickerView';
+import { ModelParameterControl } from './ModelParameterControl';
+import {
+  getModelContextLength,
+  getModelDisplayName,
+  modelHasCapability,
+} from '../utils/openrouter-models';
+import {
+  getEffectiveParameterDefault,
+  getSupportedModelParameterSchemas,
+} from '../utils/model-parameters';
 
 export function AgentsConfigPanel() {
   // Store state
-  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, removeComponent, uiInterface, upsertSystemPanel } = useAgent();
+  const { agents, agentConfig, updateFrontAgentConfig, setFrontAgent, toolsPool, modelsPool, modelParameters, removeComponent, uiInterface, upsertSystemPanel } = useAgent();
   // MCP is Phase 3 — stub as not connected
   const mcpHostStatus = 'notConnected' as McpHostStatus;
 
@@ -50,7 +56,10 @@ export function AgentsConfigPanel() {
   const [showMcpConfig, setShowMcpConfig] = useState(false);
   const [showSystemInstructions, setShowSystemInstructions] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showNativeToolsWarning, setShowNativeToolsWarning] = useState(false);
+
+  // BYOK: check whether user has an OpenRouter key configured
+  const configuredProviders = useConfiguredProviders();
+  const hasOpenRouterKey = configuredProviders.has('openrouter');
 
   // Front agent + config (single source of truth)
   const frontAgent: Agent | undefined = agents[0];
@@ -60,29 +69,12 @@ export function AgentsConfigPanel() {
   const config = agentConfig || createDefaultAgentConfig(undefined, modelsPool);
   const setAgentConfig = updateFrontAgentConfig;
 
-  // Model capabilities (dynamically from backend-discovered models)
-  const modelOptions = modelsPool;
+  // Model capabilities (derived from OpenRouter model metadata)
   const selectedModelSpec = selectModelById(modelsPool, config.modelId);
-  const supportsThinking = selectHasCapability(modelsPool, config.modelId, ModelCapability.THINKING);
-  const supportsToolCalling = selectHasCapability(modelsPool, config.modelId, ModelCapability.TOOL_CALLING);
-
-  // Provider key status (lifted out of picker for pure UI)
-  const configuredProviders = useConfiguredProviders();
-
-  // Group models by provider for the dropdown
-  const modelsByProvider = modelOptions.reduce<Record<string, typeof modelOptions>>((acc, model) => {
-    const provider = model.provider;
-    if (!acc[provider]) acc[provider] = [];
-    acc[provider].push(model);
-    return acc;
-  }, {});
-
-  const providerLabels: Record<string, string> = {
-    google: 'Google',
-    fireworks: 'Fireworks AI',
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-  };
+  const supportsToolCalling = modelHasCapability(selectedModelSpec, ModelCapability.TOOL_CALLING);
+  const parameterSchemas = getSupportedModelParameterSchemas(selectedModelSpec, modelParameters);
+  const primaryParameterSchemas = parameterSchemas.filter((schema) => schema.group !== 'advanced');
+  const advancedParameterSchemas = parameterSchemas.filter((schema) => schema.group === 'advanced');
 
   // Chat mode = standalone (centered card), side-by-side = inline
   const isStandalone = uiInterface === 'chat';
@@ -96,41 +88,27 @@ export function AgentsConfigPanel() {
     setAgentConfig({ ...config, ...updates });
   };
 
+  const updateProviderParameters = (updates: Record<string, unknown>) => {
+    const next = { ...(config.providerParameters ?? {}) };
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined || value === null || value === '') {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+    }
+    updateConfig({ providerParameters: next });
+  };
+
   // Helper to update availableTools
   const availableTools = config.availableTools || [];
   const updateAvailableTools = (tools: Tool[]) => {
     updateConfig({ availableTools: tools });
   };
 
-  // Helper to update selectedNativeToolIds
-  const updateSelectedNativeToolIds = (ids: string[]) => {
-    updateConfig({ selectedNativeToolIds: ids });
-  };
-
-  // Helper to handle model change with thinking capability auto-update
-  const handleModelChange = (modelId: string) => {
-    const newModelSpec = selectModelById(modelsPool, modelId);
-    const newSupportsThinking = newModelSpec?.capabilities.includes(ModelCapability.THINKING) ?? false;
-
-    updateConfig({
-      modelId,
-      enableThinking: newSupportsThinking,
-      includeThoughtsInResponse: newSupportsThinking,
-    });
-  };
-
-  // Helper to check if a native tool is selected
-  const isNativeToolSelected = (tool: NativeTool) => {
-    return config.selectedNativeToolIds.includes(tool.id);
-  };
-
-  // Helper to toggle native tool selection
-  const toggleNativeTool = (tool: NativeTool, checked: boolean) => {
-    if (checked) {
-      updateSelectedNativeToolIds([...config.selectedNativeToolIds, tool.id]);
-    } else {
-      updateSelectedNativeToolIds(config.selectedNativeToolIds.filter(id => id !== tool.id));
-    }
+  // Helper to handle model change.
+  const handleModelChange = ({ providerId, modelId }: { providerId: string; modelId: string }) => {
+    updateConfig({ providerId, modelId });
   };
 
 
@@ -168,10 +146,14 @@ export function AgentsConfigPanel() {
                   <ModelPickerView
                   models={modelsPool}
                   selectedModelId={config.modelId}
-                  configuredProviders={configuredProviders}
+                  selectedProviderId={config.providerId ?? 'openrouter'}
                   onSelect={handleModelChange}
                   onClose={() => setShowModelPicker(false)}
-                  onOpenSettings={() => upsertSystemPanel('settings-panel', 'settings-panel')}
+                  hasApiKey={hasOpenRouterKey}
+                  onOpenSettings={() => {
+                    setShowModelPicker(false);
+                    upsertSystemPanel('settings-panel', 'settings-panel');
+                  }}
                 />
               ) :
               showSystemInstructions && (
@@ -259,17 +241,33 @@ export function AgentsConfigPanel() {
               {/* Model Selection */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
                 <Label>Model</Label>
-                <button
-                  type="button"
-                  onClick={() => setShowModelPicker(true)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring hover:bg-accent transition-colors"
-                >
-                  <span className="flex-1 text-left truncate">{selectedModelSpec?.displayName || config.modelId}</span>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <p className="text-xs text-muted-foreground">
-                  Max tokens: {selectedModelSpec?.maxTokens?.toLocaleString() || 'Unknown'}
-                </p>
+                {!hasOpenRouterKey ? (
+                  <button
+                    type="button"
+                    onClick={() => upsertSystemPanel('settings-panel', 'settings-panel')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-amber-500/10 border border-amber-500/20 rounded-md text-amber-700 dark:text-amber-400 focus:outline-none focus:ring-2 focus:ring-ring hover:bg-amber-500/20 transition-colors cursor-pointer"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                      <path d="M8 1L1 14h14L8 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                      <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                    <span className="flex-1 text-left truncate">Add your OpenRouter API key</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowModelPicker(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring hover:bg-accent transition-colors"
+                  >
+                    <span className="flex-1 text-left truncate">{selectedModelSpec ? getModelDisplayName(selectedModelSpec) : config.modelId}</span>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                )}
+                {hasOpenRouterKey && (
+                  <p className="text-xs text-muted-foreground">
+                    Context: {getModelContextLength(selectedModelSpec)?.toLocaleString() || 'Unknown'} tokens
+                  </p>
+                )}
               </div>
 
               {/* System Instructions */}
@@ -297,43 +295,22 @@ export function AgentsConfigPanel() {
               </div>
 
               {/* Generation Parameters */}
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
-                <Label>Generation Parameters</Label>
-                
-                <div className="grid grid-cols-2 gap-4">
+              {hasOpenRouterKey && primaryParameterSchemas.length > 0 && (
+                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+                  <Label>Generation Parameters</Label>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="temperature" className="font-normal text-[0.805rem]">Temperature</Label>
-                    <Input
-                      id="temperature"
-                      type="number"
-                      value={config.temperature}
-                      onChange={(e) => updateConfig({ temperature: parseFloat(e.target.value) })}
-                      min="0"
-                      max="2"
-                      step="0.1"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Controls randomness
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="topP" className="font-normal text-[0.805rem]">Top P</Label>
-                    <Input
-                      id="topP"
-                      type="number"
-                      value={config.topP}
-                      onChange={(e) => updateConfig({ topP: parseFloat(e.target.value) })}
-                      min="0"
-                      max="1"
-                      step="0.05"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Nucleus sampling threshold
-                    </p>
+                    {primaryParameterSchemas.map((schema) => (
+                      <ModelParameterControl
+                        key={schema.key}
+                        schema={schema}
+                        providerParameters={config.providerParameters ?? {}}
+                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
+                        onUpdate={updateProviderParameters}
+                      />
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Streaming Section */}
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
@@ -362,161 +339,13 @@ export function AgentsConfigPanel() {
                 </div>
               </div>
 
-              {/* Thinking Section */}
-              {supportsThinking && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                  <Label>Thinking Mode</Label>
-                  
-                  <div className="flex items-center">
-                    <MuiCheckbox
-                      id="enableThinking"
-                      checked={config.enableThinking}
-                      onChange={(e) => updateConfig({ enableThinking: e.target.checked })}
-                      size="small"
-                      disableRipple
-                      sx={{
-                        padding: '2px',
-                        color: 'var(--color-border)',
-                        '&.Mui-checked': { color: 'var(--color-primary)' },
-                      }}
-                    />
-                    <Label htmlFor="enableThinking" className="font-normal text-[0.805rem] cursor-pointer">
-                      Enable Thinking
-                    </Label>
-                  </div>
-
-                  {config.enableThinking && (
-                    <>
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="thinkingBudget" className="font-normal text-[0.805rem]">
-                          Thinking Budget
-                        </Label>
-                        <Input
-                          id="thinkingBudget"
-                          type="number"
-                          value={config.thinkingBudget?.toString() || ''}
-                          onChange={(e) => updateConfig({ thinkingBudget: e.target.value ? parseInt(e.target.value) : undefined })}
-                          placeholder="Leave empty for default"
-                          min={-1}
-                          max={1000000}
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center">
-                          <MuiCheckbox
-                            id="includeThoughtsInResponse"
-                            checked={config.includeThoughtsInResponse}
-                            onChange={(e) => updateConfig({ includeThoughtsInResponse: e.target.checked })}
-                            size="small"
-                            disableRipple
-                            sx={{
-                              padding: '2px',
-                              color: 'var(--color-border)',
-                              '&.Mui-checked': { color: 'var(--color-primary)' },
-                            }}
-                          />
-                          <Label htmlFor="includeThoughtsInResponse" className="font-normal text-[0.805rem] cursor-pointer">
-                            Include Thoughts in Response
-                          </Label>
-                        </div>
-                        <p className="text-[0.7rem] text-muted-foreground ml-6">
-                          Whether the agent&apos;s thoughts are returned
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center">
-                          <MuiCheckbox
-                            id="includeThoughtsInContext"
-                            checked={config.includeThoughtsInContext ?? false}
-                            onChange={(e) => updateConfig({ includeThoughtsInContext: e.target.checked })}
-                            size="small"
-                            disableRipple
-                            sx={{
-                              padding: '2px',
-                              color: 'var(--color-border)',
-                              '&.Mui-checked': { color: 'var(--color-primary)' },
-                            }}
-                          />
-                          <Label htmlFor="includeThoughtsInContext" className="font-normal text-[0.805rem] cursor-pointer">
-                            Include Thoughts in Context
-                          </Label>
-                        </div>
-                        <p className="text-[0.7rem] text-muted-foreground ml-6">
-                          Send agent&apos;s thoughts back to agent as context
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
 
             <div>
-              {/* Native Tools Section */}
-              {supportsToolCalling && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
-                  <Label>Native Tools</Label>
-                  
-                  {selectedModelSpec?.nativeTools && selectedModelSpec.nativeTools.length > 0 ? (
-                    <>
-                      {selectedModelSpec.nativeTools.map((nativeTool) => {
-                        const isSelected = isNativeToolSelected(nativeTool);
-                        return (
-                          <div key={nativeTool.id} className="flex items-center">
-                            <MuiCheckbox
-                              id={nativeTool.id}
-                              checked={isSelected}
-                              onChange={(e) => {
-                                if (config.enableTools && e.target.checked) {
-                                  setShowNativeToolsWarning(true);
-                                  setTimeout(() => setShowNativeToolsWarning(false), 3000);
-                                } else {
-                                  toggleNativeTool(nativeTool, e.target.checked);
-                                }
-                              }}
-                              size="small"
-                              disableRipple
-                              sx={{
-                                padding: '2px',
-                                color: 'var(--color-border)',
-                                '&.Mui-checked': { color: 'var(--color-primary)' },
-                              }}
-                            />
-                            <Label htmlFor={nativeTool.id} className="font-normal text-[0.805rem] cursor-pointer">
-                              {nativeTool.name}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                      {showNativeToolsWarning && (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                          ⚠️ Cannot combine native tools with MCP tools
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      No native tools available for this model
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Output Limits */}
+              {/* Run Limits */}
+              {hasOpenRouterKey && (
               <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                <Label>Output Limits</Label>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="maxOutputTokens" className="font-normal text-[0.805rem]">Max Output Tokens (optional)</Label>
-                  <Input
-                    id="maxOutputTokens"
-                    type="number"
-                    value={config.maxOutputTokens?.toString() || ''}
-                    onChange={(e) => updateConfig({ maxOutputTokens: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Leave empty for default"
-                  />
-                </div>
+                <Label>Run Limits</Label>
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between">
                     <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
@@ -540,11 +369,30 @@ export function AgentsConfigPanel() {
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Advanced Parameters */}
+              {hasOpenRouterKey && advancedParameterSchemas.length > 0 && (
+                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+                  <Label>Advanced Parameters</Label>
+                  <div className="flex flex-col gap-2">
+                    {advancedParameterSchemas.map((schema) => (
+                      <ModelParameterControl
+                        key={schema.key}
+                        schema={schema}
+                        providerParameters={config.providerParameters ?? {}}
+                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
+                        onUpdate={updateProviderParameters}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
               {/* MCP Tools Section */}
-              {supportsToolCalling && (
+              {hasOpenRouterKey && supportsToolCalling && (
                 <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
                   <Label>MCP Tools</Label>
                   <div className="flex flex-col gap-1">

@@ -18,11 +18,12 @@ import type {
   ToolEffectsData,
 } from '../types';
 import { createDefaultAgentConfig, createAssistantAgent } from '../utils/agent-factory';
-import { ModelCapability } from '../types';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
 import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
-import type { ModelSpec } from '../types';
+import type { ModelParameterSchema, ModelSpec } from '../types';
+import { modelHasCapability } from '../utils/openrouter-models';
+import { ModelCapability } from '../types';
 
 // ============================================================
 // Pure model selectors (no mutable module-level registry)
@@ -34,6 +35,10 @@ export function selectModelsById(modelsPool: ModelSpec[]): Record<string, ModelS
   return map;
 }
 
+function getModelProviderId(model: ModelSpec | undefined): string {
+  return model?.providerId ?? 'openrouter';
+}
+
 export function selectModelById(modelsPool: ModelSpec[], id: string): ModelSpec | undefined {
   return selectModelsById(modelsPool)[id];
 }
@@ -43,7 +48,7 @@ export function selectHasCapability(
   modelId: string,
   capability: ModelCapability,
 ): boolean {
-  return selectModelById(modelsPool, modelId)?.capabilities.includes(capability) ?? false;
+  return modelHasCapability(selectModelById(modelsPool, modelId), capability);
 }
 
 /**
@@ -103,28 +108,34 @@ function enforceConfigInvariants(
   modelsPool: ModelSpec[]
 ): AgentConfig {
   const finalConfig = { ...config };
+  const selectedModel = selectModelById(modelsPool, finalConfig.modelId);
+  finalConfig.providerId = getModelProviderId(selectedModel);
+  const supportedParameters = new Set([
+    ...((selectedModel?.supported_parameters ?? []) as string[]),
+    ...((selectedModel?.supportedParameters ?? []) as string[]),
+  ]);
 
-  // Rule 1: If model doesn't support thinking, disable enableThinking
-  if (!selectHasCapability(modelsPool, finalConfig.modelId, ModelCapability.THINKING)) {
-    finalConfig.enableThinking = false;
+  const providerParameters = { ...(finalConfig.providerParameters ?? {}) };
+
+  if (!supportedParameters.has('reasoning') && !supportedParameters.has('reasoning_effort')) {
+    delete providerParameters.reasoning;
+    delete providerParameters.reasoning_effort;
+  }
+  if (!supportedParameters.has('include_reasoning')) {
+    delete providerParameters.include_reasoning;
   }
 
-  // Rule 2: includeThoughtsInResponse requires enableThinking
-  if (!finalConfig.enableThinking) {
-    finalConfig.includeThoughtsInResponse = false;
-    finalConfig.includeThoughtsInContext = false;
-  }
+  finalConfig.providerParameters = providerParameters;
 
-  // Rule 3: Can't combine MCP tools with native tools
-  if (finalConfig.enableTools) {
-    finalConfig.selectedNativeToolIds = [];
-  }
-
-  // Rule 4: Auto-populate availableTools when enabling tools
-  if (finalConfig.enableTools && !currentConfig?.enableTools) {
-    finalConfig.availableTools = toolsPool;
-  } else if (!finalConfig.enableTools) {
+  if (!finalConfig.enableTools) {
     finalConfig.availableTools = [];
+  } else {
+    const existingTools = finalConfig.availableTools ?? [];
+    const shouldAutoPopulate = !currentConfig?.enableTools || existingTools.length === 0;
+    const nextTools = shouldAutoPopulate ? toolsPool : existingTools;
+    finalConfig.availableTools = nextTools.filter(tool =>
+      toolsPool.some(t => t.server === tool.server && t.tool === tool.tool)
+    );
   }
 
   return finalConfig;
@@ -160,6 +171,7 @@ const initialState = {
   toolsPool: [] as import('../types').Tool[],
   workflowsPool: [] as import('../types').Workflow[],
   modelsPool: [] as import('../types').ModelSpec[],
+  modelParameters: {} as Record<string, ModelParameterSchema>,
   defaultModelId: null as string | null,
   selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
   
@@ -366,7 +378,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       ...agent,
       config: {
         ...agent.config,
-        availableTools: agent.config.availableTools
+        availableTools: (agent.config.availableTools ?? [])
           .filter(tool => toolsPool.some(t => t.server === tool.server && t.tool === tool.tool))
       }
     }));
@@ -388,8 +400,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ selectedWorkflowId });
   },
 
-  setModelsPool: (modelsPool, defaultModelId?: string) => {
-    set({ modelsPool, defaultModelId: defaultModelId ?? null });
+  setModelsPool: (modelsPool, defaultModelId?: string, modelParameters?: Record<string, ModelParameterSchema>) => {
+    set({ modelsPool, defaultModelId: defaultModelId ?? null, modelParameters: modelParameters ?? {} });
   },
 
   // UI component actions

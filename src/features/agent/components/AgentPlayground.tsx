@@ -22,7 +22,7 @@ import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { AgentSessionComponentType, Tool, Workflow, ModelSpec } from '../types';
+import type { AgentSessionComponentType, Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 import { hasActiveAgent } from '../utils/agent-status';
@@ -36,15 +36,17 @@ interface AgentPlaygroundProps {
   initialWorkflows?: Workflow[];
   /** Server-fetched models (hydrated into store on mount) */
   initialModels?: ModelSpec[];
+  /** Server-fetched model parameter schemas (hydrated into store on mount) */
+  initialModelParameters?: Record<string, ModelParameterSchema>;
   /** Server-fetched default model id (from /agent/models) */
   initialDefaultModelId?: string | null;
   /** Server-fetched session events (SSR) */
   initialEvents?: WireAgentSessionEvent[] | null;
 }
 
-export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialDefaultModelId, initialEvents }: AgentPlaygroundProps) {
+export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId, initialEvents }: AgentPlaygroundProps) {
   // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
-  useHydrateStore({ initialTools, initialWorkflows, initialModels, initialDefaultModelId });
+  useHydrateStore({ initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId });
   
   // Fetch acquired agents (owned + subscribed) and push into store
   useAcquiredAgentsQuery();

@@ -10,8 +10,7 @@ import { useEffect, useRef } from 'react';
 import { useAgentStore, selectModelsById } from '../stores/useAgentStore';
 import { loadAgents, loadSelectedWorkflowId, saveSelectedWorkflowId } from '../utils/agent-storage';
 import { createDefaultAgentConfig } from '../utils/agent-factory';
-import type { Tool, Workflow, ModelSpec, AgentState, Agent } from '../types';
-import { ModelCapability } from '../types';
+import type { Tool, Workflow, ModelParameterSchema, ModelSpec, AgentState, Agent } from '../types';
 
 function reconcileAgentsAgainstCatalog(
   agents: Agent[],
@@ -27,41 +26,18 @@ function reconcileAgentsAgainstCatalog(
 
   let changed = false;
   const reconciled = agents.map(agent => {
-    let config = { ...agent.config };
-
-    const model = modelsById[config.modelId];
-
+    const model = modelsById[agent.config.modelId];
     if (!model) {
-      // Stale model id: rebuild full config from catalog-aware defaults
-      config = createDefaultAgentConfig(defaultModelId, modelsPool);
+      // Model no longer in catalog — reset to default
       changed = true;
-    } else {
-      // 2. Capability-derived settings (disable unsupported only)
-      if (!model.capabilities.includes(ModelCapability.THINKING)) {
-        if (config.enableThinking) {
-          config.enableThinking = false;
-          changed = true;
-        }
-        if (config.includeThoughtsInResponse) {
-          config.includeThoughtsInResponse = false;
-          changed = true;
-        }
-        if (config.includeThoughtsInContext) {
-          config.includeThoughtsInContext = false;
-          changed = true;
-        }
-      }
-
-      // 3. Native tool ids validity
-      const validNativeToolIds = (config.selectedNativeToolIds || [])
-        .filter(id => model.nativeTools?.some(t => t.id === id));
-      if (validNativeToolIds.length !== (config.selectedNativeToolIds || []).length) {
-        config.selectedNativeToolIds = validNativeToolIds;
-        changed = true;
-      }
+      return { ...agent, config: createDefaultAgentConfig(defaultModelId, modelsPool) };
     }
-
-    return { ...agent, config };
+    const providerId = model.providerId ?? 'openrouter';
+    if (agent.config.providerId !== providerId) {
+      changed = true;
+      return { ...agent, config: { ...agent.config, providerId } };
+    }
+    return agent;
   });
 
   return changed ? reconciled : agents;
@@ -71,13 +47,15 @@ interface HydrateOptions {
   initialTools?: Tool[];
   initialWorkflows?: Workflow[];
   initialModels?: ModelSpec[];
+  initialModelParameters?: Record<string, ModelParameterSchema>;
   initialDefaultModelId?: string | null;
 }
 
-export function useHydrateStore({ initialTools, initialWorkflows, initialModels, initialDefaultModelId }: HydrateOptions = {}) {
+export function useHydrateStore({ initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId }: HydrateOptions = {}) {
   const initialToolsRef = useRef(initialTools);
   const initialWorkflowsRef = useRef(initialWorkflows);
   const initialModelsRef = useRef(initialModels);
+  const initialModelParametersRef = useRef(initialModelParameters);
   const initialDefaultModelIdRef = useRef(initialDefaultModelId);
 
   useEffect(() => {
@@ -107,7 +85,7 @@ export function useHydrateStore({ initialTools, initialWorkflows, initialModels,
     if (initialModelsRef.current?.length) {
       const models = initialModelsRef.current;
       const defaultModelId = initialDefaultModelIdRef.current ?? null;
-      useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined);
+      useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined, initialModelParametersRef.current ?? {});
 
       // Reconcile persisted agents against catalog
       const storeAgents = useAgentStore.getState().agents;

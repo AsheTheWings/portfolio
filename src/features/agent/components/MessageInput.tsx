@@ -194,6 +194,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
+          data-message-input="composer"
           className={collapsed
             ? 'sr-only'
             : 'bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground resize-none field-sizing-content max-h-[8rem] scrollbar-inner flex-1 animate-in fade-in duration-200'

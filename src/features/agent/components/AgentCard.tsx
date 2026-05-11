@@ -93,7 +93,7 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
           {/* Acquire/Release for non-owned agents in search mode */}
           {!isOwner && isSearchMode && (
             <button
-              onClick={(e) => { e.stopPropagation(); isAcquired ? onRelease() : onAcquire(); }}
+              onClick={(e) => { e.stopPropagation(); if (isAcquired) onRelease(); else onAcquire(); }}
               className={`text-[10px] transition-colors px-2 py-0.5 rounded ${
                 isSelected
                   ? `${textClass} opacity-70 hover:opacity-100 hover:bg-black/10`

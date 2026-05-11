@@ -41,7 +41,6 @@ export function ToolCall({
   const data = propData || {};
 
   const server = data.server as string | undefined;
-  const tool = data.tool as string | undefined;
   const toolCall = data.arguments;
   const toolResult = data.result;
 

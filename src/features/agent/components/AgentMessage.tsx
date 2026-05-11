@@ -52,7 +52,7 @@ interface AgentMessageProps {
 
 export const AgentMessage = React.memo(function AgentMessage({ component }: AgentMessageProps) {
   const { id, data, isStreaming, controls } = component;
-  const items: AgentSessionComponent[] = data.items || [];
+  const items = useMemo<AgentSessionComponent[]>(() => data.items || [], [data.items]);
   const agentId = data.agentId as string | undefined;
 
   // ── View mode ───────────────────────────────────────────
@@ -442,7 +442,7 @@ function SubViewRenderer({
   editingData,
   updateEditingData,
   onSubmitEdit,
-  cancelEdit,
+  cancelEdit: _cancelEdit,
   onValidationChange,
   translationContent,
 }: SubViewRendererProps) {

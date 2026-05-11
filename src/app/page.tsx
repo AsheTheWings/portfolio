@@ -32,7 +32,7 @@ export default async function Home() {
 
   // Fetch tools + workflows server-side (non-blocking — returns empty on failure)
   const token = await getTokenCookie();
-  const agentData = token ? await fetchAgentServerData(token) : { tools: [], workflows: [], models: [], defaultModelId: null };
+  const agentData = token ? await fetchAgentServerData(token) : { tools: [], workflows: [], models: [], modelParameters: {}, defaultModelId: null };
 
-  return <AgentHome initialUser={initialUser} initialTools={agentData.tools} initialWorkflows={agentData.workflows} initialModels={agentData.models} initialDefaultModelId={agentData.defaultModelId} />;
+  return <AgentHome initialUser={initialUser} initialTools={agentData.tools} initialWorkflows={agentData.workflows} initialModels={agentData.models} initialModelParameters={agentData.modelParameters} initialDefaultModelId={agentData.defaultModelId} />;
 }

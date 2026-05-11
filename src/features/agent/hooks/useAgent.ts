@@ -45,6 +45,8 @@ export function useAgent() {
   
   // Models state
   const modelsPool = useAgentStore((state) => state.modelsPool);
+  const modelParameters = useAgentStore((state) => state.modelParameters);
+  const defaultModelId = useAgentStore((state) => state.defaultModelId);
   
   // Pending library items
   const pendingLibraryItemIds = useAgentStore((state) => state.pendingLibraryItemIds);
@@ -155,6 +157,8 @@ export function useAgent() {
     
     // Models state
     modelsPool,
+    modelParameters,
+    defaultModelId,
     
     // Pending library items
     pendingLibraryItemIds,

@@ -32,7 +32,7 @@ export function QuickAccessHeader() {
   // Mailbox-only viewMode toggle (developer/client roles)
   const viewMode = useAgentStore((s) => s.viewMode);
   const setViewMode = useAgentStore((s) => s.setViewMode);
-  const isMailbox = selectedWorkflowId === 'mailbox';
+  const _isMailbox = selectedWorkflowId === 'mailbox';
 
   // Workflow cycling (next id, wrap-around). Disabled when only one option.
   const { cycle: cycleWorkflow } = useWorkflowSwitcher();
@@ -85,19 +85,25 @@ export function QuickAccessHeader() {
           />
         </div>
 
-        {/* Show Thoughts Switch - Controls whether to display thoughts in responses */}
+        {/* Reasoning Switch - Controls OpenRouter include_reasoning */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-foreground font-light">
-            Show Thoughts
+            Reasoning
           </span>
           <Switch
-            checked={agentConfig?.includeThoughtsInResponse ?? true}
+            checked={agentConfig?.providerParameters?.include_reasoning === true}
             onCheckedChange={(checked) => {
               if (agentConfig) {
-                updateFrontAgentConfig({ ...agentConfig, includeThoughtsInResponse: checked });
+                const providerParameters = { ...(agentConfig.providerParameters ?? {}) };
+                if (checked) {
+                  providerParameters.include_reasoning = true;
+                } else {
+                  delete providerParameters.include_reasoning;
+                }
+                updateFrontAgentConfig({ ...agentConfig, providerParameters });
               }
             }}
-            aria-label="Toggle thoughts display"
+            aria-label="Toggle reasoning display"
           />
         </div>
 

@@ -3,15 +3,51 @@
  * Called from Server Components — fetches directly from the backend.
  */
 
-import type { Tool, Workflow, ModelSpec } from '../types';
+import type { Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
 import type { WireAgentSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+
+type RegisteredModel = {
+  providerId: string;
+  providerName: string;
+  source: 'built-in' | 'custom';
+  model: ModelSpec;
+};
+
+function normalizeModelRegistry(data: Record<string, unknown>): { models: ModelSpec[]; defaultModelId: string | null } | null {
+  if (data.contractVersion === 4) {
+    const entries = Array.isArray(data.models) ? data.models as RegisteredModel[] : [];
+    return {
+      models: entries.flatMap((entry) => {
+        if (!entry?.model?.id || !entry.providerId) return [];
+        return [{
+          ...entry.model,
+          providerId: entry.providerId,
+          providerName: entry.providerName,
+          source: entry.source,
+          provider: entry.providerId === 'openrouter' ? entry.model.provider : entry.providerName,
+        }];
+      }),
+      defaultModelId: typeof data.defaultModelId === 'string' ? data.defaultModelId : null,
+    };
+  }
+
+  if (data.contractVersion === 3) {
+    return {
+      models: Array.isArray(data.models) ? data.models as ModelSpec[] : [],
+      defaultModelId: typeof data.defaultModelId === 'string' ? data.defaultModelId : null,
+    };
+  }
+
+  return null;
+}
 
 export interface AgentServerData {
   tools: Tool[];
   workflows: Workflow[];
   models: ModelSpec[];
+  modelParameters: Record<string, ModelParameterSchema>;
   defaultModelId: string | null;
 }
 
@@ -22,7 +58,7 @@ export interface AgentServerData {
  */
 export async function fetchAgentServerData(token: string): Promise<AgentServerData> {
   const headers = { Authorization: `Bearer ${token}` };
-  const empty: AgentServerData = { tools: [], workflows: [], models: [], defaultModelId: null };
+  const empty: AgentServerData = { tools: [], workflows: [], models: [], modelParameters: {}, defaultModelId: null };
 
   try {
     const [toolsRes, workflowsRes, modelsRes] = await Promise.all([
@@ -35,8 +71,8 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
     const workflows = workflowsRes.ok ? (await workflowsRes.json()).workflows ?? [] : [];
     const modelsData = modelsRes.ok ? await modelsRes.json() : {};
 
-    // Contract guard: reject unexpected wire shape
-    if (modelsRes.ok && modelsData.contractVersion !== 1) {
+    const registry = modelsRes.ok ? normalizeModelRegistry(modelsData) : null;
+    if (modelsRes.ok && !registry) {
       console.warn(
         '[agent/server-data] Unsupported model contract version:',
         modelsData.contractVersion
@@ -44,10 +80,11 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
       return { ...empty, tools, workflows };
     }
 
-    const models = modelsData.models ?? [];
-    const defaultModelId = modelsData.defaultModelId ?? null;
+    const models = registry?.models ?? [];
+    const modelParameters = modelsData.parameters ?? {};
+    const defaultModelId = registry?.defaultModelId ?? null;
 
-    return { tools, workflows, models, defaultModelId };
+    return { tools, workflows, models, modelParameters, defaultModelId };
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch:', err instanceof Error ? err.message : String(err));
     return empty;
