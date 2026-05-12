@@ -7,7 +7,7 @@
  * frontend types (AgentSessionEvent, AgentSessionComponent, etc.).
  */
 
-import type { Agent } from './index';
+import type { Agent } from './session';
 
 // ============================================================
 // Wire Event (JSON-serialized AgentSessionEvent from backend)
@@ -131,11 +131,29 @@ export interface WsAgentSessionCreatedMessage {
   sessionId: string;
 }
 
+export type WsAgentErrorCode =
+  | 'MISSING_API_KEY'
+  | 'MODEL_UNAVAILABLE'
+  | 'MODEL_PROVIDER_AUTH_FAILED'
+  | 'MODEL_PROVIDER_RATE_LIMITED'
+  | 'MODEL_PROVIDER_FAILED'
+  | 'AGENT_RUNTIME_ERROR';
+
+export interface WsAgentErrorPayload {
+  code: WsAgentErrorCode;
+  message: string;
+  providerId?: string;
+  modelId?: string;
+  agentId?: string;
+  status?: number;
+  retryable: boolean;
+}
+
 export interface WsAgentStatusMessage {
   type: 'agent_status';
   sessionId: string;
   status: 'completed' | 'aborted' | 'paused' | 'error' | 'resuming';
-  error?: string;
+  error?: WsAgentErrorPayload;
   deletedEventIds?: string[];
 }
 

@@ -40,14 +40,17 @@ export function useAgentCall() {
 
     // `selectedWorkflowId` is resolved to the registry default during hydration
     // (see useHydrateStore). If it's still empty here, the backend will apply
-    // its own registry default. The agents array is forwarded verbatim — the
-    // backend owns all roster-shaping rules.
+    // its own registry default. Re-route through setAgents immediately before
+    // dispatch so every outbound agent config uses a catalog-valid model id.
+    store.setAgents(store.agents);
+    const agents = useAgentStore.getState().agents;
+
     send({
       type: 'user_message',
       sessionId: store.currentSessionId ?? undefined,
       data: {
         message,
-        agents: store.agents.map(a => ({ agentId: a.agentId, config: a.config })),
+        agents: agents.map(a => ({ agentId: a.agentId, config: a.config })),
         workflow: store.selectedWorkflowId || undefined,
         libraryItemIds,
       },

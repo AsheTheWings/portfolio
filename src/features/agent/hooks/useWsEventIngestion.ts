@@ -29,6 +29,7 @@ import type {
   WsSessionBranchedMessage,
   WsErrorMessage,
   WireAgentSessionEvent,
+  WsAgentErrorPayload,
 } from '../types/protocol';
 import { deriveAgentStatuses } from '../utils/agent-status';
 
@@ -47,6 +48,29 @@ function wireToAgentSessionEvent(wire: WireAgentSessionEvent): AgentSessionEvent
 /** Collapse key: type + agentId. Correctly handles parallel agents. */
 function chunkKey(event: AgentSessionEvent): string {
   return `${event.type}:${event.agentId ?? 'none'}`;
+}
+
+function formatAgentExecutionError(error: WsAgentErrorPayload | undefined): string {
+  if (!error) return 'Something went wrong. Please try again.';
+
+  const modelSuffix = error.modelId ? ` (${error.modelId})` : '';
+
+  switch (error.code) {
+    case 'MISSING_API_KEY':
+      return 'This agent needs an API key before it can run. Add the provider key in Settings → API Keys.';
+    case 'MODEL_UNAVAILABLE':
+      return `This agent’s configured model is no longer available${modelSuffix}. Choose another model.`;
+    case 'MODEL_PROVIDER_AUTH_FAILED':
+      return 'The provider rejected your API key. Check or replace it in Settings → API Keys.';
+    case 'MODEL_PROVIDER_RATE_LIMITED':
+      return 'The model provider rate-limited this request. Try again later.';
+    case 'MODEL_PROVIDER_FAILED':
+      return error.retryable
+        ? 'The model provider failed to complete this request. Try again.'
+        : 'The model provider rejected this request. Check the selected model and provider settings.';
+    case 'AGENT_RUNTIME_ERROR':
+      return 'The agent failed while processing this request. Please try again.';
+  }
 }
 
 /**
@@ -206,7 +230,7 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         for (const [agentId, status] of Object.entries(statuses)) {
           store.setAgentStatus(agentId, status);
         }
-        const errorMessage = msg.error || 'Something went wrong. Please try again.';
+        const errorMessage = formatAgentExecutionError(msg.error);
         store.setError(errorMessage);
         toastError(errorMessage);
       } else if (msg.status === 'paused') {

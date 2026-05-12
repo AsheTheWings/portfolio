@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
 import { Input, Label, Slider } from '@/features/shared/components/shadcn';
-import type { ModelParameterSchema } from '../types';
+import type { ModelParameterSchema } from '../types/llm';
 
 type ProviderParameters = Record<string, unknown>;
 
@@ -70,8 +70,8 @@ export function ModelParameterControl({
 
   const helper = useMemo(() => {
     if (configured) return 'Custom value';
-    return `Default: ${formatDefault(defaultValue)}`;
-  }, [configured, defaultValue]);
+    return hasDefault ? `Default: ${formatDefault(defaultValue)}` : null;
+  }, [configured, defaultValue, hasDefault]);
 
   const clear = () => {
     onUpdate({ [schema.key]: undefined });
@@ -216,7 +216,7 @@ export function ModelParameterControl({
             {configured && <span className="text-[10px] text-primary">configured</span>}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{schema.description}</p>
-          {!expanded && <p className="text-[0.7rem] text-muted-foreground mt-1">{helper}</p>}
+          {!expanded && helper && <p className="text-[0.7rem] text-muted-foreground mt-1">{helper}</p>}
         </button>
         {!expanded && !configured && !hasDefault && (
           <button

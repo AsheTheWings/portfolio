@@ -16,14 +16,14 @@ import type {
   SavedAgent,
   UIInterface,
   ToolEffectsData,
-} from '../types';
+} from '../types/session';
 import { createDefaultAgentConfig, createAssistantAgent } from '../utils/agent-factory';
 import { saveAgents } from '../utils/agent-storage';
 import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
 import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
-import type { ModelParameterSchema, ModelSpec } from '../types';
+import type { ModelParameterSchema, ModelSpec } from '../types/llm';
+import { ModelCapability } from '../types/llm';
 import { modelHasCapability } from '../utils/openrouter-models';
-import { ModelCapability } from '../types';
 
 // ============================================================
 // Pure model selectors (no mutable module-level registry)
@@ -41,6 +41,14 @@ function getModelProviderId(model: ModelSpec | undefined): string {
 
 export function selectModelById(modelsPool: ModelSpec[], id: string): ModelSpec | undefined {
   return selectModelsById(modelsPool)[id];
+}
+
+function selectFallbackModel(modelsPool: ModelSpec[], defaultModelId: string | null): ModelSpec | undefined {
+  return (defaultModelId ? selectModelById(modelsPool, defaultModelId) : undefined) ?? modelsPool[0];
+}
+
+function resolveValidModel(modelsPool: ModelSpec[], modelId: string, defaultModelId: string | null): ModelSpec | undefined {
+  return selectModelById(modelsPool, modelId) ?? selectFallbackModel(modelsPool, defaultModelId);
 }
 
 export function selectHasCapability(
@@ -104,28 +112,32 @@ function injectAmbient(
 function enforceConfigInvariants(
   config: AgentConfig,
   currentConfig: AgentConfig | null,
-  toolsPool: import('../types').Tool[],
-  modelsPool: ModelSpec[]
+  toolsPool: import('../types/tools').Tool[],
+  modelsPool: ModelSpec[],
+  defaultModelId: string | null,
 ): AgentConfig {
-  const finalConfig = { ...config };
-  const selectedModel = selectModelById(modelsPool, finalConfig.modelId);
-  finalConfig.providerId = getModelProviderId(selectedModel);
-  const supportedParameters = new Set([
-    ...((selectedModel?.supported_parameters ?? []) as string[]),
-    ...((selectedModel?.supportedParameters ?? []) as string[]),
-  ]);
+  const selectedModel = resolveValidModel(modelsPool, config.modelId, defaultModelId);
+  const finalConfig: AgentConfig = {
+    ...config,
+    modelId: selectedModel?.id ?? config.modelId,
+    providerId: getModelProviderId(selectedModel),
+    providerParameters: { ...(config.providerParameters ?? {}) },
+  };
 
-  const providerParameters = { ...(finalConfig.providerParameters ?? {}) };
+if (selectedModel) {
+    const supportedParameters = new Set([
+      ...((selectedModel.supported_parameters ?? []) as string[]),
+      ...((selectedModel.supportedParameters ?? []) as string[]),
+    ]);
 
-  if (!supportedParameters.has('reasoning') && !supportedParameters.has('reasoning_effort')) {
-    delete providerParameters.reasoning;
-    delete providerParameters.reasoning_effort;
+    if (!supportedParameters.has('reasoning') && !supportedParameters.has('reasoning_effort')) {
+      delete finalConfig.providerParameters.reasoning;
+      delete finalConfig.providerParameters.reasoning_effort;
+    }
+    if (!supportedParameters.has('include_reasoning')) {
+      delete finalConfig.providerParameters.include_reasoning;
+    }
   }
-  if (!supportedParameters.has('include_reasoning')) {
-    delete providerParameters.include_reasoning;
-  }
-
-  finalConfig.providerParameters = providerParameters;
 
   if (!finalConfig.enableTools) {
     finalConfig.availableTools = [];
@@ -139,6 +151,29 @@ function enforceConfigInvariants(
   }
 
   return finalConfig;
+}
+
+function normalizeAgents(
+  incoming: Agent[],
+  toolsPool: import('../types/tools').Tool[],
+  modelsPool: ModelSpec[],
+  defaultModelId: string | null,
+): Agent[] {
+  const seen = new Set<string>();
+  const agents = incoming.flatMap((agent) => {
+    if (seen.has(agent.agentId)) return [];
+    seen.add(agent.agentId);
+    return [{
+      ...agent,
+      config: enforceConfigInvariants(agent.config, agent.config, toolsPool, modelsPool, defaultModelId),
+    }];
+  });
+
+  if (!seen.has('none')) {
+    agents.unshift(createAssistantAgent(defaultModelId ?? undefined, modelsPool));
+  }
+
+  return agents;
 }
 
 const initialState = {
@@ -155,7 +190,7 @@ const initialState = {
   _hasShownInitialConfig: false,
   
   // Timeline workflow composition state
-  viewMode: 'developer' as 'developer' | 'user',
+  viewMode: 'user' as 'developer' | 'user',
   stagedUserMessage: null as string | null,
 
   // UI
@@ -168,9 +203,9 @@ const initialState = {
   userMessagesHistory: [] as string[],
   
   // Tools
-  toolsPool: [] as import('../types').Tool[],
-  workflowsPool: [] as import('../types').Workflow[],
-  modelsPool: [] as import('../types').ModelSpec[],
+  toolsPool: [] as import('../types/tools').Tool[],
+  workflowsPool: [] as import('../types/workflow').Workflow[],
+  modelsPool: [] as import('../types/llm').ModelSpec[],
   modelParameters: {} as Record<string, ModelParameterSchema>,
   defaultModelId: null as string | null,
   selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
@@ -184,7 +219,7 @@ const initialState = {
   
   // Editing
   editingEventId: null as string | null,
-  editingData: null as import('../types').EditingData | null,
+  editingData: null as import('../types/session').EditingData | null,
   
   // Selection (exclusive)
   // REMOVED: selectedComponentId selection feature has been removed
@@ -274,18 +309,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Multi-agent management
   setAgents: (incoming: Agent[]) => {
-    // Deduplicate by agentId (keep first occurrence)
-    const seen = new Set<string>();
-    let agents = incoming.filter(a => {
-      if (seen.has(a.agentId)) return false;
-      seen.add(a.agentId);
-      return true;
-    });
-    // Invariant: 'none' (assistant) must always be present
-    const hasNone = agents.some(a => a.agentId === 'none');
-    if (!hasNone) {
-      agents = [createAssistantAgent(), ...agents];
-    }
+    const { toolsPool, modelsPool, defaultModelId } = get();
+    const agents = normalizeAgents(incoming, toolsPool, modelsPool, defaultModelId);
     saveAgents(agents);
     // Reconcile agentStatuses: keep entries for retained agents, default new ones to 'idle'
     set((state) => {
@@ -329,7 +354,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       : configOrUpdater;
     
     // Enforce business rules
-    const finalConfig = enforceConfigInvariants(rawConfig, currentConfig, get().toolsPool, get().modelsPool);
+    const finalConfig = enforceConfigInvariants(rawConfig, currentConfig, get().toolsPool, get().modelsPool, get().defaultModelId);
 
     const updated = [...currentAgents];
     updated[0] = { ...updated[0], config: finalConfig };
@@ -351,7 +376,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   /** @deprecated Compat shim — updates agents[0].config */
   setAgentConfig: (agentConfigOrUpdater) => {
     const currentAgents = get().agents;
-    const currentConfig = currentAgents[0]?.config ?? createDefaultAgentConfig();
+    const currentConfig = currentAgents[0]?.config ?? createDefaultAgentConfig(get().defaultModelId ?? undefined, get().modelsPool);
     
     const agentConfig = typeof agentConfigOrUpdater === 'function'
       ? agentConfigOrUpdater(currentConfig)
@@ -359,7 +384,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     if (!agentConfig) return;
 
-    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool, get().modelsPool);
+    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool, get().modelsPool, get().defaultModelId);
 
     const updated = currentAgents.length > 0
       ? [{ ...currentAgents[0], config: finalConfig }, ...currentAgents.slice(1)]
@@ -371,17 +396,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Tool management
   setToolsPool: (toolsPool) => {
-    // Reconcile all agents' availableTools against the new pool
-    // (drops tools that are no longer available, e.g., disabled via mcp.json)
     const currentAgents = get().agents;
-    const reconciled = currentAgents.map(agent => ({
-      ...agent,
-      config: {
-        ...agent.config,
-        availableTools: (agent.config.availableTools ?? [])
-          .filter(tool => toolsPool.some(t => t.server === tool.server && t.tool === tool.tool))
-      }
-    }));
+    const reconciled = normalizeAgents(currentAgents, toolsPool, get().modelsPool, get().defaultModelId);
     
     // Only update agents if something changed
     if (JSON.stringify(reconciled) !== JSON.stringify(currentAgents)) {
@@ -401,7 +417,21 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   setModelsPool: (modelsPool, defaultModelId?: string, modelParameters?: Record<string, ModelParameterSchema>) => {
-    set({ modelsPool, defaultModelId: defaultModelId ?? null, modelParameters: modelParameters ?? {} });
+    const resolvedDefaultModelId = defaultModelId ?? null;
+    const currentAgents = get().agents;
+    const agents = normalizeAgents(currentAgents, get().toolsPool, modelsPool, resolvedDefaultModelId);
+    saveAgents(agents);
+    set((state) => {
+      const nextStatuses: Record<string, AgentStatus> = {};
+      for (const a of agents) nextStatuses[a.agentId] = state.agentStatuses[a.agentId] ?? 'idle';
+      return {
+        modelsPool,
+        defaultModelId: resolvedDefaultModelId,
+        modelParameters: modelParameters ?? {},
+        agents,
+        agentStatuses: nextStatuses,
+      };
+    });
   },
 
   // UI component actions
@@ -703,4 +733,4 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 }));
 
 // Export AgentSessionComponent type for convenience
-export type { AgentSessionComponent } from '../types';
+export type { AgentSessionComponent } from '../types/session';

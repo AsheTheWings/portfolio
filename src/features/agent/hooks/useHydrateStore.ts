@@ -7,41 +7,9 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useAgentStore, selectModelsById } from '../stores/useAgentStore';
+import { useAgentStore } from '../stores/useAgentStore';
 import { loadAgents, loadSelectedWorkflowId, saveSelectedWorkflowId } from '../utils/agent-storage';
-import { createDefaultAgentConfig } from '../utils/agent-factory';
-import type { Tool, Workflow, ModelParameterSchema, ModelSpec, AgentState, Agent } from '../types';
-
-function reconcileAgentsAgainstCatalog(
-  agents: Agent[],
-  modelsPool: ModelSpec[],
-  defaultModelId: string | null
-): Agent[] {
-  if (!defaultModelId) return agents;
-
-  const modelsById = selectModelsById(modelsPool);
-
-  // Guard: defaultModelId itself must be in catalog
-  if (!modelsById[defaultModelId]) return agents;
-
-  let changed = false;
-  const reconciled = agents.map(agent => {
-    const model = modelsById[agent.config.modelId];
-    if (!model) {
-      // Model no longer in catalog — reset to default
-      changed = true;
-      return { ...agent, config: createDefaultAgentConfig(defaultModelId, modelsPool) };
-    }
-    const providerId = model.providerId ?? 'openrouter';
-    if (agent.config.providerId !== providerId) {
-      changed = true;
-      return { ...agent, config: { ...agent.config, providerId } };
-    }
-    return agent;
-  });
-
-  return changed ? reconciled : agents;
-}
+import type { Tool, Workflow, ModelParameterSchema, ModelSpec, AgentState } from '../types';
 
 interface HydrateOptions {
   initialTools?: Tool[];
@@ -86,13 +54,6 @@ export function useHydrateStore({ initialTools, initialWorkflows, initialModels,
       const models = initialModelsRef.current;
       const defaultModelId = initialDefaultModelIdRef.current ?? null;
       useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined, initialModelParametersRef.current ?? {});
-
-      // Reconcile persisted agents against catalog
-      const storeAgents = useAgentStore.getState().agents;
-      const reconciled = reconcileAgentsAgainstCatalog(storeAgents, models, defaultModelId);
-      if (reconciled !== storeAgents) {
-        useAgentStore.getState().setAgents(reconciled);
-      }
     }
   }, []);
 }

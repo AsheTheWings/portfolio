@@ -45,12 +45,8 @@ function groupRank(group: ModelParameterSchema['group']): number {
 }
 
 export function getModelDefaultParameters(model: ModelSpec | undefined): Record<string, unknown> {
-  if (!model) return {};
+  if (!model || model.providerId !== 'openrouter') return {};
   return model.default_parameters ?? model.defaultParameters ?? {};
-}
-
-export function hasSchemaDefault(schema: ModelParameterSchema): boolean {
-  return Object.prototype.hasOwnProperty.call(schema, 'default');
 }
 
 export function getEffectiveParameterDefault(
@@ -61,7 +57,7 @@ export function getEffectiveParameterDefault(
   if (Object.prototype.hasOwnProperty.call(modelDefaults, schema.key) && modelDefaults[schema.key] !== null) {
     return modelDefaults[schema.key];
   }
-  return hasSchemaDefault(schema) ? schema.default : undefined;
+  return undefined;
 }
 
 export function getSupportedModelParameterSchemas(

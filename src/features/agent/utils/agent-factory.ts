@@ -10,30 +10,31 @@ import type { AgentConfig, Agent, ModelSpec } from '../types';
 const FALLBACK_MODEL_ID = 'google/gemini-2.5-flash';
 const FALLBACK_PROVIDER_ID = 'openrouter';
 
+function selectDefaultModel(modelId: string | undefined, modelsPool: ModelSpec[]): ModelSpec | undefined {
+  if (modelsPool.length === 0) return undefined;
+  return (modelId ? modelsPool.find((model) => model.id === modelId) : undefined) ?? modelsPool[0];
+}
+
 /**
  * Create default agent config for a given model id.
- * If no id is provided, use the first catalog model, then a stable fallback.
+ * Once a catalog is available, the returned model id is always from that catalog.
+ * Before catalog hydration, preserve an explicit id and otherwise use a stable fallback.
  */
 export function createDefaultAgentConfig(
   modelId?: string,
   modelsPool: ModelSpec[] = []
 ): AgentConfig {
-  const selectedModel = modelId
-    ? modelsPool.find((model) => model.id === modelId)
-    : modelsPool[0];
+  const selectedModel = selectDefaultModel(modelId, modelsPool);
 
   return {
-    modelId: modelId ?? selectedModel?.id ?? FALLBACK_MODEL_ID,
+    modelId: selectedModel?.id ?? modelId ?? FALLBACK_MODEL_ID,
     providerId: selectedModel?.providerId ?? FALLBACK_PROVIDER_ID,
     stream: true,
     maxModelCalls: 5,
     enableTools: true,
     availableTools: [],
     maxConcurrentTools: 5,
-    providerParameters: {
-      temperature: 1,
-      top_p: 0.95,
-    },
+    providerParameters: {},
   };
 }
 

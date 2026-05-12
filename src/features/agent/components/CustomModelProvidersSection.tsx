@@ -4,36 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input, Label, Switch, Textarea } from '@/features/shared/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
-import type { ModelSpec } from '../types';
+import type { ModelSpec } from '../types/llm';
 import { getModelContextLength, getModelDisplayName } from '../utils/openrouter-models';
 import { httpClient } from '@/features/shared/utils/http-client';
-
-type CustomModelParameter =
-  | 'temperature'
-  | 'top_p'
-  | 'top_k'
-  | 'min_p'
-  | 'top_a'
-  | 'frequency_penalty'
-  | 'presence_penalty'
-  | 'repetition_penalty'
-  | 'max_tokens'
-  | 'max_completion_tokens'
-  | 'logit_bias'
-  | 'logprobs'
-  | 'top_logprobs'
-  | 'seed'
-  | 'response_format'
-  | 'structured_outputs'
-  | 'stop'
-  | 'tools'
-  | 'tool_choice'
-  | 'parallel_tool_calls'
-  | 'include_reasoning'
-  | 'reasoning'
-  | 'reasoning_effort'
-  | 'web_search_options'
-  | 'verbosity';
 
 interface OpenRouterCompatibleModel {
   architecture: {
@@ -56,7 +29,7 @@ interface OpenRouterCompatibleModel {
   name: string;
   perRequestLimits: { completionTokens: number; promptTokens: number } | null;
   pricing: { prompt: string; completion: string; [key: string]: unknown };
-  supportedParameters: CustomModelParameter[];
+  supportedParameters?: string[];
   supportedVoices: string[] | null;
   topProvider: {
     contextLength?: number | null;
@@ -94,7 +67,6 @@ interface ModelDraft {
   name: string;
   contextLength: string;
   supportsImageInput: boolean;
-  supportedParameters: CustomModelParameter[];
 }
 
 interface ProviderDraft {
@@ -114,7 +86,6 @@ const EMPTY_MODEL: ModelDraft = {
   name: '',
   contextLength: '',
   supportsImageInput: true,
-  supportedParameters: ['temperature', 'top_p', 'max_tokens', 'tools'],
 };
 
 const EMPTY_PROVIDER: ProviderDraft = {
@@ -133,28 +104,6 @@ const FALLBACK_MODEL_PLACEHOLDER = {
   name: 'Kimi K2.6',
   contextLength: '262144',
 };
-
-const PARAMETER_OPTIONS: Array<{ value: CustomModelParameter; label: string }> = [
-  { value: 'temperature', label: 'Temperature' },
-  { value: 'top_p', label: 'Top P' },
-  { value: 'top_k', label: 'Top K' },
-  { value: 'min_p', label: 'Min P' },
-  { value: 'frequency_penalty', label: 'Frequency Penalty' },
-  { value: 'presence_penalty', label: 'Presence Penalty' },
-  { value: 'max_tokens', label: 'Max Tokens' },
-  { value: 'max_completion_tokens', label: 'Max Completion Tokens' },
-  { value: 'stop', label: 'Stop' },
-  { value: 'tools', label: 'Tools' },
-  { value: 'tool_choice', label: 'Tool Choice' },
-  { value: 'parallel_tool_calls', label: 'Parallel Tool Calls' },
-  { value: 'response_format', label: 'Response Format' },
-  { value: 'structured_outputs', label: 'Structured Outputs' },
-  { value: 'reasoning', label: 'Reasoning' },
-  { value: 'reasoning_effort', label: 'Reasoning Effort' },
-  { value: 'include_reasoning', label: 'Include Reasoning' },
-  { value: 'verbosity', label: 'Verbosity' },
-  { value: 'seed', label: 'Seed' },
-];
 
 function slugify(value: string): string {
   return value
@@ -187,7 +136,6 @@ function buildModelFromDraft(draft: ModelDraft, providerName: string, baseURL: s
     name,
     perRequestLimits: contextLength ? { promptTokens: contextLength, completionTokens: Math.max(1, Math.floor(contextLength / 2)) } : null,
     pricing: { prompt: '0', completion: '0' },
-    supportedParameters: draft.supportedParameters,
     supportedVoices: null,
     topProvider: {
       contextLength,
@@ -203,7 +151,6 @@ function modelDraftFromSettings(model: OpenRouterCompatibleModel): ModelDraft {
     name: model.name,
     contextLength: typeof model.contextLength === 'number' ? String(model.contextLength) : '',
     supportsImageInput: model.architecture.inputModalities.includes('image'),
-    supportedParameters: model.supportedParameters,
   };
 }
 
@@ -261,10 +208,7 @@ function toPayload(draft: ProviderDraft, isUpdate: boolean) {
 }
 
 function cloneModelDraft(draft: ModelDraft): ModelDraft {
-  return {
-    ...draft,
-    supportedParameters: [...draft.supportedParameters],
-  };
+  return { ...draft };
 }
 
 function getOpenRouterDefaultPlaceholder(modelsPool: ModelSpec[], defaultModelId: string | null): typeof FALLBACK_MODEL_PLACEHOLDER {
@@ -487,27 +431,8 @@ export function CustomModelProvidersSection() {
                   <Switch checked={model.supportsImageInput} onCheckedChange={(checked) => updateModel(index, { supportsImageInput: checked })} />
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium">Supported Params</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PARAMETER_OPTIONS.map((option) => {
-                      const checked = model.supportedParameters.includes(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => updateModel(index, {
-                            supportedParameters: checked
-                              ? model.supportedParameters.filter((value) => value !== option.value)
-                              : [...model.supportedParameters, option.value],
-                          })}
-                          className={`rounded-md border px-2 py-0.5 text-xs ${checked ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="rounded-md border border-border p-2 text-xs text-muted-foreground">
+                  Uses the OpenAI Chat Completions parameter surface. OpenRouter-only extensions are not available for custom providers.
                 </div>
 
                 <div className="flex justify-end">

@@ -8,13 +8,13 @@
  * attach the auth cookie as a Bearer token.
  */
 
+import type { ModelSpec } from '../types/llm';
 import type {
+  AgentConfig,
   AgentSessionEvent,
   AgentSessionMetadata,
-  AgentConfig,
-  ModelSpec,
   SavedAgent,
-} from '../types';
+} from '../types/session';
 
 // ============================================================
 // Types

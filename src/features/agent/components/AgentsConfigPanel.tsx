@@ -26,11 +26,11 @@ import {
   AvatarImage,
   AvatarFallback,
 } from '@/features/shared/components/shadcn';
-import type { AgentConfig, Tool, McpHostStatus, Agent } from '../types';
+import type { AgentConfig, Agent } from '../types/session';
+import type { Tool, McpHostStatus } from '../types/tools';
+import { ModelCapability } from '../types/llm';
 import { useAgentStore, selectModelById } from '../stores/useAgentStore';
 import { createDefaultAgentConfig } from '../utils/agent-factory';
-
-import { ModelCapability } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { McpConfigCardContent } from './McpConfigCardContent';
@@ -120,7 +120,7 @@ export function AgentsConfigPanel() {
 
             <CardTitle>Agents Configuration</CardTitle>
           </div>
-          <CardDescription>Configure model behavior and capabilities</CardDescription>
+          <CardDescription>Configure agent behavior and capabilities</CardDescription>
         </div>
         <CardAction>
           <button
@@ -186,10 +186,10 @@ export function AgentsConfigPanel() {
           ) : (
 
           /* Main Content */
-          <div className={`flex flex-col pb-4 ${isStandalone ? 'lg:block lg:h-full lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-6' : ''}`}>
-            <div>
+          <div className="grid grid-cols-1 gap-6 pb-4 lg:grid-cols-2">
+            <div className="flex flex-col">
               {/* Agent Selection */}
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+              <div className="mb-6 flex flex-col gap-3">
                 <Label>Agent</Label>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -239,7 +239,7 @@ export function AgentsConfigPanel() {
               </div>
 
               {/* Model Selection */}
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
+              <div className="mb-6 flex flex-col gap-3" >
                 <Label>Model</Label>
                 {!hasOpenRouterKey ? (
                   <button
@@ -271,7 +271,7 @@ export function AgentsConfigPanel() {
               </div>
 
               {/* System Instructions */}
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+              <div className="mb-6 flex flex-col gap-3">
                 <Label>System Instructions</Label>
                 {config.systemInstructions ? (
                   <button
@@ -286,7 +286,7 @@ export function AgentsConfigPanel() {
                 ) : (
                   <button
                     onClick={() => setShowSystemInstructions(true)}
-                    className="flex items-center justify-center gap-2 p-4 border border-dashed border-input rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    className="flex items-center justify-center gap-2 p-4 py-8 border border-dashed border-input rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
                   >
                     <span className="text-xs">Add System Instructions</span>
                     <Pen className="w-3 h-3" />
@@ -294,26 +294,37 @@ export function AgentsConfigPanel() {
                 )}
               </div>
 
-              {/* Generation Parameters */}
-              {hasOpenRouterKey && primaryParameterSchemas.length > 0 && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                  <Label>Generation Parameters</Label>
+              {/* Run Limits */}
+              {hasOpenRouterKey && (
+                <div className="mb-6 flex flex-col gap-3">
+                  <Label>Run Limits</Label>
                   <div className="flex flex-col gap-2">
-                    {primaryParameterSchemas.map((schema) => (
-                      <ModelParameterControl
-                        key={schema.key}
-                        schema={schema}
-                        providerParameters={config.providerParameters ?? {}}
-                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
-                        onUpdate={updateProviderParameters}
-                      />
-                    ))}
+                    <div className="flex justify-between">
+                      <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
+                      <span className="text-sm text-muted-foreground">{config.maxModelCalls}</span>
+                    </div>
+                    <Slider
+                      id="maxModelCalls"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={[config.maxModelCalls]}
+                      onValueChange={([value]) => updateConfig({ maxModelCalls: value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum allowed model responses in one agent call
+                    </p>
+                    {config.maxModelCalls === 1 && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                        ⚠️ Agent cannot follow up on tool results
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Streaming Section */}
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3" >
+              <div className="mb-6 flex flex-col gap-3" >
                 <Label>Streaming</Label>
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center">
@@ -339,61 +350,9 @@ export function AgentsConfigPanel() {
                 </div>
               </div>
 
-            </div>
-
-            <div>
-              {/* Run Limits */}
-              {hasOpenRouterKey && (
-              <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                <Label>Run Limits</Label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
-                    <span className="text-sm text-muted-foreground">{config.maxModelCalls}</span>
-                  </div>
-                  <Slider
-                    id="maxModelCalls"
-                    min={1}
-                    max={100}
-                    step={1}
-                    value={[config.maxModelCalls]}
-                    onValueChange={([value]) => updateConfig({ maxModelCalls: value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum allowed model responses in one agent call
-                  </p>
-                  {config.maxModelCalls === 1 && (
-                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                      ⚠️ Agent cannot follow up on tool results
-                    </p>
-                  )}
-                </div>
-              </div>
-              )}
-
-              {/* Advanced Parameters */}
-              {hasOpenRouterKey && advancedParameterSchemas.length > 0 && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
-                  <Label>Advanced Parameters</Label>
-                  <div className="flex flex-col gap-2">
-                    {advancedParameterSchemas.map((schema) => (
-                      <ModelParameterControl
-                        key={schema.key}
-                        schema={schema}
-                        providerParameters={config.providerParameters ?? {}}
-                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
-                        onUpdate={updateProviderParameters}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
               {/* MCP Tools Section */}
               {hasOpenRouterKey && supportsToolCalling && (
-                <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+                <div className="mb-6 flex flex-col gap-3">
                   <Label>MCP Tools</Label>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center">
@@ -495,6 +454,44 @@ export function AgentsConfigPanel() {
                       </div>
                     </>
                   )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col">
+              {/* Generation Parameters */}
+              {hasOpenRouterKey && primaryParameterSchemas.length > 0 && (
+                <div className="mb-6 flex flex-col gap-3">
+                  <Label>Generation Parameters</Label>
+                  <div className="flex flex-col gap-2">
+                    {primaryParameterSchemas.map((schema) => (
+                      <ModelParameterControl
+                        key={schema.key}
+                        schema={schema}
+                        providerParameters={config.providerParameters ?? {}}
+                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
+                        onUpdate={updateProviderParameters}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Advanced Parameters */}
+              {hasOpenRouterKey && advancedParameterSchemas.length > 0 && (
+                <div className="mb-6 flex flex-col gap-3">
+                  <Label>Advanced Parameters</Label>
+                  <div className="flex flex-col gap-2">
+                    {advancedParameterSchemas.map((schema) => (
+                      <ModelParameterControl
+                        key={schema.key}
+                        schema={schema}
+                        providerParameters={config.providerParameters ?? {}}
+                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
+                        onUpdate={updateProviderParameters}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -12,7 +12,8 @@ import { AgentSessionPopover } from './AgentSessionPopover';
 import { useAgent } from '../hooks/useAgent';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
-import { workflowDisplayName } from '../types';
+import { workflowDisplayName } from '../types/workflow';
+import { modelSupportsParameter } from '../utils/openrouter-models';
 
 export function QuickAccessHeader() {
   const {
@@ -27,6 +28,7 @@ export function QuickAccessHeader() {
     setUiInterface,
     workflowsPool,
     selectedWorkflowId,
+    modelsPool,
   } = useAgent();
 
   // Mailbox-only viewMode toggle (developer/client roles)
@@ -37,6 +39,8 @@ export function QuickAccessHeader() {
   // Workflow cycling (next id, wrap-around). Disabled when only one option.
   const { cycle: cycleWorkflow } = useWorkflowSwitcher();
   const canCycleWorkflow = workflowsPool.length > 1;
+  const selectedModel = agentConfig ? modelsPool.find((model) => model.id === agentConfig.modelId) : undefined;
+  const canToggleReasoningDisplay = modelSupportsParameter(selectedModel, 'include_reasoning');
   
   return (
     <div className="h-[42px] flex items-center justify-start gap-8 px-6">
@@ -85,27 +89,28 @@ export function QuickAccessHeader() {
           />
         </div>
 
-        {/* Reasoning Switch - Controls OpenRouter include_reasoning */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-foreground font-light">
-            Reasoning
-          </span>
-          <Switch
-            checked={agentConfig?.providerParameters?.include_reasoning === true}
-            onCheckedChange={(checked) => {
-              if (agentConfig) {
-                const providerParameters = { ...(agentConfig.providerParameters ?? {}) };
-                if (checked) {
-                  providerParameters.include_reasoning = true;
-                } else {
-                  delete providerParameters.include_reasoning;
+        {canToggleReasoningDisplay && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-foreground font-light">
+              Reasoning
+            </span>
+            <Switch
+              checked={agentConfig?.providerParameters?.include_reasoning === true}
+              onCheckedChange={(checked) => {
+                if (agentConfig) {
+                  const providerParameters = { ...(agentConfig.providerParameters ?? {}) };
+                  if (checked) {
+                    providerParameters.include_reasoning = true;
+                  } else {
+                    delete providerParameters.include_reasoning;
+                  }
+                  updateFrontAgentConfig({ ...agentConfig, providerParameters });
                 }
-                updateFrontAgentConfig({ ...agentConfig, providerParameters });
-              }
-            }}
-            aria-label="Toggle reasoning display"
-          />
-        </div>
+              }}
+              aria-label="Toggle reasoning display"
+            />
+          </div>
+        )}
 
         {/* Developer Switch — decouple view mode from workflow; always visible.
             In developer mode: composes against the developer role with cyan bubble.
