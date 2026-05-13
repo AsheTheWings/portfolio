@@ -6,12 +6,12 @@
  * Interfaces handle structural concerns (layout, grouping, ship wrapping).
  *
  * Exports:
- * - resolveComponent(): Maps any AgentSessionComponent to React content
+ * - resolveComponent(): Maps any SessionComponent to React content
  * - resolveSystemPanel(): Maps system panel types to their React components
  */
 
 import React from 'react';
-import type { AgentSessionComponent } from '../types';
+import type { SessionComponent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 import { AgentsConfigPanel } from './AgentsConfigPanel';
 import { SettingsPanel } from './SettingsPanel';
@@ -23,7 +23,7 @@ import { AgentThoughts } from './AgentThoughts';
 import { ToolCall } from './ToolCall';
 import { UserFeedback } from './UserFeedback';
 import { FlatAgentResponse } from './FlatAgentResponse';
-import { isTextFeedback } from '../utils/toAgentSessionComponent';
+import { isTextFeedback } from '../utils/toSessionComponent';
 
 // Tool-owned components
 import { SystemCall } from '../tools/system-call';
@@ -48,12 +48,12 @@ export function resolveSystemPanel(
 }
 
 /**
- * Resolve any AgentSessionComponent to its pure React representation.
+ * Resolve any SessionComponent to its pure React representation.
  * Returns content-only components — no collapse wrappers or layout shells.
  * The consuming interface applies structural wrappers (CollapsibleShip, etc.).
  */
 export function resolveComponent(
-  component: AgentSessionComponent,
+  component: SessionComponent,
 ): React.ReactNode {
   // Read view mode once — used by multiple cases below.
   // useAgentStore.getState() is synchronous and safe to call outside hooks.

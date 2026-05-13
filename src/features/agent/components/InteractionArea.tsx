@@ -14,7 +14,8 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
-import { hasActiveAgent } from '../utils/agent-status';
+import { useAgentStore } from '../stores/useAgentStore';
+import { isWorkflowActive } from '../utils/status';
 
 gsap.registerPlugin(useGSAP);
 
@@ -23,11 +24,12 @@ type InteractionAreaProps = object;
 export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>(
   ({}, ref) => {
     // Get state from store
-    const { submitTrigger, userMessagesHistory, agentStatuses, stopAgent } = useAgent();
+    const { submitTrigger, userMessagesHistory, abortWorkflow } = useAgent();
 
-    // Single derived flag — "any agent is actively producing output".
-    // The input never disables; this only drives the working cue inside MessageInput.
-    const isAgentWorking = hasActiveAgent(agentStatuses);
+    // Workflow-scoped "is the run live?" flag. Drives the pulsing dot and
+    // pause-button visibility; the input never disables.
+    const workflowStatus = useAgentStore((s) => s.workflowStatus);
+    const isWorkflowRunning = isWorkflowActive(workflowStatus);
 
     // Collapsed state: empty composer stays collapsed; content or user interaction expands it.
     const [isOpenWithoutContent, setIsOpenWithoutContent] = useState(false);
@@ -273,8 +275,8 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             ref={ref}
             onSend={submitUserInput}
             onInsert={insertUserMessage}
-            isAgentWorking={isAgentWorking}
-            onPause={stopAgent}
+            isWorkflowRunning={isWorkflowRunning}
+            onPause={abortWorkflow}
             placeholder={viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}

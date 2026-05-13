@@ -8,9 +8,9 @@
 import { create } from 'zustand';
 import type {
   AgentState,
-  AgentSessionComponent,
-  AgentSessionComponentType,
-  AgentSessionEvent,
+  SessionComponent,
+  SessionComponentType,
+  SessionEvent,
   Agent,
   AgentConfig,
   SavedAgent,
@@ -19,8 +19,15 @@ import type {
 } from '../types/session';
 import { createDefaultAgentConfig, createAssistantAgent } from '../utils/agent-factory';
 import { saveAgents } from '../utils/agent-storage';
-import { toAgentSessionComponents, processEventIntoComponents } from '../utils/toAgentSessionComponent';
-import { statusFromEvent, type AgentStatus } from '../utils/agent-status';
+import { toSessionComponents, processEventIntoComponents } from '../utils/toSessionComponent';
+import {
+  agentStatusFromEvent,
+  applyAgentStatusesForLifecycleEvent,
+  deriveWorkflowStatus,
+  workflowStatusFromEvent,
+  type AgentStatus,
+  type WorkflowStatus,
+} from '../utils/status';
 import type { ModelParameterSchema, ModelSpec } from '../types/llm';
 import { ModelCapability } from '../types/llm';
 import { modelHasCapability } from '../utils/openrouter-models';
@@ -67,14 +74,14 @@ export function selectHasCapability(
  */
 const STAGED_PREVIEW_ID = '__staged_user_preview__';
 
-function buildStagedComponent(message: string): AgentSessionComponent {
+function buildStagedComponent(message: string): SessionComponent {
   return {
     id: STAGED_PREVIEW_ID,
     type: 'user-message',
     role: 'user',
     isStreaming: false,
     data: { message },
-  } as unknown as AgentSessionComponent;
+  } as unknown as SessionComponent;
 }
 
 /**
@@ -84,10 +91,10 @@ function buildStagedComponent(message: string): AgentSessionComponent {
  * `setUiInterface`).
  */
 function injectAmbient(
-  components: AgentSessionComponent[],
-  activePanels: Map<string, AgentSessionComponentType>,
+  components: SessionComponent[],
+  activePanels: Map<string, SessionComponentType>,
   stagedUserMessage: string | null,
-): AgentSessionComponent[] {
+): SessionComponent[] {
   for (const [panelId, panelType] of activePanels) {
     components.push({
       id: panelId,
@@ -195,10 +202,10 @@ const initialState = {
 
   // UI
   uiInterface: 'chat' as UIInterface,
-  sessionComponents: [] as AgentSessionComponent[],
-  agentSessionEvents: [] as AgentSessionEvent[],
-  activePanels: new Map<string, AgentSessionComponentType>(),
-  persistAgentSession: true,
+  sessionComponents: [] as SessionComponent[],
+  sessionEvents: [] as SessionEvent[],
+  activePanels: new Map<string, SessionComponentType>(),
+  persistSession: true,
   ephemeral: false,
   userMessagesHistory: [] as string[],
   
@@ -212,6 +219,12 @@ const initialState = {
   
   // Per-agent runtime status (ephemeral)
   agentStatuses: { none: 'idle' } as Record<string, AgentStatus>,
+
+  // Active workflow run status (ephemeral, session-scoped). Mirrors the
+  // backend's run lifecycle. Source of truth lives in the workflow_*
+  // system events; this field is the materialised view consumers read.
+  workflowStatus: 'idle' as WorkflowStatus,
+  workflowRunId: null as string | null,
   scrollToComponentId: null as string | null,
   preserveScrollOnSessionChange: false,
   error: null as string | null,
@@ -281,7 +294,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   // Session management
-  setCurrentAgentSessionId: (currentSessionId) => {
+  setCurrentSessionId: (currentSessionId) => {
     set({ currentSessionId });
   },
 
@@ -435,14 +448,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   // UI component actions
-  setAgentSessionComponents: (components) =>
+  setSessionComponents: (components) =>
     set((state) => ({
       sessionComponents: typeof components === 'function' ? components(state.sessionComponents) : components,
     })),
 
-  appendEvent: (event: AgentSessionEvent) => {
+  appendEvent: (event: SessionEvent) => {
     set((state) => {
-      const agentSessionEvents = [...state.agentSessionEvents, event];
+      const sessionEvents = [...state.sessionEvents, event];
 
       // Pull the staged preview out, run event processing on the
       // event-derived list, then re-append the staged preview at the tail.
@@ -457,37 +470,49 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       processEventIntoComponents(sessionComponents, event, state.uiInterface);
       if (staged) sessionComponents.push(staged);
 
-      const agentStatuses = { ...state.agentStatuses };
+      // ── Workflow status (session-scoped) ─────────────────────
+      const wfMapped = workflowStatusFromEvent(event);
+      const workflowStatus = wfMapped ?? state.workflowStatus;
+      let workflowRunId = state.workflowRunId;
+      if (event.type === 'workflow_started' || event.type === 'workflow_resumed') {
+        workflowRunId = event.data.runId;
+      }
 
-      // user-turn-completed is session-scoped: mark every known agent as 'processing'
-      // so each one lights up while waiting for its first model event.
-      if (event.type === 'user-turn-completed') {
-        for (const a of state.agents) agentStatuses[a.agentId] = 'processing';
-      } else {
+      // ── Per-agent statuses ───────────────────────────────────
+      // Lifecycle events drive bulk updates across every agent.
+      const lifecycleStatuses = applyAgentStatusesForLifecycleEvent(
+        state.agentStatuses,
+        event,
+        state.agents,
+      );
+      const agentStatuses = lifecycleStatuses ?? { ...state.agentStatuses };
+
+      // For non-lifecycle events, apply the per-agent mapping. tool-effects
+      // with pending userActions is the special case: the *agent* whose tool
+      // produced the prompt is waiting for feedback, even though the
+      // workflow as a whole is paused.
+      if (!lifecycleStatuses && event.type !== 'user-input-committed') {
         const agentKey = event.agentId || 'none';
-
-        // Tool-effects with pending userActions → that agent is waiting for feedback.
-        // The feedback view itself is rendered inside AgentMessage (derived from
-        // the tool-call sub-item's toolEffects.userActions); no global request
-        // state is needed.
         if (event.type === 'tool-effects') {
           const { toolEffects } = event.data as ToolEffectsData;
           if (toolEffects?.userActions) {
             agentStatuses[agentKey] = 'waitingFeedback';
           } else {
-            const mapped = statusFromEvent(event);
+            const mapped = agentStatusFromEvent(event);
             if (mapped) agentStatuses[agentKey] = mapped;
           }
         } else {
-          const mapped = statusFromEvent(event);
+          const mapped = agentStatusFromEvent(event);
           if (mapped) agentStatuses[agentKey] = mapped;
         }
       }
 
       return {
-        agentSessionEvents,
+        sessionEvents,
         sessionComponents,
         agentStatuses,
+        workflowStatus,
+        workflowRunId,
       };
     });
 
@@ -503,23 +528,36 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  hydrateFromEvents: (events: AgentSessionEvent[]) => {
+  hydrateFromEvents: (events: SessionEvent[]) => {
     const { activePanels, uiInterface, stagedUserMessage } = get();
     const sessionComponents = injectAmbient(
-      toAgentSessionComponents(events, uiInterface),
+      toSessionComponents(events, uiInterface),
       activePanels,
       stagedUserMessage,
     );
-    set({ agentSessionEvents: events, sessionComponents });
+    // Reconstruct WorkflowStatus + last runId from the persisted log so that
+    // a session loaded mid-pause shows the correct affordances.
+    const workflowStatus = deriveWorkflowStatus(events);
+    let workflowRunId: string | null = null;
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i];
+      if (e.type === 'workflow_started' || e.type === 'workflow_resumed') {
+        workflowRunId = e.data.runId;
+        break;
+      }
+    }
+    set({ sessionEvents: events, sessionComponents, workflowStatus, workflowRunId });
   },
 
   clearEvents: () => set({
-    agentSessionEvents: [],
+    sessionEvents: [],
     sessionComponents: [],
     activePanels: new Map(),
     // A fresh session has no pending compose — the staged preview is tied
     // to the just-cleared session context.
     stagedUserMessage: null,
+    workflowStatus: 'idle',
+    workflowRunId: null,
   }),
 
   clearSystemPanels: () =>
@@ -540,7 +578,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       };
     }),
 
-  upsertSystemPanel: (panelId: string, panelType: AgentSessionComponentType) =>
+  upsertSystemPanel: (panelId: string, panelType: SessionComponentType) =>
     set((state) => {
       const activePanels = new Map(state.activePanels);
       activePanels.set(panelId, panelType);
@@ -567,17 +605,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Control actions
   setUiInterface: (uiInterface: UIInterface) => {
-    const { agentSessionEvents, activePanels, stagedUserMessage } = get();
+    const { sessionEvents, activePanels, stagedUserMessage } = get();
     const sessionComponents = injectAmbient(
-      toAgentSessionComponents(agentSessionEvents, uiInterface),
+      toSessionComponents(sessionEvents, uiInterface),
       activePanels,
       stagedUserMessage,
     );
     set({ uiInterface, sessionComponents });
   },
 
-  setPersistAgentSession: (persistAgentSession) => {
-    set({ persistAgentSession });
+  setPersistSession: (persistSession) => {
+    set({ persistSession });
   },
 
   setEphemeral: (ephemeral) => {
@@ -728,9 +766,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({
       ...initialState,
       agentStatuses: { none: 'idle' },
+      workflowStatus: 'idle',
+      workflowRunId: null,
     });
   },
+
+  setWorkflowStatus: (status: WorkflowStatus) => set({ workflowStatus: status }),
 }));
 
-// Export AgentSessionComponent type for convenience
-export type { AgentSessionComponent } from '../types/session';
+// Export SessionComponent type for convenience
+export type { SessionComponent } from '../types/session';

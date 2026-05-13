@@ -10,16 +10,16 @@ import React, { useMemo } from 'react';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 
-import type { AgentSessionEvent } from '../types';
+import type { SessionEvent } from '../types';
 
 hljs.registerLanguage('json', json);
 
 /**
  * Truncate base64 image data in events for readable debug display
  */
-function truncateImageData(events: AgentSessionEvent[]): AgentSessionEvent[] {
+function truncateImageData(events: SessionEvent[]): SessionEvent[] {
   return events.map(event => {
-    if (event.type !== 'user-turn-completed') return event;
+    if (event.type !== 'user-input-committed') return event;
     
     const { data } = event;
     if (!data.encodedImages?.length) return event;
@@ -38,7 +38,7 @@ function truncateImageData(events: AgentSessionEvent[]): AgentSessionEvent[] {
 }
 
 interface DebugViewProps {
-  sessionEvents?: AgentSessionEvent[];
+  sessionEvents?: SessionEvent[];
 }
 
 export function DebugView({ sessionEvents }: DebugViewProps) {

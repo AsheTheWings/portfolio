@@ -21,12 +21,12 @@ import { ComponentShell } from './ComponentShell';
 import type { BranchInfo, ParentBranchInfo } from './ComponentShell';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
-import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
+import { useSessionBranching } from '../hooks/useSessionBranching';
+import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
 import { parseLibraryPaths } from '../utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@/features/library';
 import { DebugView } from './DebugView';
-import type { AgentSessionComponent, AgentSessionEvent } from '../types';
+import type { SessionComponent, SessionEvent } from '../types';
 
 // ────────────────────────────────────────────────────────────
 // Tagged content parsing
@@ -75,7 +75,7 @@ function parseTaggedContent(
 // ────────────────────────────────────────────────────────────
 
 interface UserMessageProps {
-  component: AgentSessionComponent;
+  component: SessionComponent;
 }
 
 /**
@@ -107,8 +107,8 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   const viewMode = useAgentStore((s) => s.viewMode);
 
   // ── Branching ───────────────────────────────────────────
-  const { submitEdit, revertToComponent } = useAgentSessionBranching();
-  const { loadAgentSession } = useAgentSessionLifecycle();
+  const { submitEdit, revertToComponent } = useSessionBranching();
+  const { loadSession } = useSessionLifecycle();
 
   // ── View state (carousel: debug at index 0, content at index 1) ──
   const hasDebugView = !!controls?.debug;
@@ -122,8 +122,8 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   // ── Branch data from sessionEvents ──────────────────────
   const branches: BranchInfo[] = useMemo(() => {
     return (sessionEvents || [])
-      .filter((e): e is Extract<AgentSessionEvent, { type: 'branch' }> =>
-        e.type === 'branch' && !!e.data.branchSessionId
+      .filter((e): e is Extract<SessionEvent, { type: 'session_branched' }> =>
+        e.type === 'session_branched' && !!e.data.branchSessionId
       )
       .map(e => ({
         branchSessionId: e.data.branchSessionId as string,
@@ -132,8 +132,8 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   }, [sessionEvents]);
 
   const parentBranch: ParentBranchInfo | undefined = useMemo(() => {
-    const found = (sessionEvents || []).find((e): e is Extract<AgentSessionEvent, { type: 'branch' }> =>
-      e.type === 'branch' && !!e.data.parentSessionId
+    const found = (sessionEvents || []).find((e): e is Extract<SessionEvent, { type: 'session_branched' }> =>
+      e.type === 'session_branched' && !!e.data.parentSessionId
     );
     return found ? { parentSessionId: found.data.parentSessionId as string } : undefined;
   }, [sessionEvents]);
@@ -352,7 +352,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
             branches={branches}
             parentBranch={parentBranch}
             heightMode={heightMode}
-            onLoadSession={loadAgentSession}
+            onLoadSession={loadSession}
             onSetPreserveScroll={setPreserveScrollOnSessionChange}
             isStreaming={isStreaming ?? false}
             viewTitle={isShowingDebug ? 'Agent Session Events' : undefined}

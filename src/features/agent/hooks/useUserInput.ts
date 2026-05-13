@@ -11,13 +11,13 @@
  *   with current <user_message>
  *
  * Note: tool-triggered feedback is rendered as a sub-view inside
- * `AgentMessage` and dispatched directly via `useAgentCall().submitFeedback`.
+ * `AgentMessage` and dispatched directly via `useWorkflow().submitFeedback`.
  * The input area is always available and never enters a "feedback mode".
  */
 
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useAgentCall } from './useAgentCall';
+import { useWorkflow } from './useWorkflow';
 
 const wrapUser = (text: string) => `<user_message>\n${text}\n</user_message>`;
 const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</developer_message>`;
@@ -25,7 +25,7 @@ const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</develop
 export function useUserInput() {
   const viewMode = useAgentStore((s) => s.viewMode);
   const stagedUserMessage = useAgentStore((s) => s.stagedUserMessage);
-  const { submitMessage } = useAgentCall();
+  const { submitMessage } = useWorkflow();
 
   /**
    * Submit user input — wraps each authored block in its author tag so

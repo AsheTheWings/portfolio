@@ -1,19 +1,25 @@
 'use client';
 
 /**
- * useAgentCall Hook
- * 
- * Thin WS sender — all agent execution happens on the backend.
- * - submitMessage(): sends user_message via WS
- * - stopAgent(): sends stop_agent via WS
- * - submitFeedback(): sends submit_feedback via WS  
+ * useWorkflow — Workflow run control surface.
+ *
+ * Thin WS sender wrapping the run-lifecycle verbs. Every method dispatches
+ * over the WebSocket and returns immediately; lifecycle truth flows back
+ * through `session_event` (workflow_started, workflow_paused, …) which the
+ * store ingests in `appendEvent`. Optimistic store nudges in this file are
+ * just for snappy UI feedback — they are reconciled by the next event.
+ *
+ *   submitMessage   → user_message    (starts a new run on commit)
+ *   abortWorkflow   → abort_workflow  (cancels the active run)
+ *   submitFeedback  → submit_feedback (resumes a paused run with a result)
+ *   resumeWorkflow  → resume_workflow (resumes a paused run with no input)
  */
 
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 
-export function useAgentCall() {
+export function useWorkflow() {
   const { send } = useAgentConnection();
 
   /**
@@ -31,8 +37,10 @@ export function useAgentCall() {
 
     // Clear system panels when user sends a new message
     store.clearSystemPanels();
-    // Mark every configured agent as 'processing' so each bubble lights up
-    // while waiting for its first model event.
+    // Optimistic UI: snap to running before workflow_started lands.
+    // The lifecycle handler in `appendEvent` is idempotent on the
+    // workflow_started event we'll receive shortly.
+    store.setWorkflowStatus('running');
     store.resetAllAgentStatuses('processing');
 
     // Track in user messages history
@@ -58,14 +66,16 @@ export function useAgentCall() {
   }, [send]);
 
   /**
-   * Stop current agent execution on backend
+   * Abort the active workflow run on the backend. Emits `workflow_aborted`
+   * which transitions WorkflowStatus to 'aborted' and every active agent
+   * to 'interrupted'.
    */
-  const stopAgent = useCallback(() => {
+  const abortWorkflow = useCallback(() => {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;
-    
+
     send({
-      type: 'stop_agent',
+      type: 'abort_workflow',
       sessionId,
     });
   }, [send]);
@@ -89,24 +99,29 @@ export function useAgentCall() {
   }, [send]);
 
   /**
-   * Resume agent from last state — no new input, re-run from where it stopped
+   * Resume the paused run with no additional input — reuses the same
+   * runId. Emits `workflow_resumed` server-side which lands on the
+   * lifecycle handler in `appendEvent`.
    */
-  const resumeAgent = useCallback(() => {
-    const sessionId = useAgentStore.getState().currentSessionId;
+  const resumeWorkflow = useCallback(() => {
+    const store = useAgentStore.getState();
+    const sessionId = store.currentSessionId;
     if (!sessionId) return;
 
-    useAgentStore.getState().resetAllAgentStatuses('processing');
+    // Optimistic UI: see `submitMessage` for rationale.
+    store.setWorkflowStatus('running');
+    store.resetAllAgentStatuses('processing');
 
     send({
-      type: 'resume_agent',
+      type: 'resume_workflow',
       sessionId,
     });
   }, [send]);
 
   return {
     submitMessage,
-    stopAgent,
+    abortWorkflow,
     submitFeedback,
-    resumeAgent,
+    resumeWorkflow,
   };
 }

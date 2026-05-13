@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * useAgentSessionMetadata Hook
+ * useSessionMetadata Hook
  * Manages single session metadata with debounced auto-save
  * Provides turn count, event count, and editable fields
  */
 
 import { useRef, useCallback, useMemo } from 'react';
 import { mutate } from 'swr';
-import { useAgentSessionHistory } from './useAgentSessionHistory';
+import { useSessionHistory } from './useSessionHistory';
 
-export interface AgentSessionMetadata {
+export interface SessionMetadata {
   id: string;
   title: string | null;
   titleLocked: boolean;
@@ -21,9 +21,9 @@ export interface AgentSessionMetadata {
   updatedAt: string;
 }
 
-interface UseAgentSessionMetadataReturn {
+interface UseSessionMetadataReturn {
   // Data
-  metadata: AgentSessionMetadata | null;
+  metadata: SessionMetadata | null;
   isLoading: boolean;
   isError: boolean;
   
@@ -39,13 +39,13 @@ interface UseAgentSessionMetadataReturn {
  * @param sessionId - The session ID to fetch metadata for
  * @returns Session metadata and update functions
  */
-export function useAgentSessionMetadata(sessionId?: string): UseAgentSessionMetadataReturn {
+export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn {
   // Debounce timers
   const titleDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const agentNameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fetch sessions list (includes all metadata)
-  const { sessions, isLoading, isError } = useAgentSessionHistory(100);
+  const { sessions, isLoading, isError } = useSessionHistory(100);
   
   // Find the specific session from the list
   const data = useMemo(() => {

@@ -8,7 +8,7 @@ export type ToolHandler = (
     userFeedback?: unknown;
     toolCallEventId?: string;
     metadata?: AgentMetadata;  // Read-only snapshot of turn metadata at call time
-    turnId?: string;           // Turn ID from session context
+    interactionId?: string;           // Turn ID from session context
     turnMetadata?: AgentMetadata;  // Turn-scoped metadata for job aggregation
   }
 ) => Promise<unknown>;

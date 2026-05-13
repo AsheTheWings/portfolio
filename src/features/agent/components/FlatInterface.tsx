@@ -17,7 +17,7 @@ import { Check, X } from 'lucide-react';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import type { MessageInputRef } from './MessageInput';
-import type { AgentSessionComponent } from '../types';
+import type { SessionComponent } from '../types';
 import { resolveComponent } from './ComponentResolver';
 import { CollapsibleShip } from './CollapsibleShip';
 import { getToolDisplayName, getToolStatus } from '../utils/tool-call';
@@ -35,7 +35,7 @@ function ThoughtsShipHeader({ isStreaming }: { isStreaming?: boolean }) {
   );
 }
 
-function ToolCallShipHeader({ data }: { data: AgentSessionComponent['data'] }) {
+function ToolCallShipHeader({ data }: { data: SessionComponent['data'] }) {
   const status = getToolStatus(data);
   return (
     <>
@@ -49,7 +49,7 @@ function ToolCallShipHeader({ data }: { data: AgentSessionComponent['data'] }) {
 
 // ── Render a flat component, wrapping collapsible types with ship ──
 
-function renderFlatComponent(component: AgentSessionComponent): React.ReactNode {
+function renderFlatComponent(component: SessionComponent): React.ReactNode {
   const content = resolveComponent(component);
   if (!content) return null;
 

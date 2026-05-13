@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * useAgentSessionHistory Hook
+ * useSessionHistory Hook
  * Fetches and caches session history using SWR via REST proxy
  */
 
 import useSWR from 'swr';
 
-export interface AgentSessionRow {
+export interface SessionRow {
   id: string;
   title?: string;
   titleLocked?: boolean;
@@ -19,12 +19,12 @@ export interface AgentSessionRow {
   userId: string;
 }
 
-interface AgentSessionHistoryResponse {
-  sessions: AgentSessionRow[];
+interface SessionHistoryResponse {
+  sessions: SessionRow[];
   success: boolean;
 }
 
-const fetcher = async (url: string): Promise<AgentSessionHistoryResponse> => {
+const fetcher = async (url: string): Promise<SessionHistoryResponse> => {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to fetch sessions');
@@ -32,8 +32,8 @@ const fetcher = async (url: string): Promise<AgentSessionHistoryResponse> => {
   return response.json();
 };
 
-export function useAgentSessionHistory(limit: number = 100) {
-  const { data, error, isLoading, mutate } = useSWR<AgentSessionHistoryResponse>(
+export function useSessionHistory(limit: number = 100) {
+  const { data, error, isLoading, mutate } = useSWR<SessionHistoryResponse>(
     `/api/agent/sessions?limit=${limit}`,
     fetcher,
     {

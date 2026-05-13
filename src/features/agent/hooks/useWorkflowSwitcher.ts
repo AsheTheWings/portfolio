@@ -20,7 +20,7 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { saveSelectedWorkflowId } from '../utils/agent-storage';
 import { isWorkflowEligible } from '../utils/workflow-eligibility';
-import { updateAgentSession } from '../lib/agent-api';
+import { updateSession } from '../lib/agent-api';
 
 export function useWorkflowSwitcher() {
   const setSelectedWorkflowId = useAgentStore((s) => s.setSelectedWorkflowId);
@@ -48,7 +48,7 @@ export function useWorkflowSwitcher() {
     const sessionId = state.currentSessionId;
     if (sessionId) {
       try {
-        await updateAgentSession(sessionId, { workflow: workflowId });
+        await updateSession(sessionId, { workflow: workflowId });
       } catch (err) {
         console.error('[useWorkflowSwitcher] Failed to update session workflow:', err);
       }

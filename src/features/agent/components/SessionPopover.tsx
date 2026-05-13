@@ -23,26 +23,26 @@ import {
 
 import { CopyButton } from '@/features/shared/components/shadcn/copy-button';
 import { useAgent } from '../hooks/useAgent';
-import { useAgentSessionMetadata } from '../hooks/useAgentSessionMetadata';
+import { useSessionMetadata } from '../hooks/useSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
 import { createAgent } from '../lib/agent-api';
 import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { SavedAgent as _SavedAgent } from '../types';
 
-interface AgentSessionPopoverProps {
+interface SessionPopoverProps {
   sessionId?: string;
-  persistAgentSession?: boolean;
+  persistSession?: boolean;
   ephemeral?: boolean;
 }
 
-export function AgentSessionPopover({
+export function SessionPopover({
   sessionId,
-  persistAgentSession: propPersistSession = true,
+  persistSession: propPersistSession = true,
   ephemeral: propEphemeral = false,
-}: AgentSessionPopoverProps) {
-  const { setPersistAgentSession, setEphemeral, agents } = useAgent();
+}: SessionPopoverProps) {
+  const { setPersistSession, setEphemeral, agents } = useAgent();
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
-  const { metadata, updateTitle, updateAgentName, updateTitleLocked } = useAgentSessionMetadata(sessionId);
+  const { metadata, updateTitle, updateAgentName, updateTitleLocked } = useSessionMetadata(sessionId);
   
   const [localTitle, setLocalTitle] = useState('');
   const [localAgentName, setLocalAgentName] = useState('');
@@ -218,14 +218,14 @@ export function AgentSessionPopover({
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center">
                     <MuiCheckbox
-                      id="persistAgentSession"
+                      id="persistSession"
                       checked={propPersistSession}
-                      onChange={(e) => setPersistAgentSession(e.target.checked)}
+                      onChange={(e) => setPersistSession(e.target.checked)}
                       size="small"
                       disableRipple
                       sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
                     />
-                    <Label htmlFor="persistAgentSession" className="text-xs font-normal cursor-pointer">Persistent</Label>
+                    <Label htmlFor="persistSession" className="text-xs font-normal cursor-pointer">Persistent</Label>
                   </div>
                   <p className="text-xs text-muted-foreground pl-7">Save session history to database</p>
                 </div>

@@ -14,7 +14,7 @@
  * Used by: UserMessage (1 view), AgentMessage (N views), flat-mode standalone
  * components.
  *
- * Replaces: AgentSessionComponentWrapper (deleted).
+ * Replaces: SessionComponentWrapper (deleted).
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -23,7 +23,7 @@ import IconBranch from '@/features/shared/icons/IconBranch';
 import { TranslateButton } from './TranslateButton';
 import { BranchTreeView } from './BranchTreeView';
 import { useChatClickAway } from '../hooks/useChatClickAway';
-import type { AgentSessionComponentControls, EditingData } from '../types';
+import type { SessionComponentControls, EditingData } from '../types';
 
 // ────────────────────────────────────────────────────────────
 // Control bar types
@@ -31,7 +31,7 @@ import type { AgentSessionComponentControls, EditingData } from '../types';
 
 export interface ControlBarConfig {
   /** Which buttons are enabled (from component.controls) */
-  controls?: AgentSessionComponentControls;
+  controls?: SessionComponentControls;
   /** Currently active eventId for edit/revert (changes per active view in carousel) */
   eventId?: string;
   /** Component ID (for last-component detection) */

@@ -80,7 +80,7 @@ export function clearAgents(): void {
  */
 
 export interface UIFlags {
-  persistAgentSession: boolean;
+  persistSession: boolean;
   ephemeral: boolean;
 }
 
@@ -97,16 +97,16 @@ export function loadUIFlags(uiInterface: 'chat' | 'flat'): UIFlags {
     if (!stored) {
       // Default values per interface
       return uiInterface === 'flat' 
-        ? { persistAgentSession: false, ephemeral: true }
-        : { persistAgentSession: true, ephemeral: false };
+        ? { persistSession: false, ephemeral: true }
+        : { persistSession: true, ephemeral: false };
     }
 
     return JSON.parse(stored) as UIFlags;
   } catch (err) {
     console.error(`Failed to load UI flags for ${uiInterface}:`, err);
     return uiInterface === 'flat' 
-      ? { persistAgentSession: false, ephemeral: true }
-      : { persistAgentSession: true, ephemeral: false };
+      ? { persistSession: false, ephemeral: true }
+      : { persistSession: true, ephemeral: false };
   }
 }
 
@@ -163,7 +163,7 @@ const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 /**
  * Save current session ID to a cookie (readable by server and client)
  */
-export function saveCurrentAgentSessionId(sessionId: string | null): void {
+export function saveCurrentSessionId(sessionId: string | null): void {
   if (sessionId) {
     document.cookie = `${SESSION_COOKIE_NAME}=${sessionId}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; samesite=lax`;
   } else {

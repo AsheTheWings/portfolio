@@ -25,10 +25,10 @@ import {
 } from '@/features/shared/components/shadcn';
 import { CalendarIcon } from 'lucide-react';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
-import { useAgentSessionHistory } from '../hooks/useAgentSessionHistory';
+import { useSessionHistory } from '../hooks/useSessionHistory';
 import { useAgent } from '../hooks/useAgent';
 
-interface _AgentSessionRow {
+interface _SessionRow {
   id: string;
   title?: string;
   agentName: string;
@@ -39,8 +39,8 @@ interface _AgentSessionRow {
 }
 
 export function HistoryPanel() {
-  const { loadAgentSession, removeComponent, currentSessionId, uiInterface } = useAgent();
-  const [loadingAgentSessionId, setLoadingAgentSessionId] = useState<string | null>(null);
+  const { loadSession, removeComponent, currentSessionId, uiInterface } = useAgent();
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
 
   // Chat mode = standalone (centered card), side-by-side = inline
   const isStandalone = uiInterface === 'chat';
@@ -49,19 +49,19 @@ export function HistoryPanel() {
     removeComponent('history-panel');
   };
 
-  const handleAgentSessionSelect = async (sessionId: string) => {
+  const handleSessionSelect = async (sessionId: string) => {
     try {
-      setLoadingAgentSessionId(sessionId);
-      await loadAgentSession(sessionId);
+      setLoadingSessionId(sessionId);
+      await loadSession(sessionId);
       removeComponent('history-panel');
     } catch (error) {
       console.error('Failed to resume session:', error);
     } finally {
-      setLoadingAgentSessionId(null);
+      setLoadingSessionId(null);
     }
   };
   // Fetch last 100 sessions with SWR (cached + auto-refresh)
-  const { sessions: allAgentSessions, isLoading, isError, error } = useAgentSessionHistory(100);
+  const { sessions: allSessions, isLoading, isError, error } = useSessionHistory(100);
   
   // Filters (client-side)
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,8 +70,8 @@ export function HistoryPanel() {
   const [endDate, setEndDate] = useState<Date | undefined>();
 
   // Apply filters client-side (fast on 100 items)
-  const filteredAgentSessions = useMemo(() => {
-    let filtered = allAgentSessions;
+  const filteredSessions = useMemo(() => {
+    let filtered = allSessions;
 
     // Search query filter
     if (searchQuery.trim()) {
@@ -104,7 +104,7 @@ export function HistoryPanel() {
     }
 
     return filtered;
-  }, [allAgentSessions, searchQuery, agentNameFilter, startDate, endDate]);
+  }, [allSessions, searchQuery, agentNameFilter, startDate, endDate]);
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -238,23 +238,23 @@ export function HistoryPanel() {
           </div>
         )}
 
-        {!isLoading && !isError && filteredAgentSessions.length === 0 && (
+        {!isLoading && !isError && filteredSessions.length === 0 && (
           <div className="flex-1 flex justify-center items-center text-center text-xs text-muted-foreground">
             No sessions found
           </div>
         )}
 
-        {!isLoading && !isError && filteredAgentSessions.length > 0 && (
+        {!isLoading && !isError && filteredSessions.length > 0 && (
           <ScrollArea className={isStandalone ? "max-h-[400px]" : "" }>
             <div className="flex flex-col gap-2">
-              {filteredAgentSessions.map((session) => {
+              {filteredSessions.map((session) => {
                 const isActive = currentSessionId ? session.id === currentSessionId : false;
-                const isAgentSessionLoading = loadingAgentSessionId === session.id;
+                const isSessionLoading = loadingSessionId === session.id;
                 return (
               <button
                 key={session.id}
-                onClick={() => !isActive && !isAgentSessionLoading && handleAgentSessionSelect(session.id)}
-                disabled={isActive || isAgentSessionLoading}
+                onClick={() => !isActive && !isSessionLoading && handleSessionSelect(session.id)}
+                disabled={isActive || isSessionLoading}
                 className={`
                   w-full text-left p-4 rounded-lg
                   border-2 transition-colors duration-150
@@ -296,7 +296,7 @@ export function HistoryPanel() {
                   {/* Arrow Icon or Spinner */}
                   {!isActive && (
                   <div className="flex-shrink-0 text-muted-foreground group-hover:text-primary transition-colors">
-                    {isAgentSessionLoading ? (
+                    {isSessionLoading ? (
                       <ThreeDotsScaleMiddleIcon size={20} className="text-primary" />
                     ) : (
                       <svg

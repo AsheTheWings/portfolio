@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AgentSessionComponent } from '../types';
+import { SessionComponent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 
 /**
@@ -27,7 +27,7 @@ import { useAgentStore } from '../stores/useAgentStore';
 
 interface UseChatScrollProps {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  sessionComponents: AgentSessionComponent[];
+  sessionComponents: SessionComponent[];
   currentSessionId: string | null;
   scrollToComponentId: string | null;
   clearScrollToComponentId: () => void;

@@ -15,14 +15,14 @@ import Editor from 'react-simple-code-editor';
 import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScaleMiddleIcon';
 import { BorderBeam } from '@/features/shared/components/shadcn/border-beam';
-import type { AgentSessionComponentData, EditingData } from '../types';
+import type { SessionComponentData, EditingData } from '../types';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 
 hljs.registerLanguage('json', json);
 
 interface ToolCallProps {
-  data?: AgentSessionComponentData;
+  data?: SessionComponentData;
   isEditMode?: boolean;
   editingData?: EditingData | null;
   onUpdateEditingData?: (data: EditingData) => void;

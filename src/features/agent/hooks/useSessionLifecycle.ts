@@ -1,34 +1,34 @@
 'use client';
 
 /**
- * useAgentSessionLifecycle Hook
+ * useSessionLifecycle Hook
  * 
  * Session lifecycle via REST + WS:
- * - loadAgentSession: Hydrate from events (SSR or REST) + WS subscribe with lastSequence
- * - clearAgentSession: REST delete + WS unsubscribe + clear store
+ * - loadSession: Hydrate from events (SSR or REST) + WS subscribe with lastSequence
+ * - clearSession: REST delete + WS unsubscribe + clear store
  * - New sessions are created implicitly by backend on first user_message
  */
 
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
-import { fetchAgentSessionEvents, deleteAgentSession } from '../lib/agent-api';
-import { saveCurrentAgentSessionId } from '../utils/agent-storage';
-import type { AgentSessionEvent } from '../types';
-import type { WireAgentSessionEvent } from '../types/protocol';
-import { deriveAgentStatuses } from '../utils/agent-status';
+import { fetchSessionEvents, deleteSession } from '../lib/agent-api';
+import { saveCurrentSessionId } from '../utils/agent-storage';
+import type { SessionEvent } from '../types';
+import type { WireSessionEvent } from '../types/protocol';
+import { deriveAgentStatuses } from '../utils/status';
 
 /**
- * Convert wire events (ISO timestamps) to rich AgentSessionEvents (Date objects)
+ * Convert wire events (ISO timestamps) to rich SessionEvents (Date objects)
  */
-function wireToAgentSessionEvents(wireEvents: WireAgentSessionEvent[]): AgentSessionEvent[] {
+function wireToSessionEvents(wireEvents: WireSessionEvent[]): SessionEvent[] {
   return wireEvents.map(e => ({
     ...e,
     timestamp: new Date(e.timestamp),
-  })) as unknown as AgentSessionEvent[];
+  })) as unknown as SessionEvent[];
 }
 
-export function useAgentSessionLifecycle() {
+export function useSessionLifecycle() {
   const { send } = useAgentConnection();
 
   /**
@@ -42,8 +42,8 @@ export function useAgentSessionLifecycle() {
    * @param sessionId - Session to load
    * @param initialEvents - Pre-fetched events from SSR (skips REST fetch)
    */
-  const loadAgentSession = useCallback(
-    async (sessionId: string, initialEvents?: WireAgentSessionEvent[]) => {
+  const loadSession = useCallback(
+    async (sessionId: string, initialEvents?: WireSessionEvent[]) => {
       const store = useAgentStore.getState();
 
       try {
@@ -51,23 +51,23 @@ export function useAgentSessionLifecycle() {
 
         // 1. Get events FIRST — before clearing store to avoid empty-state flash
         //    (await breaks React's batch, so fetch before any store mutations)
-        let events: AgentSessionEvent[];
+        let events: SessionEvent[];
         if (initialEvents) {
-          events = wireToAgentSessionEvents(initialEvents);
+          events = wireToSessionEvents(initialEvents);
         } else {
-          const response = await fetchAgentSessionEvents(sessionId);
-          events = response.events as AgentSessionEvent[];
+          const response = await fetchSessionEvents(sessionId);
+          events = response.events as SessionEvent[];
         }
 
         // 2. All store mutations in one synchronous block (React batches these)
-        store.setCurrentAgentSessionId(sessionId);
+        store.setCurrentSessionId(sessionId);
         store.clearEvents();
-        saveCurrentAgentSessionId(sessionId);
+        saveCurrentSessionId(sessionId);
 
         store.hydrateFromEvents(events);
 
-        // Restore agents from the last user-turn-completed event
-        const lastUserTurn = [...events].reverse().find(e => e.type === 'user-turn-completed');
+        // Restore agents from the last user-input-committed event.
+        const lastUserTurn = [...events].reverse().find(e => e.type === 'user-input-committed');
         if (lastUserTurn) {
           const data = lastUserTurn.data as { agents?: import('../types').Agent[] };
           if (data.agents && data.agents.length > 0) {
@@ -77,7 +77,7 @@ export function useAgentSessionLifecycle() {
 
         // Extract user messages for history navigation
         const userMessages = events
-          .filter((e) => e.type === 'user-turn-completed' && (e.data as { message?: string }).message)
+          .filter((e) => e.type === 'user-input-committed' && (e.data as { message?: string }).message)
           .map((e) => (e.data as { message?: string }).message)
           .filter((m): m is string => typeof m === 'string')
           .reverse()
@@ -111,7 +111,7 @@ export function useAgentSessionLifecycle() {
   /**
    * Clear current session — unsubscribes WS, clears store, optionally deletes
    */
-  const clearAgentSession = useCallback(
+  const clearSession = useCallback(
     async (opts?: { delete?: boolean }) => {
       const store = useAgentStore.getState();
       const sessionId = store.currentSessionId;
@@ -122,26 +122,26 @@ export function useAgentSessionLifecycle() {
 
         if (opts?.delete) {
           try {
-            await deleteAgentSession(sessionId);
+            await deleteSession(sessionId);
           } catch (e) {
             console.error('Failed to delete session:', e);
           }
         }
       }
 
-      store.setCurrentAgentSessionId(null);
+      store.setCurrentSessionId(null);
       store.clearEvents();
       store.clearUserMessagesHistory();
       store.resetAllAgentStatuses('idle');
       store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session
-      saveCurrentAgentSessionId(null);
+      saveCurrentSessionId(null);
     },
     [send]
   );
 
   return {
-    loadAgentSession,
-    clearAgentSession,
+    loadSession,
+    clearSession,
   };
 }

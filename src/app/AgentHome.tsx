@@ -13,7 +13,7 @@ import { AgentConnectionProvider } from '@/features/agent/hooks/useAgentConnecti
 import { AgentPlayground } from '@/features/agent';
 import type { UserPublic } from '@/features/authentication/types';
 import type { Tool, Workflow, ModelParameterSchema, ModelSpec } from '@/features/agent/types';
-import type { WireAgentSessionEvent } from '@/features/agent/types/protocol';
+import type { WireSessionEvent } from '@/features/agent/types/protocol';
 
 interface AgentHomeProps {
   initialUser: UserPublic | null;
@@ -22,7 +22,7 @@ interface AgentHomeProps {
   initialModels?: ModelSpec[];
   initialModelParameters?: Record<string, ModelParameterSchema>;
   initialDefaultModelId?: string | null;
-  initialEvents?: WireAgentSessionEvent[] | null;
+  initialEvents?: WireSessionEvent[] | null;
 }
 
 export function AgentHome({ initialUser, initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId, initialEvents }: AgentHomeProps) {

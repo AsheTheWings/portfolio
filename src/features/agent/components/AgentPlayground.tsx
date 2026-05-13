@@ -10,8 +10,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
-import { useAgentSessionRouting } from '../hooks/useAgentSessionRouting';
-import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
+import { useSessionRouting } from '../hooks/useSessionRouting';
+import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
 import { useWsEventIngestion } from '../hooks/useWsEventIngestion';
 import { useAgentConnection } from '../hooks/useAgentConnection';
 import { useAgentStore } from '../stores/useAgentStore';
@@ -22,10 +22,10 @@ import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { AgentSessionComponentType, Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
-import type { WireAgentSessionEvent } from '../types/protocol';
+import type { SessionComponentType, Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
+import type { WireSessionEvent } from '../types/protocol';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
-import { hasActiveAgent } from '../utils/agent-status';
+import { isWorkflowActive } from '../utils/status';
 
 interface AgentPlaygroundProps {
   /** Session ID from URL (optional, for dynamic route) */
@@ -41,7 +41,7 @@ interface AgentPlaygroundProps {
   /** Server-fetched default model id (from /agent/models) */
   initialDefaultModelId?: string | null;
   /** Server-fetched session events (SSR) */
-  initialEvents?: WireAgentSessionEvent[] | null;
+  initialEvents?: WireSessionEvent[] | null;
 }
 
 export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId, initialEvents }: AgentPlaygroundProps) {
@@ -52,10 +52,10 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   useAcquiredAgentsQuery();
   
   // Sync session ID between URL, localStorage, and store
-  useAgentSessionRouting({ urlSessionId: sessionId, initialEvents });
+  useSessionRouting({ urlSessionId: sessionId, initialEvents });
 
   // Lifecycle + WS connection for branch session transitions
-  const { loadAgentSession } = useAgentSessionLifecycle();
+  const { loadSession } = useSessionLifecycle();
   const { send } = useAgentConnection();
 
   // Handle session_branched — fully transition to the new branch session.
@@ -70,8 +70,8 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     if (oldSessionId) {
       send({ type: 'unsubscribe', sessionId: oldSessionId });
     }
-    await loadAgentSession(newSessionId);
-  }, [send, loadAgentSession]);
+    await loadSession(newSessionId);
+  }, [send, loadSession]);
 
   // Subscribe to WS events (session_event, session_created, agent_status, session_branched, error)
   useWsEventIngestion({ onSessionBranched: handleSessionBranched });
@@ -88,11 +88,10 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   
   const {
     upsertSystemPanel,
-    clearAgentSession,
-    agentStatuses,
-    persistAgentSession,
+    clearSession,
+    persistSession,
     ephemeral,
-    setPersistAgentSession,
+    setPersistSession,
     setEphemeral,
     sessionComponents,
     triggerSubmit,
@@ -100,8 +99,10 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     uiInterface,
   } = useAgent();
   
-  // Derive isProcessing aggregate from per-agent statuses
-  const isProcessing = hasActiveAgent(agentStatuses);
+  // Workflow-scoped "is the run live?" flag. Drives the global keybind
+  // and header indicator. Pause/aborted/failed all read as not-processing.
+  const workflowStatus = useAgentStore((s) => s.workflowStatus);
+  const isProcessing = isWorkflowActive(workflowStatus);
   
   // Store-based flag to prevent re-showing config panel on route changes
   const hasShownInitialConfig = useAgentStore((s) => s._hasShownInitialConfig);
@@ -122,24 +123,24 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   // Load UI flags when interface changes
   useEffect(() => {
     const flags = loadUIFlags(uiInterface);
-    setPersistAgentSession(flags.persistAgentSession);
+    setPersistSession(flags.persistSession);
     setEphemeral(flags.ephemeral);
-  }, [uiInterface, setPersistAgentSession, setEphemeral]);
+  }, [uiInterface, setPersistSession, setEphemeral]);
   
   // Save UI flags when they change
   useEffect(() => {
-    saveUIFlags(uiInterface, { persistAgentSession, ephemeral });
-  }, [uiInterface, persistAgentSession, ephemeral]);
+    saveUIFlags(uiInterface, { persistSession, ephemeral });
+  }, [uiInterface, persistSession, ephemeral]);
 
   
 
-  const handleNewAgentSessionClick = () => {
+  const handleNewSessionClick = () => {
     // Simply clear the session - no configuration panel
-    clearAgentSession();
+    clearSession();
   };
 
   // Utility: Handle panel display (create or scroll to existing)
-  const handlePanelClick = (panelId: string, panelType: AgentSessionComponentType) => {
+  const handlePanelClick = (panelId: string, panelType: SessionComponentType) => {
     const existingPanel = sessionComponents.find(c => c.id === panelId);
     if (existingPanel) {
       setScrollToComponentId(panelId);
@@ -206,7 +207,7 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
     <div className="h-full w-full bg-background text-foreground">
       {/* Vertically Centered Tools Bar */}
       <ToolsBar 
-        onNewSessionClick={handleNewAgentSessionClick}
+        onNewSessionClick={handleNewSessionClick}
         onAgentConfigClick={handleConfigurationsClick}
         onHistoryClick={handleHistoryClick}
         onConfigClick={handleSettingsClick}

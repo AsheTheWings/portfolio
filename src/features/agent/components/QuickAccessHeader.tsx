@@ -8,7 +8,7 @@
 
 import { Switch } from '@/features/shared/components/shadcn/switch';
 import { Toggle } from '@/features/shared/components/shadcn/toggle';
-import { AgentSessionPopover } from './AgentSessionPopover';
+import { SessionPopover } from './SessionPopover';
 import { useAgent } from '../hooks/useAgent';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
@@ -18,9 +18,9 @@ import { modelSupportsParameter } from '../utils/openrouter-models';
 export function QuickAccessHeader() {
   const {
     currentSessionId,
-    persistAgentSession,
+    persistSession,
     ephemeral,
-    setPersistAgentSession,
+    setPersistSession,
     setEphemeral,
     agentConfig,
     updateFrontAgentConfig,
@@ -46,9 +46,9 @@ export function QuickAccessHeader() {
     <div className="h-[42px] flex items-center justify-start gap-8 px-6">
       {/* Agent identity or session info — fixed width slot */}
       <div className="w-[240px]">
-        <AgentSessionPopover
+        <SessionPopover
           sessionId={currentSessionId || undefined}
-          persistAgentSession={persistAgentSession}
+          persistSession={persistSession}
           ephemeral={ephemeral}
         />
       </div>
@@ -59,8 +59,8 @@ export function QuickAccessHeader() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-foreground font-light">Persistent</span>
           <Switch
-            checked={persistAgentSession}
-            onCheckedChange={setPersistAgentSession}
+            checked={persistSession}
+            onCheckedChange={setPersistSession}
             aria-label="Toggle persistent mode"
           />
         </div>

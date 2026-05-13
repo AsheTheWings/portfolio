@@ -20,9 +20,10 @@
 import type {
   WsClientMessage,
   WsServerMessage,
-  WsAgentSessionEventMessage,
-  WsAgentSessionCreatedMessage,
-  WsAgentStatusMessage,
+  WsSessionEventMessage,
+  WsSessionCreatedMessage,
+  WsWorkflowStatusMessage,
+  WsWorkflowStartedAckMessage,
   WsExecuteCustomToolMessage,
   WsSessionBranchedMessage,
   WsErrorMessage,
@@ -36,9 +37,10 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'err
 
 /** Map server message type strings to their concrete message interfaces */
 interface ServerMessageMap {
-  session_event: WsAgentSessionEventMessage;
-  session_created: WsAgentSessionCreatedMessage;
-  agent_status: WsAgentStatusMessage;
+  session_event: WsSessionEventMessage;
+  session_created: WsSessionCreatedMessage;
+  workflow_status: WsWorkflowStatusMessage;
+  workflow_started_ack: WsWorkflowStartedAckMessage;
   execute_custom_tool: WsExecuteCustomToolMessage;
   session_branched: WsSessionBranchedMessage;
   error: WsErrorMessage;

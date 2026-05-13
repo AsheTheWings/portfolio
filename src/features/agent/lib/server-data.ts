@@ -4,7 +4,7 @@
  */
 
 import type { Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
-import type { WireAgentSessionEvent } from '../types/protocol';
+import type { WireSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
@@ -99,7 +99,7 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
 export async function fetchSessionEventsSSR(
   token: string,
   sessionId: string
-): Promise<WireAgentSessionEvent[] | null> {
+): Promise<WireSessionEvent[] | null> {
   try {
     const res = await fetch(`${BACKEND_URL}/agent/sessions/${sessionId}/events`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -109,7 +109,7 @@ export async function fetchSessionEventsSSR(
     if (!res.ok) return null;
 
     const data = await res.json();
-    return (data.events ?? []) as WireAgentSessionEvent[];
+    return (data.events ?? []) as WireSessionEvent[];
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch session events:', err instanceof Error ? err.message : String(err));
     return null;

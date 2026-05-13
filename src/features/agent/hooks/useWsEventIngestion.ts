@@ -4,11 +4,16 @@
  * useWsEventIngestion - Central WS event handler
  *
  * Listens to all server→client WS messages and routes them:
- * - session_event    → store.appendEvent (handles catch-up + live events uniformly)
- * - session_created  → store.setCurrentAgentSessionId + URL update
- * - agent_status     → store.setAgentStatus / resetAllAgentStatuses
- * - session_branched → navigation to new branch session
- * - error            → store.setError
+ * - session_event       → store.appendEvent (handles catch-up + live events
+ *                         uniformly; lifecycle events transition WorkflowStatus
+ *                         and bulk-update agentStatuses inside the store).
+ * - session_created     → store.setCurrentSessionId + URL update.
+ * - workflow_status     → optimistic WorkflowStatus nudge + side-effects that
+ *                         aren't carried by lifecycle events (close streaming
+ *                         composites on abort, drain deletedEventIds on
+ *                         resume, surface a user-facing error toast).
+ * - session_branched    → navigation to new branch session.
+ * - error               → store.setError.
  *
  * Background tab optimization:
  * When the browser tab is hidden, incoming session_event messages are buffered
@@ -21,32 +26,32 @@ import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 import { toastError } from '@/features/shared/components/FeedbackMessage';
-import type { AgentSessionEvent } from '../types';
+import type { SessionEvent } from '../types';
 import type {
-  WsAgentSessionEventMessage,
-  WsAgentSessionCreatedMessage,
-  WsAgentStatusMessage,
+  WsSessionEventMessage,
+  WsSessionCreatedMessage,
+  WsWorkflowStatusMessage,
   WsSessionBranchedMessage,
   WsErrorMessage,
-  WireAgentSessionEvent,
+  WireSessionEvent,
   WsAgentErrorPayload,
 } from '../types/protocol';
-import { deriveAgentStatuses } from '../utils/agent-status';
+import type { WorkflowStatus } from '../utils/status';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
 /**
- * Convert a wire event (ISO timestamp string) to a rich AgentSessionEvent (Date)
+ * Convert a wire event (ISO timestamp string) to a rich SessionEvent (Date)
  */
-function wireToAgentSessionEvent(wire: WireAgentSessionEvent): AgentSessionEvent {
+function wireToSessionEvent(wire: WireSessionEvent): SessionEvent {
   return {
     ...wire,
     timestamp: new Date(wire.timestamp),
-  } as unknown as AgentSessionEvent;
+  } as unknown as SessionEvent;
 }
 
 /** Collapse key: type + agentId. Correctly handles parallel agents. */
-function chunkKey(event: AgentSessionEvent): string {
+function chunkKey(event: SessionEvent): string {
   return `${event.type}:${event.agentId ?? 'none'}`;
 }
 
@@ -85,11 +90,11 @@ function formatAgentExecutionError(error: WsAgentErrorPayload | undefined): stri
  * This ensures tool-calls and status transitions appear in the correct
  * sequence relative to the text that preceded them.
  */
-function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
+function collapseBuffer(buffer: SessionEvent[]): SessionEvent[] {
   if (buffer.length <= 1) return buffer;
 
-  const collapsed: AgentSessionEvent[] = [];
-  let pendingChunk: AgentSessionEvent | null = null;
+  const collapsed: SessionEvent[] = [];
+  let pendingChunk: SessionEvent | null = null;
   let pendingKey: string | null = null;
 
   for (const event of buffer) {
@@ -118,7 +123,7 @@ function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
       // Different key — flush pending, start new
       if (pendingChunk) collapsed.push(pendingChunk);
       // Clone to avoid mutating the original event later
-      pendingChunk = { ...event, data: { ...event.data } } as AgentSessionEvent;
+      pendingChunk = { ...event, data: { ...event.data } } as SessionEvent;
       pendingKey = key;
     }
   }
@@ -129,20 +134,20 @@ function collapseBuffer(buffer: AgentSessionEvent[]): AgentSessionEvent[] {
 
 interface UseWsEventIngestionOptions {
   /** Called when backend creates a new session (for URL update) */
-  onAgentSessionCreated?: (sessionId: string) => void;
+  onSessionCreated?: (sessionId: string) => void;
   /** Called when backend creates a branch session (for URL navigation) */
   onSessionBranched?: (newSessionId: string) => void;
 }
 
 export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
   const { client } = useAgentConnection();
-  const onAgentSessionCreatedRef = useRef(options?.onAgentSessionCreated);
-  onAgentSessionCreatedRef.current = options?.onAgentSessionCreated;
+  const onSessionCreatedRef = useRef(options?.onSessionCreated);
+  onSessionCreatedRef.current = options?.onSessionCreated;
   const onSessionBranchedRef = useRef(options?.onSessionBranched);
   onSessionBranchedRef.current = options?.onSessionBranched;
 
   // Background tab buffering
-  const eventBuffer = useRef<AgentSessionEvent[]>([]);
+  const eventBuffer = useRef<SessionEvent[]>([]);
   const isHidden = useRef(false);
 
   useEffect(() => {
@@ -164,7 +169,7 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
 
       const store = useAgentStore.getState();
       for (const event of collapsed) {
-        if (event.type === 'user-turn-completed') {
+        if (event.type === 'user-input-committed') {
           window.dispatchEvent(new Event('agent:collapseAll'));
         }
         store.appendEvent(event);
@@ -173,11 +178,11 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
 
     document.addEventListener('visibilitychange', handleVisibility);
 
-    const unsubSession = client.on('session_event', (msg: WsAgentSessionEventMessage) => {
+    const unsubSession = client.on('session_event', (msg: WsSessionEventMessage) => {
       const currentSessionId = useAgentStore.getState().currentSessionId;
       if (msg.sessionId !== currentSessionId) return;
 
-      const event = wireToAgentSessionEvent(msg.event);
+      const event = wireToSessionEvent(msg.event);
 
       if (isHidden.current) {
         eventBuffer.current.push(event);
@@ -185,57 +190,54 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       }
 
       // Dispatch collapse before ingesting new user turn
-      if (event.type === 'user-turn-completed') {
+      if (event.type === 'user-input-committed') {
         window.dispatchEvent(new Event('agent:collapseAll'));
       }
       useAgentStore.getState().appendEvent(event);
     });
 
-    const unsubCreated = client.on('session_created', (msg: WsAgentSessionCreatedMessage) => {
+    const unsubCreated = client.on('session_created', (msg: WsSessionCreatedMessage) => {
       console.log(`[WsIngestion] session_created — newSessionId=${msg.sessionId}`);
-      useAgentStore.getState().setCurrentAgentSessionId(msg.sessionId);
-      onAgentSessionCreatedRef.current?.(msg.sessionId);
+      useAgentStore.getState().setCurrentSessionId(msg.sessionId);
+      onSessionCreatedRef.current?.(msg.sessionId);
     });
 
-    const unsubStatus = client.on('agent_status', (msg: WsAgentStatusMessage) => {
+    const unsubStatus = client.on('workflow_status', (msg: WsWorkflowStatusMessage) => {
       const currentSessionId = useAgentStore.getState().currentSessionId;
       if (msg.sessionId !== currentSessionId) return;
 
       const store = useAgentStore.getState();
 
-      if (msg.status === 'completed') {
-        // All agents finished — flip every agent back to idle.
-        store.resetAllAgentStatuses('idle');
-      } else if (msg.status === 'aborted') {
-        // Re-derive per-agent from event state.
-        const statuses = deriveAgentStatuses(store.agentSessionEvents, store.agents);
-        for (const [agentId, status] of Object.entries(statuses)) {
-          store.setAgentStatus(agentId, status);
-        }
-        // Close any composites still in streaming state — agent-turn-completed is not
-        // emitted on abort, so no event will close them.
-        store.setAgentSessionComponents(
+      // Optimistic WorkflowStatus nudge — the canonical transition still
+      // arrives via the matching workflow_* lifecycle event; this just
+      // collapses the round-trip latency for snappy UI.
+      const wfMap: Record<WsWorkflowStatusMessage['status'], WorkflowStatus | null> = {
+        completed: 'completed',
+        aborted: 'aborted',
+        paused: 'paused',
+        error: 'failed',
+        resuming: null, // Interim state — don't transition.
+      };
+      const next = wfMap[msg.status];
+      if (next) store.setWorkflowStatus(next);
+
+      // Side-effects not carried by lifecycle events:
+      if (msg.status === 'aborted') {
+        // agent-turn-completed isn't emitted on abort, so streaming composites
+        // would otherwise stay marked as streaming forever.
+        store.setSessionComponents(
           (components) => components.map((c) => (c.isStreaming ? { ...c, isStreaming: false } : c)),
         );
-      } else if (msg.status === 'resuming') {
-        // Re-derive components after backend cleanup
-        if (msg.deletedEventIds?.length) {
-          const remaining = store.agentSessionEvents.filter(
-            (e) => !msg.deletedEventIds!.includes(e.eventId),
-          );
-          store.hydrateFromEvents(remaining);
-        }
+      } else if (msg.status === 'resuming' && msg.deletedEventIds?.length) {
+        // Backend cleaned orphaned chunks before resuming — reconcile.
+        const remaining = store.sessionEvents.filter(
+          (e) => !msg.deletedEventIds!.includes(e.eventId),
+        );
+        store.hydrateFromEvents(remaining);
       } else if (msg.status === 'error') {
-        const statuses = deriveAgentStatuses(store.agentSessionEvents, store.agents);
-        for (const [agentId, status] of Object.entries(statuses)) {
-          store.setAgentStatus(agentId, status);
-        }
         const errorMessage = formatAgentExecutionError(msg.error);
         store.setError(errorMessage);
         toastError(errorMessage);
-      } else if (msg.status === 'paused') {
-        // Backend paused all active agents awaiting user feedback.
-        store.resetAllAgentStatuses('waitingFeedback');
       }
     });
 

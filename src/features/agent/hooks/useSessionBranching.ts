@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * useAgentSessionBranching - Hook for creating branches via WS
- * Sends revert_to_component / edit_component WS messages.
+ * useSessionBranching - Hook for creating branches via WS
+ * Sends revert_to_session_event / edit_session_event WS messages.
  * session_branched response is handled by useWsEventIngestion → triggers navigation.
  */
 
@@ -10,11 +10,11 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 
-export function useAgentSessionBranching() {
+export function useSessionBranching() {
   const { send } = useAgentConnection();
 
   /**
-   * Submit edit by sending edit_component WS message
+   * Submit edit by sending edit_session_event WS message
    */
   const submitEdit = useCallback(async (
     editingEventId: string,
@@ -48,7 +48,7 @@ export function useAgentSessionBranching() {
     const frontConfig = store.agents[0]?.config ?? undefined;
 
     send({
-      type: 'edit_component',
+      type: 'edit_session_event',
       sessionId,
       breakpointEventId: editingEventId,
       updatedData,
@@ -57,7 +57,7 @@ export function useAgentSessionBranching() {
   }, [send]);
 
   /**
-   * Revert to component by sending revert_to_component WS message
+   * Revert to a session event by sending revert_to_session_event WS message
    */
   const revertToComponent = useCallback(async (eventId: string) => {
     const store = useAgentStore.getState();
@@ -68,7 +68,7 @@ export function useAgentSessionBranching() {
     }
 
     send({
-      type: 'revert_to_component',
+      type: 'revert_to_session_event',
       sessionId,
       breakpointEventId: eventId,
     });

@@ -10,9 +10,9 @@
 import { useAgentStore } from '../stores/useAgentStore';
 import { MarkdownContent } from './MarkdownContent';
 import { Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
-import type { AgentSessionComponent } from '../types';
+import type { SessionComponent } from '../types';
 
-export function FlatAgentResponse({ component }: { component: AgentSessionComponent }) {
+export function FlatAgentResponse({ component }: { component: SessionComponent }) {
   const agentId = component.data.agentId as string | undefined;
   const acquiredAgent = useAgentStore((s) =>
     agentId && agentId !== 'none' ? s.acquiredAgents[agentId] : undefined

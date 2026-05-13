@@ -1,7 +1,7 @@
 /**
  * Agent feature exports
  * 
- * Use the provided hooks (useAgent, useAgentSessionLifecycle, useAgentCall)
+ * Use the provided hooks (useAgent, useSessionLifecycle, useWorkflow)
  * to interact with the agent system.
  */
 
@@ -21,13 +21,13 @@ export { HistoryPanel } from './components/HistoryPanel';
 
 // Store and hooks (public API for agent operations)
 export { useAgentStore } from './stores/useAgentStore';
-export { useAgentSessionLifecycle } from './hooks/useAgentSessionLifecycle';
-export { useAgentSessionRouting } from './hooks/useAgentSessionRouting';
-export { useAgentCall } from './hooks/useAgentCall';
-export { useAgentSessionHistory } from './hooks/useAgentSessionHistory';
-export { useAgentSessionMetadata } from './hooks/useAgentSessionMetadata';
+export { useSessionLifecycle } from './hooks/useSessionLifecycle';
+export { useSessionRouting } from './hooks/useSessionRouting';
+export { useWorkflow } from './hooks/useWorkflow';
+export { useSessionHistory } from './hooks/useSessionHistory';
+export { useSessionMetadata } from './hooks/useSessionMetadata';
 export { useHydrateStore } from './hooks/useHydrateStore';
 
 // Configuration utilities
 export { loadMcpConfig, saveMcpConfig, loadToolPreferences, saveToolPreferences, getDefaultMcpConfig } from './utils/mcp-config';
-export { loadAgents, saveAgents, clearAgents, saveCurrentAgentSessionId } from './utils/agent-storage';
+export { loadAgents, saveAgents, clearAgents, saveCurrentSessionId } from './utils/agent-storage';

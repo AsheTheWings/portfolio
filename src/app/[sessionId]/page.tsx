@@ -9,7 +9,7 @@ import { AgentHome } from '../AgentHome';
 import { verifyToken, getTokenCookie } from '@/features/authentication/lib/cookies';
 import { fetchAgentServerData, fetchSessionEventsSSR } from '@/features/agent/lib/server-data';
 
-export default async function AgentSessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
+export default async function SessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
   const payload = await verifyToken();
 

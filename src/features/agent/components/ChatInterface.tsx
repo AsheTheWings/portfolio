@@ -17,7 +17,7 @@
  */
 
 import React, { useRef, useMemo } from 'react';
-import type { AgentSessionComponent } from '../types';
+import type { SessionComponent } from '../types';
 import { useAgent } from '../hooks/useAgent';
 import { InteractionArea } from './InteractionArea';
 import type { MessageInputRef } from './MessageInput';
@@ -25,7 +25,7 @@ import { resolveComponent } from './ComponentResolver';
 import { useChatScroll } from '../hooks/useChatScroll';
 
 // ── Render a single component via centralized resolver ──────────
-function renderComponent(component: AgentSessionComponent): React.ReactNode {
+function renderComponent(component: SessionComponent): React.ReactNode {
   const content = resolveComponent(component);
   if (!content) return null;
 
@@ -45,11 +45,11 @@ function renderComponent(component: AgentSessionComponent): React.ReactNode {
 // belong to it. min-h-[90vh] on the last group keeps the user message
 // at the top of the viewport while the agent response fills below.
 interface ComponentGroup {
-  userComponent?: AgentSessionComponent;
-  responseComponents: AgentSessionComponent[];
+  userComponent?: SessionComponent;
+  responseComponents: SessionComponent[];
 }
 
-function groupComponents(components: AgentSessionComponent[]): ComponentGroup[] {
+function groupComponents(components: SessionComponent[]): ComponentGroup[] {
   const groups: ComponentGroup[] = [];
   let current: ComponentGroup = { responseComponents: [] };
 

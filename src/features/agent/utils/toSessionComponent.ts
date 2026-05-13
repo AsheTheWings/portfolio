@@ -1,5 +1,5 @@
 /**
- * toAgentSessionComponents — Interface-based event → component derivation
+ * toSessionComponents — Interface-based event → component derivation
  *
  * Pure functions (no hooks, no state) that transform events into components
  * per active UI interface. Used internally by the store.
@@ -13,10 +13,10 @@
  */
 
 import type {
-  AgentSessionEvent,
-  AgentSessionComponent,
-  AgentSessionComponentData,
-  AgentSessionComponentControls,
+  SessionEvent,
+  SessionComponent,
+  SessionComponentData,
+  SessionComponentControls,
   UIInterface,
 } from '../types';
 
@@ -30,7 +30,7 @@ import type {
  * in Zustand store updates. MUST be called after all in-place
  * mutations to the component are complete.
  */
-function stamp(components: AgentSessionComponent[], target: AgentSessionComponent): void {
+function stamp(components: SessionComponent[], target: SessionComponent): void {
   const idx = components.indexOf(target);
   if (idx !== -1) {
     components[idx] = { ...target, data: { ...target.data } };
@@ -41,14 +41,14 @@ function stamp(components: AgentSessionComponent[], target: AgentSessionComponen
 // Default controls per component role/type
 // ============================================================
 
-const USER_MESSAGE_CONTROLS: AgentSessionComponentControls = {
+const USER_MESSAGE_CONTROLS: SessionComponentControls = {
   debug: true,
   edit: true,
   revert: true,
   branch: true,
 };
 
-const AGENT_MESSAGE_CONTROLS: AgentSessionComponentControls = {
+const AGENT_MESSAGE_CONTROLS: SessionComponentControls = {
   debug: true,
   edit: true,
   revert: true,
@@ -74,11 +74,11 @@ export function isTextFeedback(result: unknown): result is { userFeedback: strin
  * Batch: build all components from ordered events per interface.
  * Used for hydration and UI interface changes.
  */
-export function toAgentSessionComponents(
-  events: AgentSessionEvent[],
+export function toSessionComponents(
+  events: SessionEvent[],
   uiInterface: UIInterface,
-): AgentSessionComponent[] {
-  const components: AgentSessionComponent[] = [];
+): SessionComponent[] {
+  const components: SessionComponent[] = [];
   for (const event of events) {
     processEventIntoComponents(components, event, uiInterface);
   }
@@ -90,8 +90,8 @@ export function toAgentSessionComponents(
  * Used for live event processing.
  */
 export function processEventIntoComponents(
-  components: AgentSessionComponent[],
-  event: AgentSessionEvent,
+  components: SessionComponent[],
+  event: SessionEvent,
   uiInterface: UIInterface,
 ): void {
   switch (uiInterface) {
@@ -118,13 +118,13 @@ export function processEventIntoComponents(
  * individual entries.
  */
 function processEventForChat(
-  components: AgentSessionComponent[],
-  event: AgentSessionEvent,
+  components: SessionComponent[],
+  event: SessionEvent,
 ): void {
   switch (event.type) {
     // ── User turn ──────────────────────────────────────────
-    case 'user-turn-completed': {
-      const data = event.data as unknown as AgentSessionComponentData;
+    case 'user-input-committed': {
+      const data = event.data as unknown as SessionComponentData;
       components.push({
         id: event.eventId,
         type: 'user-message',
@@ -262,7 +262,7 @@ function processEventForChat(
     // ── Tool events ────────────────────────────────────────
     case 'tool-call': {
       const composite = findOrCreateAgentMessage(components, event);
-      const data = event.data as unknown as AgentSessionComponentData;
+      const data = event.data as unknown as SessionComponentData;
       composite.data.items!.push({
         id: event.eventId,
         type: 'tool-call',
@@ -320,7 +320,7 @@ function processEventForChat(
     case 'user-feedback-result': {
       if (isTextFeedback(event.data.result)) {
         // Text feedback → standalone user-feedback component
-        const data = event.data as unknown as AgentSessionComponentData;
+        const data = event.data as unknown as SessionComponentData;
         components.push({
           id: event.eventId,
           type: 'user-feedback',
@@ -351,7 +351,7 @@ function processEventForChat(
     case 'agent-turn-completed': {
       // Attach final metadata to the last agent-message composite for this agent
       const composite = components.findLast(
-        (c): c is AgentSessionComponent =>
+        (c): c is SessionComponent =>
           c.type === 'agent-message' && c.data.agentId === (event.agentId ?? 'none'),
       );
       if (composite) {
@@ -364,7 +364,7 @@ function processEventForChat(
     }
 
     // ── Branch ─────────────────────────────────────────────
-    case 'branch': {
+    case 'session_branched': {
       // Attach to last non-system component
       const target = components.findLast(c => c.role !== 'system');
       if (target) {
@@ -385,9 +385,9 @@ function processEventForChat(
  * - sealed composite (hasResponse === true — response-bounded grouping)
  */
 function findOrCreateAgentMessage(
-  components: AgentSessionComponent[],
-  event: AgentSessionEvent,
-): AgentSessionComponent {
+  components: SessionComponent[],
+  event: SessionEvent,
+): SessionComponent {
   const agentId = event.agentId ?? 'none';
 
   // Search backwards — stop at user-message boundary (turn isolation)
@@ -402,7 +402,7 @@ function findOrCreateAgentMessage(
   }
 
   // Create new composite — deterministic ID from first event for hydration stability
-  const composite: AgentSessionComponent = {
+  const composite: SessionComponent = {
     id: event.eventId,
     role: 'agent',
     type: 'agent-message',
@@ -429,13 +429,13 @@ function findOrCreateAgentMessage(
  * key. Designed for debugging and raw event inspection.
  */
 function processEventForFlat(
-  components: AgentSessionComponent[],
-  event: AgentSessionEvent,
+  components: SessionComponent[],
+  event: SessionEvent,
 ): void {
   switch (event.type) {
     // ── User turn ──────────────────────────────────────────
-    case 'user-turn-completed': {
-      const data = event.data as unknown as AgentSessionComponentData;
+    case 'user-input-committed': {
+      const data = event.data as unknown as SessionComponentData;
       components.push({
         id: event.eventId,
         type: 'user-message',
@@ -552,7 +552,7 @@ function processEventForFlat(
 
     // ── Tool events ────────────────────────────────────────
     case 'tool-call': {
-      const data = event.data as unknown as AgentSessionComponentData;
+      const data = event.data as unknown as SessionComponentData;
       components.push({
         id: event.eventId,
         type: 'tool-call',
@@ -594,7 +594,7 @@ function processEventForFlat(
     // ── User feedback ──────────────────────────────────────
     case 'user-feedback-result': {
       if (isTextFeedback(event.data.result)) {
-        const data = event.data as unknown as AgentSessionComponentData;
+        const data = event.data as unknown as SessionComponentData;
         components.push({
           id: event.eventId,
           type: 'user-feedback',
@@ -627,7 +627,7 @@ function processEventForFlat(
     }
 
     // ── Branch ─────────────────────────────────────────────
-    case 'branch': {
+    case 'session_branched': {
       const target = components.findLast(c => c.role !== 'system');
       if (target) {
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
@@ -648,10 +648,10 @@ function processEventForFlat(
  * Hidden components (hideComponent: true) are filtered out.
  */
 function handleEmbeddedSessionComponents(
-  components: AgentSessionComponent[],
-  event: AgentSessionEvent,
+  components: SessionComponent[],
+  event: SessionEvent,
 ): void {
-  const toolEffectsData = event.data as { toolEffects?: { sessionComponents?: AgentSessionComponent[] } };
+  const toolEffectsData = event.data as { toolEffects?: { sessionComponents?: SessionComponent[] } };
   const embedded = toolEffectsData.toolEffects?.sessionComponents;
   if (!Array.isArray(embedded)) return;
 

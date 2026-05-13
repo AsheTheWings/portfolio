@@ -4,17 +4,17 @@
  * Mirrors the backend's WS message types exactly.
  * These are the raw JSON shapes sent over the wire — timestamps are ISO strings,
  * not Date objects. The store / event ingestion layer converts these to rich
- * frontend types (AgentSessionEvent, AgentSessionComponent, etc.).
+ * frontend types (SessionEvent, SessionComponent, etc.).
  */
 
 import type { Agent } from './session';
 
 // ============================================================
-// Wire Event (JSON-serialized AgentSessionEvent from backend)
+// Wire Event (JSON-serialized SessionEvent from backend)
 // ============================================================
 
-export type AgentSessionEventType =
-  | 'user-turn-completed'
+export type SessionEventType =
+  | 'user-input-committed'
   | 'model-message-chunk'
   | 'model-message-completed'
   | 'model-thought-chunk'
@@ -24,19 +24,28 @@ export type AgentSessionEventType =
   | 'tool-effects'
   | 'user-feedback-result'
   | 'agent-turn-completed'
-  | 'branch';
+  | 'session_branched'
+  // Workflow run lifecycle (system events stamped on every run)
+  | 'workflow_started'
+  | 'workflow_resumed'
+  | 'workflow_paused'
+  | 'workflow_completed'
+  | 'workflow_aborted'
+  | 'workflow_failed';
 
 /** Raw event shape as received over the wire (timestamp is ISO string) */
-export interface WireAgentSessionEvent {
+export interface WireSessionEvent {
   eventId: string;
-  turnId: string;
-  type: AgentSessionEventType;
+  workflowId: string | null;       // Run-scoped events stamp the active workflow id
+  runId: string | null;            // Run-scoped events stamp the active run id
+  interactionId: string;
+  type: SessionEventType;
   role: 'user' | 'agent' | 'system';
   agentId?: string;
   toolCallEventId?: string;
-  breakpointEventId?: string;  // Branch events only
+  breakpointEventId?: string;      // session_branched events only
   sequence: number;
-  timestamp: string; // ISO 8601 — converted to Date on ingestion
+  timestamp: string;               // ISO 8601 — converted to Date on ingestion
   data: Record<string, unknown>;
 }
 
@@ -67,8 +76,8 @@ export interface WsUserMessageMessage {
   };
 }
 
-export interface WsStopAgentMessage {
-  type: 'stop_agent';
+export interface WsAbortWorkflowMessage {
+  type: 'abort_workflow';
   sessionId: string;
 }
 
@@ -86,19 +95,19 @@ export interface WsCustomToolResultMessage {
   result: unknown;
 }
 
-export interface WsResumeAgentMessage {
-  type: 'resume_agent';
+export interface WsResumeWorkflowMessage {
+  type: 'resume_workflow';
   sessionId: string;
 }
 
-export interface WsRevertToComponentMessage {
-  type: 'revert_to_component';
+export interface WsRevertToSessionEventMessage {
+  type: 'revert_to_session_event';
   sessionId: string;
   breakpointEventId: string;
 }
 
-export interface WsEditComponentMessage {
-  type: 'edit_component';
+export interface WsEditSessionEventMessage {
+  type: 'edit_session_event';
   sessionId: string;
   breakpointEventId: string;
   updatedData: Record<string, unknown>;
@@ -109,24 +118,24 @@ export type WsClientMessage =
   | WsSubscribeMessage
   | WsUnsubscribeMessage
   | WsUserMessageMessage
-  | WsStopAgentMessage
+  | WsAbortWorkflowMessage
   | WsSubmitFeedbackMessage
   | WsCustomToolResultMessage
-  | WsResumeAgentMessage
-  | WsRevertToComponentMessage
-  | WsEditComponentMessage;
+  | WsResumeWorkflowMessage
+  | WsRevertToSessionEventMessage
+  | WsEditSessionEventMessage;
 
 // ============================================================
 // Server → Client Messages
 // ============================================================
 
-export interface WsAgentSessionEventMessage {
+export interface WsSessionEventMessage {
   type: 'session_event';
   sessionId: string;
-  event: WireAgentSessionEvent;
+  event: WireSessionEvent;
 }
 
-export interface WsAgentSessionCreatedMessage {
+export interface WsSessionCreatedMessage {
   type: 'session_created';
   sessionId: string;
 }
@@ -149,12 +158,24 @@ export interface WsAgentErrorPayload {
   retryable: boolean;
 }
 
-export interface WsAgentStatusMessage {
-  type: 'agent_status';
+/** Workflow run lifecycle status pushed alongside the canonical event stream.
+ *  The `session_event` log is the source of truth; this message is a
+ *  convenience signal for the FE store. */
+export interface WsWorkflowStatusMessage {
+  type: 'workflow_status';
   sessionId: string;
   status: 'completed' | 'aborted' | 'paused' | 'error' | 'resuming';
   error?: WsAgentErrorPayload;
   deletedEventIds?: string[];
+}
+
+/** Immediate ack on run start — carries the runId so the FE can bind
+ *  delegated tool requests / track the active run. */
+export interface WsWorkflowStartedAckMessage {
+  type: 'workflow_started_ack';
+  sessionId: string;
+  runId: string;
+  workflowId: string;
 }
 
 export interface WsExecuteCustomToolMessage {
@@ -178,9 +199,10 @@ export interface WsSessionBranchedMessage {
 }
 
 export type WsServerMessage =
-  | WsAgentSessionEventMessage
-  | WsAgentSessionCreatedMessage
-  | WsAgentStatusMessage
+  | WsSessionEventMessage
+  | WsSessionCreatedMessage
+  | WsWorkflowStatusMessage
+  | WsWorkflowStartedAckMessage
   | WsExecuteCustomToolMessage
   | WsErrorMessage
   | WsSessionBranchedMessage;

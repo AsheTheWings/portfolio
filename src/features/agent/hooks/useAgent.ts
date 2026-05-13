@@ -6,8 +6,8 @@
  */
 
 import { useAgentStore } from '../stores/useAgentStore';
-import { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
-import { useAgentCall } from './useAgentCall';
+import { useSessionLifecycle } from './useSessionLifecycle';
+import { useWorkflow } from './useWorkflow';
 
 export function useAgent() {
   // Granular state selectors
@@ -16,11 +16,11 @@ export function useAgent() {
   // Derived: front agent's config for backward compat
   const agentConfig = useAgentStore((state) => state.agents[0]?.config ?? null);
   const sessionComponents = useAgentStore((state) => state.sessionComponents);
-  const persistAgentSession = useAgentStore((state) => state.persistAgentSession);
+  const persistSession = useAgentStore((state) => state.persistSession);
   const ephemeral = useAgentStore((state) => state.ephemeral);
   const userMessagesHistory = useAgentStore((state) => state.userMessagesHistory);
   
-  // Per-agent statuses (consumers aggregate via helpers in utils/agent-status)
+  // Per-agent statuses (consumers aggregate via helpers in utils/status)
   const agentStatuses = useAgentStore((state) => state.agentStatuses);
   const error = useAgentStore((state) => state.error);
   const scrollToComponentId = useAgentStore((state) => state.scrollToComponentId);
@@ -55,7 +55,7 @@ export function useAgent() {
   const clearPendingLibraryItems = useAgentStore((state) => state.clearPendingLibraryItems);
   
   // Action selectors
-  const setCurrentAgentSessionId = useAgentStore((state) => state.setCurrentAgentSessionId);
+  const setCurrentSessionId = useAgentStore((state) => state.setCurrentSessionId);
   const setAgentConfig = useAgentStore((state) => state.setAgentConfig);
   const setAgents = useAgentStore((state) => state.setAgents);
   const updateFrontAgentConfig = useAgentStore((state) => state.updateFrontAgentConfig);
@@ -65,24 +65,24 @@ export function useAgent() {
   const removeSystemPanel = useAgentStore((state) => state.removeSystemPanel);
   const clearSystemPanels = useAgentStore((state) => state.clearSystemPanels);
   const clearEvents = useAgentStore((state) => state.clearEvents);
-  const setPersistAgentSession = useAgentStore((state) => state.setPersistAgentSession);
+  const setPersistSession = useAgentStore((state) => state.setPersistSession);
   const setEphemeral = useAgentStore((state) => state.setEphemeral);
   const setError = useAgentStore((state) => state.setError);
   const clearError = useAgentStore((state) => state.clearError);
   const setScrollToComponentId = useAgentStore((state) => state.setScrollToComponentId);
   const clearScrollToComponentId = useAgentStore((state) => state.clearScrollToComponentId);
   const setPreserveScrollOnSessionChange = useAgentStore((state) => state.setPreserveScrollOnSessionChange);
-  const setAgentSessionComponents = useAgentStore((state) => state.setAgentSessionComponents);
+  const setSessionComponents = useAgentStore((state) => state.setSessionComponents);
   const cancelEdit = useAgentStore((state) => state.cancelEdit);
   const triggerSubmit = useAgentStore((state) => state.triggerSubmit);
   // Hook dependencies
-  const { loadAgentSession, clearAgentSession } = useAgentSessionLifecycle();
-  const { stopAgent, submitFeedback, resumeAgent } = useAgentCall();
+  const { loadSession, clearSession } = useSessionLifecycle();
+  const { abortWorkflow, submitFeedback, resumeWorkflow } = useWorkflow();
 
   return {
     // Session
     currentSessionId,
-    setCurrentAgentSessionId,
+    setCurrentSessionId,
     
     // Configuration (multi-agent)
     agents,
@@ -99,7 +99,7 @@ export function useAgent() {
     userMessagesHistory,
     
     // Options
-    persistAgentSession,
+    persistSession,
     ephemeral,
     
     // Per-agent runtime status map
@@ -124,10 +124,10 @@ export function useAgent() {
     removeSystemPanel,
     clearSystemPanels,
     clearEvents,
-    setAgentSessionComponents,
+    setSessionComponents,
     
     // Control actions
-    setPersistAgentSession,
+    setPersistSession,
     setEphemeral,
     
     // State actions
@@ -140,13 +140,13 @@ export function useAgent() {
     triggerSubmit,
 
     // Session actions
-    loadAgentSession,
-    clearAgentSession,
+    loadSession,
+    clearSession,
     
     // Agent actions (WS-driven)
-    stopAgent,
+    abortWorkflow,
     submitFeedback,
-    resumeAgent,
+    resumeWorkflow,
     
     // Tool state
     toolsPool,

@@ -16,12 +16,12 @@ import { ThreeDotsScaleMiddleIcon } from '@/features/shared/icons/ThreeDotsScale
 import { ComponentShell } from './ComponentShell';
 import type { BranchInfo, ParentBranchInfo } from './ComponentShell';
 import { useAgentStore } from '../stores/useAgentStore';
-import { useAgentSessionBranching } from '../hooks/useAgentSessionBranching';
-import { useAgentSessionLifecycle } from '../hooks/useAgentSessionLifecycle';
-import { useAgentCall } from '../hooks/useAgentCall';
-import type { AgentSessionComponent, AgentSessionEvent, EditingData, FeedbackAction } from '../types';
+import { useSessionBranching } from '../hooks/useSessionBranching';
+import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
+import { useWorkflow } from '../hooks/useWorkflow';
+import type { SessionComponent, SessionEvent, EditingData, FeedbackAction } from '../types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/features/shared/components/shadcn';
-import { getAgentStatus, statusLabel } from '../utils/agent-status';
+import { getAgentStatus, statusLabel } from '../utils/status';
 
 // ────────────────────────────────────────────────────────────
 // View slots — discriminated union of carousel views
@@ -29,7 +29,7 @@ import { getAgentStatus, statusLabel } from '../utils/agent-status';
 
 type ViewSlot =
   | { kind: 'debug' }
-  | { kind: 'item'; item: AgentSessionComponent }
+  | { kind: 'item'; item: SessionComponent }
   | { kind: 'feedback'; toolCallEventId: string; prompt: string; actions: FeedbackAction[] }
   | { kind: 'resume' };
 
@@ -43,7 +43,7 @@ const RESUME_ACTIONS: FeedbackAction[] = [
 // ────────────────────────────────────────────────────────────
 
 interface AgentMessageProps {
-  component: AgentSessionComponent;
+  component: SessionComponent;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ interface AgentMessageProps {
 
 export const AgentMessage = React.memo(function AgentMessage({ component }: AgentMessageProps) {
   const { id, data, isStreaming, controls } = component;
-  const items = useMemo<AgentSessionComponent[]>(() => data.items || [], [data.items]);
+  const items = useMemo<SessionComponent[]>(() => data.items || [], [data.items]);
   const agentId = data.agentId as string | undefined;
 
   // ── View mode ───────────────────────────────────────────
@@ -68,6 +68,9 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
   const agentStatus = useAgentStore((s) => getAgentStatus(s.agentStatuses, agentId));
+  // Pause is workflow-scoped; the resume affordance is shown when the
+  // active run is paused, not when a single agent is in some 'paused' state.
+  const workflowStatus = useAgentStore((s) => s.workflowStatus);
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
@@ -78,14 +81,14 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const avatarImage = acquiredAgent?.avatarImage ?? null;
 
   // ── Hooks ───────────────────────────────────────────────
-  const { submitEdit, revertToComponent } = useAgentSessionBranching();
-  const { loadAgentSession } = useAgentSessionLifecycle();
-  const { submitFeedback, resumeAgent } = useAgentCall();
+  const { submitEdit, revertToComponent } = useSessionBranching();
+  const { loadSession } = useSessionLifecycle();
+  const { submitFeedback, resumeWorkflow } = useWorkflow();
 
   // ── Session events (aggregated from items + composite) ──
-  const allSessionEvents = useMemo<AgentSessionEvent[]>(() => {
+  const allSessionEvents = useMemo<SessionEvent[]>(() => {
     const seen = new Set<string>();
-    const events: AgentSessionEvent[] = [];
+    const events: SessionEvent[] = [];
     for (const e of data.sessionEvents || []) {
       if (!seen.has(e.eventId)) { seen.add(e.eventId); events.push(e); }
     }
@@ -145,11 +148,11 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
         });
       }
     }
-    if (agentStatus === 'paused' && isLastForMyAgent) {
+    if (workflowStatus === 'paused' && isLastForMyAgent) {
       slots.push({ kind: 'resume' });
     }
     return slots;
-  }, [items, isUserMode, hasDebugView, allSessionEvents, agentStatus, isLastForMyAgent]);
+  }, [items, isUserMode, hasDebugView, allSessionEvents, workflowStatus, isLastForMyAgent]);
 
   const totalViews = viewSlots.length;
 
@@ -174,12 +177,12 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const advancedFeedbacksRef = useRef<Set<string>>(new Set());
   const hasAutoAdvancedToResumeRef = useRef(false);
 
-  // Reset the resume auto-advance flag when the agent leaves 'paused'.
+  // Reset the resume auto-advance flag when the workflow leaves 'paused'.
   useEffect(() => {
-    if (agentStatus !== 'paused') {
+    if (workflowStatus !== 'paused') {
       hasAutoAdvancedToResumeRef.current = false;
     }
-  }, [agentStatus]);
+  }, [workflowStatus]);
 
   useEffect(() => {
     // 1. New pending feedback → jump to it once.
@@ -228,8 +231,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   // ── Branch data from all session events ─────────────────
   const branches: BranchInfo[] = useMemo(() => {
     return allSessionEvents
-      .filter((e): e is Extract<AgentSessionEvent, { type: 'branch' }> =>
-        e.type === 'branch' && !!e.data.branchSessionId
+      .filter((e): e is Extract<SessionEvent, { type: 'session_branched' }> =>
+        e.type === 'session_branched' && !!e.data.branchSessionId
       )
       .map(e => ({
         branchSessionId: e.data.branchSessionId as string,
@@ -238,8 +241,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [allSessionEvents]);
 
   const parentBranch: ParentBranchInfo | undefined = useMemo(() => {
-    const found = allSessionEvents.find((e): e is Extract<AgentSessionEvent, { type: 'branch' }> =>
-      e.type === 'branch' && !!e.data.parentSessionId
+    const found = allSessionEvents.find((e): e is Extract<SessionEvent, { type: 'session_branched' }> =>
+      e.type === 'session_branched' && !!e.data.parentSessionId
     );
     return found ? { parentSessionId: found.data.parentSessionId as string } : undefined;
   }, [allSessionEvents]);
@@ -303,7 +306,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const handleRevert = useCallback(
     (_eventId: string) => {
       // For revert: find the last non-branch event across all items in this group
-      const lastNonBranch = allSessionEvents.findLast(e => e.type !== 'branch');
+      const lastNonBranch = allSessionEvents.findLast(e => e.type !== 'session_branched');
       if (lastNonBranch) {
         revertToComponent(lastNonBranch.eventId);
       }
@@ -350,7 +353,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
             actions={RESUME_ACTIONS}
             layout="horizontal"
             stackPrompt
-            onAction={resumeAgent}
+            onAction={resumeWorkflow}
           />
         </div>
       );
@@ -407,7 +410,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
           branches={branches}
           parentBranch={parentBranch}
           heightMode={heightMode}
-          onLoadSession={loadAgentSession}
+          onLoadSession={loadSession}
           onSetPreserveScroll={setPreserveScrollOnSessionChange}
           isStreaming={isStreaming ?? false}
           viewTitle={viewTitle}
@@ -426,7 +429,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
 // ────────────────────────────────────────────────────────────
 
 interface SubViewRendererProps {
-  item: AgentSessionComponent;
+  item: SessionComponent;
   isEditMode: boolean;
   editingData: EditingData | null | undefined;
   updateEditingData: (data: EditingData) => void;

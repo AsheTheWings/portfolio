@@ -11,8 +11,8 @@
 import type { ModelSpec } from '../types/llm';
 import type {
   AgentConfig,
-  AgentSessionEvent,
-  AgentSessionMetadata,
+  SessionEvent,
+  SessionMetadata,
   SavedAgent,
 } from '../types/session';
 
@@ -20,7 +20,7 @@ import type {
 // Types
 // ============================================================
 
-export interface AgentSessionListItem {
+export interface SessionListItem {
   id: string;
   userId: string;
   agentName: string;
@@ -31,9 +31,9 @@ export interface AgentSessionListItem {
   updatedAt: string;
 }
 
-export interface AgentSessionEventsResponse {
-  session: AgentSessionListItem;
-  events: AgentSessionEvent[];
+export interface SessionEventsResponse {
+  session: SessionListItem;
+  events: SessionEvent[];
 }
 
 export interface ModelsResponse {
@@ -45,7 +45,7 @@ export interface ModelsResponse {
 
 export interface BranchResponse {
   sessionId: string;
-  metadata: AgentSessionMetadata;
+  metadata: SessionMetadata;
 }
 
 // ============================================================
@@ -67,19 +67,19 @@ export async function fetchModels(): Promise<ModelsResponse> {
   return json<ModelsResponse>(res);
 }
 
-export async function fetchAgentSessions(search?: string): Promise<AgentSessionListItem[]> {
+export async function fetchSessions(search?: string): Promise<SessionListItem[]> {
   const url = search ? `${BASE}/sessions?search=${encodeURIComponent(search)}` : `${BASE}/sessions`;
   const res = await fetch(url, { credentials: 'include' });
-  const data = await json<{ sessions: AgentSessionListItem[] }>(res);
+  const data = await json<{ sessions: SessionListItem[] }>(res);
   return data.sessions;
 }
 
-export async function fetchAgentSessionEvents(sessionId: string): Promise<AgentSessionEventsResponse> {
+export async function fetchSessionEvents(sessionId: string): Promise<SessionEventsResponse> {
   const res = await fetch(`${BASE}/sessions/${sessionId}/events`, { credentials: 'include' });
-  return json<AgentSessionEventsResponse>(res);
+  return json<SessionEventsResponse>(res);
 }
 
-export async function deleteAgentSession(sessionId: string): Promise<void> {
+export async function deleteSession(sessionId: string): Promise<void> {
   const res = await fetch(`${BASE}/sessions/${sessionId}`, {
     method: 'DELETE',
     credentials: 'include',
@@ -87,7 +87,7 @@ export async function deleteAgentSession(sessionId: string): Promise<void> {
   await json<{ success: boolean }>(res);
 }
 
-export async function updateAgentSession(
+export async function updateSession(
   sessionId: string,
   updates: { title?: string; titleLocked?: boolean; workflow?: string },
 ): Promise<void> {

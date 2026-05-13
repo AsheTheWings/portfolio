@@ -2,10 +2,10 @@
  * Agent Hooks - Export all hooks
  */
 
-export { useAgentCall } from './useAgentCall';
+export { useWorkflow } from './useWorkflow';
 export { useMessageComposer } from './useMessageComposer';
-export { useAgentSessionLifecycle } from './useAgentSessionLifecycle';
-export { useAgentSessionMetadata } from './useAgentSessionMetadata';
+export { useSessionLifecycle } from './useSessionLifecycle';
+export { useSessionMetadata } from './useSessionMetadata';
 export { useWsEventIngestion } from './useWsEventIngestion';
 export { useAgentConnection } from './useAgentConnection';
 export { useAcquiredAgentsQuery, revalidateAcquiredAgents } from './useAcquiredAgentsQuery';

@@ -2,7 +2,7 @@
 
 /**
  * ComponentControls - Control buttons for session components
- * Extracted from AgentSessionComponentWrapper to isolate rendering logic.
+ * Extracted from SessionComponentWrapper to isolate rendering logic.
  * 
  * Renders: debug, edit, revert, branch, parent, translate buttons
  * Handles: control visibility, edit-mode submit, button layout
@@ -14,7 +14,7 @@ import IconFocusCenter from '@/features/shared/icons/IconFocusCenter';
 import IconBranch from '@/features/shared/icons/IconBranch';
 import { TranslateButton } from './TranslateButton';
 import { useAgentStore } from '../stores/useAgentStore';
-import type { AgentSessionComponent, AgentSessionComponentType, AgentSessionComponentControls, AgentSessionEvent } from '../types';
+import type { SessionComponent, SessionComponentType, SessionComponentControls, SessionEvent } from '../types';
 
 interface Branch {
   branchSessionId: string;
@@ -24,13 +24,13 @@ interface Branch {
 interface ComponentControlsProps {
   componentId: string;
   componentRole?: 'user' | 'agent' | 'system';
-  componentType?: AgentSessionComponentType;
-  controls?: AgentSessionComponentControls;
-  data: AgentSessionComponent['data'];
+  componentType?: SessionComponentType;
+  controls?: SessionComponentControls;
+  data: SessionComponent['data'];
   isEditMode: boolean;
   isValidForSubmit: boolean;
   branches: Branch[];
-  parentBranch?: Extract<AgentSessionEvent, { type: 'branch' }>;
+  parentBranch?: Extract<SessionEvent, { type: 'session_branched' }>;
   // Callbacks
   onStartEdit: (componentId: string, data: string | { arguments?: Record<string, unknown>; result?: unknown }) => void;
   onSubmitEdit: () => void;
@@ -152,7 +152,7 @@ export function ComponentControls({
         {isParentLink && parentBranch && (
           <button
             onClick={async () => {
-              if (parentBranch.type === 'branch' && parentBranch.data.parentSessionId) {
+              if (parentBranch.type === 'session_branched' && parentBranch.data.parentSessionId) {
                 onSetPreserveScroll(true);
                 await onLoadSession(parentBranch.data.parentSessionId);
               }

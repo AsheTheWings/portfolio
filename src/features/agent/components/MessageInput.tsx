@@ -17,11 +17,11 @@ import { LibraryPathBrowser } from '@/features/library';
 interface MessageInputProps {
   onSend: (message: string, assetIds?: string[]) => void;
   onInsert?: (text: string) => void;  // User mode: stage text without submitting
-  /** Single working cue — any agent in a non-idle status. Drives the subtle
-   *  pulsing dot only; does not disable the input. */
-  isAgentWorking?: boolean;
-  /** Pause running agents (sends stop_agent over WS). Button only renders
-   *  while `isAgentWorking` is true. */
+  /** True when the active workflow run is in `running` state. Drives the
+   *  subtle pulsing dot only; does not disable the input. */
+  isWorkflowRunning?: boolean;
+  /** Abort the active workflow run (sends abort_workflow over WS). Button
+   *  only renders while `isWorkflowRunning` is true. */
   onPause?: () => void;
   placeholder?: string;
   onMentionOpenChange?: (isOpen: boolean) => void;
@@ -41,7 +41,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onInsert, isAgentWorking, onPause, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
+  ({ onSend, onInsert, isWorkflowRunning, onPause, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -112,7 +112,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Timeline 'developer' composition mode — turns the input border + submit button cyan
   const isDeveloperComposeMode = viewMode === 'developer' && !visuallyCollapsed;
-  const showPauseAction = !!isAgentWorking && !hasContent && !!onPause;
+  const showPauseAction = !!isWorkflowRunning && !hasContent && !!onPause;
 
   // Delayed placeholder: appears 300ms after expansion animation completes
   const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
@@ -180,7 +180,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           </Button>
 
           <span className="text-primary font-bold text-sm leading-none flex items-center">›</span>
-          {isAgentWorking && (
+          {isWorkflowRunning && (
             <div
               className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
               title="An agent is working — submitting will interrupt it"
@@ -238,7 +238,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               ? 'Pause agents'
               : collapsed
               ? 'Open input (Enter)'
-              : isAgentWorking
+              : isWorkflowRunning
                 ? 'Interrupt agents and send'
                 : viewMode === 'user'
                   ? 'Send message'
