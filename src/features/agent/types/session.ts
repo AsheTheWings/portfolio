@@ -494,8 +494,8 @@ export interface AgentState {
 
   // View mode for message composition (timeline workflow)
   viewMode: 'developer' | 'user';
-  // Staged user message (Insert action — waiting for client content)
-  stagedUserMessage: string | null;
+  // Staged developer-authored message (Insert action — pending submit)
+  stagedDeveloperMessage: string | null;
 
   // UI state
   uiInterface: UIInterface;
@@ -590,7 +590,7 @@ export interface AgentState {
 
   // View mode actions (timeline workflow)
   setViewMode: (mode: 'developer' | 'user') => void;
-  setStagedUserMessage: (message: string | null) => void;
+  setStagedDeveloperMessage: (message: string | null) => void;
 
   // User messages history actions
   setUserMessagesHistory: (history: string[]) => void;

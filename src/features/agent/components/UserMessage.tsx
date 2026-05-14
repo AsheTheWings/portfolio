@@ -141,10 +141,12 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   // ── Content ─────────────────────────────────────────────
   const rawContent = data.message || '';
   const { developerText, userText } = useMemo(() => parseTaggedContent(rawContent), [rawContent]);
+  const isUserOnlyTaggedMessage = userText !== null && developerText === null;
 
   // In client view mode, only show <user_message> content if present.
-  // In developer view mode, show the raw composite (parser splits it for rendering below).
-  const content = (viewMode === 'user' && userText !== null)
+  // In developer view mode, user-only tagged messages render identically to
+  // client mode; composite messages still render with developer/user sections.
+  const content = (userText !== null && (viewMode === 'user' || isUserOnlyTaggedMessage))
     ? userText
     : rawContent;
 
@@ -304,16 +306,14 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       data-placeholder="Edit message..."
       ref={editingElRef}
     />
-  ) : viewMode === 'developer' && userText !== null ? (
-    // Developer view mode: developer text on top, highlighted user section
-    // below. Outer bubble is cyan (see render below), so the inner user
-    // section inverts to a neutral slate look for contrast.
+  ) : viewMode === 'developer' && userText !== null && developerText !== null ? (
+    // Developer view mode for composite turns: developer text on top,
+    // highlighted user section below. User-only turns intentionally fall
+    // through to the normal user bubble renderer.
     <div className="flex flex-col gap-1.5">
-      {developerText && (
-        <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
-          <MentionHighlightedText content={developerText} onPathClick={handlePathClick} isDark />
-        </pre>
-      )}
+      <pre dir="auto" className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words m-0">
+        <MentionHighlightedText content={developerText} onPathClick={handlePathClick} isDark />
+      </pre>
       <div className="rounded-lg bg-slate-700/60 border border-slate-400/30 px-2.5 py-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-200/80 block mb-0.5">
           user
@@ -334,7 +334,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       {hasContent && (
         <div
           className={`session-component rounded-2xl relative min-w-[160px] max-w-[56%] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md ${
-            viewMode === 'developer'
+            viewMode === 'developer' && !isUserOnlyTaggedMessage
               ? 'bg-gradient-to-br from-cyan-600 to-cyan-700 dark:from-cyan-600 dark:to-cyan-800'
               : 'bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700'
           }`}

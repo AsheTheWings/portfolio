@@ -21,7 +21,7 @@ interface UseMessageComposerOptions {
   onMentionOpenChange?: (isOpen: boolean) => void;
   /** Whether input is disabled */
   disabled?: boolean;
-  /** Allow submission with empty text (e.g., when attachments exist) */
+  /** Allow submission with empty text (e.g., when attachments or staged content exist) */
   allowEmptySubmit?: boolean;
 }
 

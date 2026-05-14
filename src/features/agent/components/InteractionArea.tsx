@@ -31,22 +31,30 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const workflowStatus = useAgentStore((s) => s.workflowStatus);
     const isWorkflowRunning = isWorkflowActive(workflowStatus);
 
-    // Collapsed state: empty composer stays collapsed; content or user interaction expands it.
+    // Collapsed state: empty composer stays collapsed; content, staged developer
+    // text, or user interaction expands it.
     const [isOpenWithoutContent, setIsOpenWithoutContent] = useState(false);
     const [hasInputContent, setHasInputContent] = useState(false);
-    const isCollapsed = !hasInputContent && !isOpenWithoutContent;
 
-    // Auto-collapse whenever the composer becomes empty again.
+    // Use consolidated user input handler
+    const { submitUserInput, insertDeveloperMessage, viewMode, stagedDeveloperMessage } = useUserInput();
+    const hasStagedDeveloperMessage = stagedDeveloperMessage !== null;
+    const isCollapsed = !hasInputContent && !hasStagedDeveloperMessage && !isOpenWithoutContent;
+
+    // Auto-collapse whenever the composer becomes empty and no staged
+    // developer content is pending.
     useEffect(() => {
-      if (!hasInputContent) {
+      if (!hasInputContent && !hasStagedDeveloperMessage) {
         setIsOpenWithoutContent(false);
       }
-    }, [hasInputContent]);
+    }, [hasInputContent, hasStagedDeveloperMessage]);
 
-    // Escape key collapses (via agent:collapseAll event) and discards input.
+    // Escape key collapses (via agent:collapseAll event), discards current input,
+    // and clears any staged developer content.
     useEffect(() => {
       const onCollapseAll = () => {
         setIsOpenWithoutContent(false);
+        useAgentStore.getState().setStagedDeveloperMessage(null);
         if (ref && typeof ref !== 'function' && ref.current) {
           ref.current.setValue('');
         }
@@ -54,9 +62,6 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
       window.addEventListener('agent:collapseAll', onCollapseAll);
       return () => window.removeEventListener('agent:collapseAll', onCollapseAll);
     }, [ref]);
-
-    // Use consolidated user input handler
-    const { submitUserInput, insertUserMessage, viewMode, stagedUserMessage } = useUserInput();
 
     const lastSubmitTriggerRef = useRef(0);
     
@@ -274,7 +279,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
           <MessageInput
             ref={ref}
             onSend={submitUserInput}
-            onInsert={insertUserMessage}
+            onInsert={insertDeveloperMessage}
             isWorkflowRunning={isWorkflowRunning}
             onAbort={abortWorkflow}
             placeholder={viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
@@ -283,7 +288,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             onExpand={expandInput}
             isAnimating={isAnimating}
             viewMode={viewMode}
-            hasStagedMessage={stagedUserMessage !== null}
+            hasStagedMessage={hasStagedDeveloperMessage}
             onContentChange={setHasInputContent}
           />
         </div>

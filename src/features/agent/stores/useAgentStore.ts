@@ -72,7 +72,7 @@ export function selectHasCapability(
  * `sessionComponents` (mirroring the system-panel pattern) so every consumer
  * — interfaces, scroll hooks, click handlers — sees a single coherent list.
  */
-const STAGED_PREVIEW_ID = '__staged_user_preview__';
+const STAGED_PREVIEW_ID = '__staged_developer_preview__';
 
 function buildStagedComponent(message: string): SessionComponent {
   return {
@@ -93,7 +93,7 @@ function buildStagedComponent(message: string): SessionComponent {
 function injectAmbient(
   components: SessionComponent[],
   activePanels: Map<string, SessionComponentType>,
-  stagedUserMessage: string | null,
+  stagedDeveloperMessage: string | null,
 ): SessionComponent[] {
   for (const [panelId, panelType] of activePanels) {
     components.push({
@@ -106,8 +106,8 @@ function injectAmbient(
   }
   // Staged preview always trails (it's a pending compose, conceptually
   // "after" the most recent persisted event).
-  if (stagedUserMessage !== null) {
-    components.push(buildStagedComponent(stagedUserMessage));
+  if (stagedDeveloperMessage !== null) {
+    components.push(buildStagedComponent(stagedDeveloperMessage));
   }
   return components;
 }
@@ -198,7 +198,7 @@ const initialState = {
   
   // Timeline workflow composition state
   viewMode: 'user' as 'developer' | 'user',
-  stagedUserMessage: null as string | null,
+  stagedDeveloperMessage: null as string | null,
 
   // UI
   uiInterface: 'chat' as UIInterface,
@@ -529,11 +529,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   hydrateFromEvents: (events: SessionEvent[]) => {
-    const { activePanels, uiInterface, stagedUserMessage } = get();
+    const { activePanels, uiInterface, stagedDeveloperMessage } = get();
     const sessionComponents = injectAmbient(
       toSessionComponents(events, uiInterface),
       activePanels,
-      stagedUserMessage,
+      stagedDeveloperMessage,
     );
     // Reconstruct WorkflowStatus + last runId from the persisted log so that
     // a session loaded mid-pause shows the correct affordances.
@@ -555,7 +555,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     activePanels: new Map(),
     // A fresh session has no pending compose — the staged preview is tied
     // to the just-cleared session context.
-    stagedUserMessage: null,
+    stagedDeveloperMessage: null,
     workflowStatus: 'idle',
     workflowRunId: null,
   }),
@@ -605,11 +605,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   // Control actions
   setUiInterface: (uiInterface: UIInterface) => {
-    const { sessionEvents, activePanels, stagedUserMessage } = get();
+    const { sessionEvents, activePanels, stagedDeveloperMessage } = get();
     const sessionComponents = injectAmbient(
       toSessionComponents(sessionEvents, uiInterface),
       activePanels,
-      stagedUserMessage,
+      stagedDeveloperMessage,
     );
     set({ uiInterface, sessionComponents });
   },
@@ -628,13 +628,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Switching away from 'developer' compose mode invalidates any staged
     // developer-text bubble (the Insert button is hidden in client mode,
     // so the user could no longer reach the staged content). Delegate to
-    // setStagedUserMessage so the synthetic component is removed from
+    // setStagedDeveloperMessage so the synthetic component is removed from
     // sessionComponents in the same swing.
     if (mode !== 'developer') {
-      get().setStagedUserMessage(null);
+      get().setStagedDeveloperMessage(null);
     }
   },
-  setStagedUserMessage: (message) => {
+  setStagedDeveloperMessage: (message) => {
     set((state) => {
       // Always strip any pre-existing staged component first — idempotent
       // for both insert (replace text) and clear paths.
@@ -642,7 +642,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       if (message !== null) {
         sessionComponents.push(buildStagedComponent(message));
       }
-      return { stagedUserMessage: message, sessionComponents };
+      return { stagedDeveloperMessage: message, sessionComponents };
     });
   },
   

@@ -89,7 +89,9 @@ export interface ComponentShellProps {
   onSetPreserveScroll?: (preserve: boolean) => void;
   /** Whether the component is streaming (hides controls during stream) */
   isStreaming?: boolean;
-  /** Title displayed centered in the top bar for the current view */
+  /** Inline label displayed beside the top-bar controls */
+  topBarLabel?: React.ReactNode;
+  /** Title displayed centered in top bar for the current view */
   viewTitle?: React.ReactNode;
   /** Status label shown centered in top bar while streaming (e.g. 'Thinking') */
   streamingStatus?: string;
@@ -128,6 +130,7 @@ export function ComponentShell({
   onLoadSession,
   onSetPreserveScroll,
   isStreaming = false,
+  topBarLabel,
   viewTitle,
   streamingStatus,
   children,
@@ -168,7 +171,7 @@ export function ComponentShell({
     controlBar.controls.translate
   );
   const hasTopBar = showControls && !showBranchList && (
-    hasControls || !!parentBranch || branches.length > 0 || viewCount > 1 || controlBar.isEditMode
+    hasControls || !!parentBranch || branches.length > 0 || viewCount > 1 || controlBar.isEditMode || !!topBarLabel
   );
 
   return (
@@ -210,6 +213,11 @@ export function ComponentShell({
             onSetPreserveScroll={onSetPreserveScroll}
             onShowBranches={() => setShowBranchList(true)}
           />
+          {topBarLabel && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0">
+              {topBarLabel}
+            </div>
+          )}
         </div>
       )}
 

@@ -5,10 +5,9 @@
  *
  * Consolidates user input handling:
  * - Sends user_message via WS
- * - Mailbox client viewMode: wraps the typed text in <user_message>
- * - Mailbox developer viewMode: wraps the typed text in <developer_message>;
- *   when staged developer text exists, combines staged <developer_message>
- *   with current <user_message>
+ * - Submit always wraps current composer text in <user_message>
+ * - Insert, available in developer viewMode, stages <developer_message> content;
+ *   the next submit sends the staged developer block plus optional user content
  *
  * Note: tool-triggered feedback is rendered as a sub-view inside
  * `AgentMessage` and dispatched directly via `useWorkflow().submitFeedback`.
@@ -24,48 +23,45 @@ const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</develop
 
 export function useUserInput() {
   const viewMode = useAgentStore((s) => s.viewMode);
-  const stagedUserMessage = useAgentStore((s) => s.stagedUserMessage);
+  const stagedDeveloperMessage = useAgentStore((s) => s.stagedDeveloperMessage);
   const { submitMessage } = useWorkflow();
 
   /**
-   * Submit user input — wraps each authored block in its author tag so
-   * the backend persists a single user-turn message that the model parses
-   * by tag (see backend `instructions-registry.ts` Conversational Roles).
-   *
-   *   - Client viewMode: outgoing payload is `<user_message>…</user_message>`.
-   *   - Developer viewMode with staged text: payload is
-   *     `<developer_message>STAGED</developer_message>` followed by the
-   *     current input wrapped as `<user_message>…</user_message>` (when
-   *     non-empty).
-   *   - Developer viewMode with no staged text: the typed message is
-   *     treated as the operator's voice and wrapped as `<developer_message>`.
+   * Submit composer content. The typed message is always the app user's voice
+   * and therefore always wrapped as `<user_message>…</user_message>`.
+   * Developer-authored content can only enter the outgoing turn through Insert,
+   * which stages a `<developer_message>…</developer_message>` block.
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
-    if (viewMode === 'user') {
-      submitMessage(wrapUser(message), libraryItemIds);
-    } else if (stagedUserMessage !== null) {
-      const stagedBlock = wrapDeveloper(stagedUserMessage);
-      const userPart = message.trim() ? wrapUser(message) : '';
-      const combined = userPart ? `${stagedBlock}\n${userPart}` : stagedBlock;
-      useAgentStore.getState().setStagedUserMessage(null);
+    const trimmed = message.trim();
+    const hasLibraryItems = (libraryItemIds?.length ?? 0) > 0;
+    const userBlock = trimmed || hasLibraryItems ? wrapUser(trimmed) : '';
+
+    if (stagedDeveloperMessage !== null) {
+      const stagedBlock = wrapDeveloper(stagedDeveloperMessage);
+      const combined = userBlock ? `${stagedBlock}\n${userBlock}` : stagedBlock;
+      useAgentStore.getState().setStagedDeveloperMessage(null);
       submitMessage(combined, libraryItemIds);
-    } else {
-      submitMessage(wrapDeveloper(message), libraryItemIds);
+      return;
     }
-  }, [viewMode, stagedUserMessage, submitMessage]);
+
+    if (userBlock) {
+      submitMessage(userBlock, libraryItemIds);
+    }
+  }, [stagedDeveloperMessage, submitMessage]);
 
   /**
-   * Insert action (developer mode only) — stages the current input text without submitting.
-   * The staged text will be combined with client content on next Submit.
+   * Insert action (developer mode only) — stages the current input text as
+   * developer-authored content without submitting.
    */
-  const insertUserMessage = useCallback((text: string) => {
-    useAgentStore.getState().setStagedUserMessage(text);
+  const insertDeveloperMessage = useCallback((text: string) => {
+    useAgentStore.getState().setStagedDeveloperMessage(text);
   }, []);
 
   return {
     submitUserInput,
-    insertUserMessage,
+    insertDeveloperMessage,
     viewMode,
-    stagedUserMessage,
+    stagedDeveloperMessage,
   };
 }

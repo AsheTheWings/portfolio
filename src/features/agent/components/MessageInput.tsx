@@ -16,7 +16,7 @@ import { LibraryPathBrowser } from '@/features/library';
 
 interface MessageInputProps {
   onSend: (message: string, assetIds?: string[]) => void;
-  onInsert?: (text: string) => void;  // User mode: stage text without submitting
+  onInsert?: (text: string) => void;  // Developer mode: stage developer text without submitting
   /** True when the active workflow run is in `running` state. Drives the
    *  subtle pulsing dot only; does not disable the input. */
   isWorkflowRunning?: boolean;
@@ -28,8 +28,8 @@ interface MessageInputProps {
   collapsed?: boolean;
   onExpand?: () => void;
   isAnimating?: boolean;
-  viewMode?: 'developer' | 'user';   // Timeline: affects placeholder + Insert action
-  hasStagedMessage?: boolean;          // Timeline: staged user text is pending
+  viewMode?: 'developer' | 'user';   // Timeline: controls developer-only Insert visibility
+  hasStagedMessage?: boolean;          // Timeline: staged developer text is pending
   onContentChange?: (hasContent: boolean) => void;
 }
 
@@ -68,7 +68,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
   } = useMessageComposer({
     onSend: handleSend,
     onMentionOpenChange,
-    allowEmptySubmit: pendingLibraryItemIds.length > 0,
+    allowEmptySubmit: pendingLibraryItemIds.length > 0 || !!hasStagedMessage,
   });
 
   // Expose methods to parent for history navigation
@@ -90,11 +90,12 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     submit();
   };
 
-  const hasContent = hasTextContent || pendingLibraryItemIds.length > 0;
+  const hasComposerContent = hasTextContent || pendingLibraryItemIds.length > 0;
+  const canSubmit = hasComposerContent || !!hasStagedMessage;
 
   useEffect(() => {
-    onContentChange?.(hasContent);
-  }, [hasContent, onContentChange]);
+    onContentChange?.(canSubmit);
+  }, [canSubmit, onContentChange]);
 
   // Show Insert button when: developer mode, not collapsed, no staged text, onInsert provided
   const showInsert = !collapsed && !isAnimating && viewMode === 'developer' && !hasStagedMessage && !!onInsert;
@@ -109,10 +110,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Visual collapsed state: stays collapsed-looking during GSAP animation
   const visuallyCollapsed = collapsed || isAnimating;
-
-  // Timeline 'developer' composition mode — turns the input border + submit button cyan
-  const isDeveloperComposeMode = viewMode === 'developer' && !visuallyCollapsed;
-  const showAbortAction = !!isWorkflowRunning && !hasContent && !!onAbort;
+  const showAbortAction = !!isWorkflowRunning && !canSubmit && !!onAbort;
 
   // Delayed placeholder: appears 300ms after expansion animation completes
   const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
@@ -157,9 +155,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         ref={formRef}
         onSubmit={collapsed ? (e) => { e.preventDefault(); onExpand?.(); } : handleSubmit}
         onClick={collapsed ? onExpand : undefined}
-        className={`w-full flex justify-center items-center gap-3 bg-surface-1 p-3 shadow-depth-md transition-all duration-350 hover:shadow-depth-lg border ${
-          isDeveloperComposeMode ? 'border-cyan-400/70' : 'border-border-subtle'
-        } ${
+        className={`w-full flex justify-center items-center gap-3 bg-surface-1 p-3 shadow-depth-md transition-all duration-350 hover:shadow-depth-lg border border-border-subtle ${
           visuallyCollapsed ? 'cursor-pointer rounded-full' : 'rounded-4xl'
         }`}
         style={{
@@ -215,8 +211,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               variant="outline"
               onClick={handleInsert}
               disabled={!hasTextContent}
-              className="rounded-full text-xs px-3 h-8 border-border-subtle text-muted-foreground hover:text-foreground hover:bg-surface-2"
-              title="Stage as developer text, then add client message"
+              className="rounded-full text-xs px-3 h-8 border-cyan-400/70 text-cyan-600 hover:text-cyan-500 hover:bg-cyan-500/10 dark:text-cyan-300 dark:hover:text-cyan-200"
+              title="Stage as developer text"
             >
               Insert
             </Button>
@@ -224,14 +220,12 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           <Button
             ref={buttonRef}
             type={showAbortAction || collapsed ? 'button' : 'submit'}
-            disabled={showAbortAction ? false : collapsed ? false : !hasContent}
+            disabled={showAbortAction ? false : collapsed ? false : !canSubmit}
             size="icon-lg"
             onClick={showAbortAction ? (e) => { e.stopPropagation(); onAbort?.(); } : undefined}
             className={`rounded-full transition-transform duration-200 ease-out hover:scale-105 active:scale-95 ${
               showAbortAction
                 ? 'relative bg-primary text-primary-foreground hover:bg-primary/90'
-                : isDeveloperComposeMode && hasContent
-                ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
             title={showAbortAction
@@ -240,9 +234,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               ? 'Open input (Enter)'
               : isWorkflowRunning
                 ? 'Interrupt agents and send'
-                : viewMode === 'user'
-                  ? 'Send message'
-                  : hasStagedMessage ? 'Send combined message' : 'Send as developer'}
+                : hasStagedMessage ? 'Send staged developer message' : 'Send message'}
             tabIndex={collapsed ? -1 : 0}
             data-gsap="submit-btn"
           >
