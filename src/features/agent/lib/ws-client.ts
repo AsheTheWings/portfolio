@@ -24,7 +24,8 @@ import type {
   WsSessionCreatedMessage,
   WsWorkflowStatusMessage,
   WsWorkflowStartedAckMessage,
-  WsExecuteCustomToolMessage,
+  WsExecuteDelegatedToolMessage,
+  WsCancelDelegatedToolMessage,
   WsSessionBranchedMessage,
   WsErrorMessage,
 } from '../types/protocol';
@@ -41,7 +42,8 @@ interface ServerMessageMap {
   session_created: WsSessionCreatedMessage;
   workflow_status: WsWorkflowStatusMessage;
   workflow_started_ack: WsWorkflowStartedAckMessage;
-  execute_custom_tool: WsExecuteCustomToolMessage;
+  execute_delegated_tool: WsExecuteDelegatedToolMessage;
+  cancel_delegated_tool: WsCancelDelegatedToolMessage;
   session_branched: WsSessionBranchedMessage;
   error: WsErrorMessage;
 }

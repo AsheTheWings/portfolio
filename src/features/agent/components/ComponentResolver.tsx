@@ -23,6 +23,7 @@ import { AgentThoughts } from './AgentThoughts';
 import { ToolCall } from './ToolCall';
 import { UserFeedback } from './UserFeedback';
 import { FlatAgentResponse } from './FlatAgentResponse';
+import { ResumeWorkflow } from './ResumeWorkflow';
 import { isTextFeedback } from '../utils/toSessionComponent';
 
 // Tool-owned components
@@ -106,6 +107,10 @@ export function resolveComponent(
       // In user mode: suppress while streaming (flat interface parallel to chat guard).
       if (isUserMode && component.isStreaming) return null;
       return <FlatAgentResponse component={component} />;
+
+    // System components
+    case 'resume-workflow':
+      return <ResumeWorkflow />;
 
     // System panels
     case 'config-panel':

@@ -30,13 +30,7 @@ import { getAgentStatus, statusLabel } from '../utils/status';
 type ViewSlot =
   | { kind: 'debug' }
   | { kind: 'item'; item: SessionComponent }
-  | { kind: 'feedback'; toolCallEventId: string; prompt: string; actions: FeedbackAction[] }
-  | { kind: 'resume' };
-
-// ── Static action list for the paused-resume panel ──────────
-const RESUME_ACTIONS: FeedbackAction[] = [
-  { id: 'resume', label: 'Resume', primary: true, icon: 'Play' },
-];
+  | { kind: 'feedback'; toolCallEventId: string; prompt: string; actions: FeedbackAction[] };
 
 // ────────────────────────────────────────────────────────────
 // Props
@@ -68,9 +62,6 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
   const agentStatus = useAgentStore((s) => getAgentStatus(s.agentStatuses, agentId));
-  // Pause is workflow-scoped; the resume affordance is shown when the
-  // active run is paused, not when a single agent is in some 'paused' state.
-  const workflowStatus = useAgentStore((s) => s.workflowStatus);
 
   // Agent avatar from acquired agents
   const acquiredAgent = useAgentStore((s) =>
@@ -83,7 +74,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   // ── Hooks ───────────────────────────────────────────────
   const { submitEdit, revertToComponent } = useSessionBranching();
   const { loadSession } = useSessionLifecycle();
-  const { submitFeedback, resumeWorkflow } = useWorkflow();
+  const { submitFeedback } = useWorkflow();
 
   // ── Session events (aggregated from items + composite) ──
   const allSessionEvents = useMemo<SessionEvent[]>(() => {
@@ -101,24 +92,11 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     return events;
   }, [data.sessionEvents, items]);
 
-  // ── 'paused' guard: only show resume slot on the last composite for this agent ──
-  const isLastForMyAgent = useAgentStore((s) => {
-    const effectiveAgentId = agentId ?? 'none';
-    const last = s.sessionComponents.findLast(
-      (c) =>
-        c.type === 'agent-message' &&
-        ((c.data?.agentId as string | undefined) ?? 'none') === effectiveAgentId,
-    );
-    return last?.id === id;
-  });
-
   // ── Build view slots ────────────────────────────────────
   // Slot order: [debug?] then for each item: the item (filtered for user mode)
   // followed by a synthesized feedback slot when the item is a tool-call with
   // pending userActions (toolEffects.userActions present and no matching
   // user-feedback-result event yet).
-  // If the agent is paused and this is the last composite for it, a 'resume'
-  // slot is appended at the end.
   const viewSlots: ViewSlot[] = useMemo(() => {
     const resolvedFeedbackIds = new Set(
       allSessionEvents
@@ -148,11 +126,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
         });
       }
     }
-    if (workflowStatus === 'paused' && isLastForMyAgent) {
-      slots.push({ kind: 'resume' });
-    }
     return slots;
-  }, [items, isUserMode, hasDebugView, allSessionEvents, workflowStatus, isLastForMyAgent]);
+  }, [items, isUserMode, hasDebugView, allSessionEvents]);
 
   const totalViews = viewSlots.length;
 
@@ -165,24 +140,15 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const isShowingDebug = activeSlot?.kind === 'debug';
   const activeItem = activeSlot?.kind === 'item' ? activeSlot.item : undefined;
   const activeFeedback = activeSlot?.kind === 'feedback' ? activeSlot : undefined;
-  const isActiveResume = activeSlot?.kind === 'resume';
 
   // ── Determine if active item is being edited ────────────
   const isEditMode = !!activeItem && editingEventId === activeItem.id;
   const [isValidForSubmit, setIsValidForSubmit] = useState(true);
 
-  // ── Auto-advance: prefer pending feedback > resume > streaming tail ──
+  // ── Auto-advance: prefer pending feedback > streaming tail ──
   // Track which feedback slots we've already auto-advanced to so that
   // dismissing/navigating away does not bounce the user back.
   const advancedFeedbacksRef = useRef<Set<string>>(new Set());
-  const hasAutoAdvancedToResumeRef = useRef(false);
-
-  // Reset the resume auto-advance flag when the workflow leaves 'paused'.
-  useEffect(() => {
-    if (workflowStatus !== 'paused') {
-      hasAutoAdvancedToResumeRef.current = false;
-    }
-  }, [workflowStatus]);
 
   useEffect(() => {
     // 1. New pending feedback → jump to it once.
@@ -195,14 +161,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       setActiveViewIndex(pendingIdx);
       return;
     }
-    // 2. Agent paused → jump to resume slot once.
-    const resumeIdx = viewSlots.findIndex((s) => s.kind === 'resume');
-    if (resumeIdx !== -1 && !hasAutoAdvancedToResumeRef.current) {
-      hasAutoAdvancedToResumeRef.current = true;
-      setActiveViewIndex(resumeIdx);
-      return;
-    }
-    // 3. Streaming → advance to the last item slot.
+    // 2. Streaming → advance to the last item slot.
     if (isStreaming) {
       const lastItemIdx = viewSlots.findLastIndex((s) => s.kind === 'item');
       if (lastItemIdx !== -1) setActiveViewIndex(lastItemIdx);
@@ -344,19 +303,6 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const renderActiveView = () => {
     if (isShowingDebug) {
       return <DebugView sessionEvents={allSessionEvents} />;
-    }
-    if (isActiveResume) {
-      return (
-        <div className="flex h-full items-center justify-center">
-          <FeedbackPanel
-            prompt="Agent is paused"
-            actions={RESUME_ACTIONS}
-            layout="horizontal"
-            stackPrompt
-            onAction={resumeWorkflow}
-          />
-        </div>
-      );
     }
     if (activeFeedback) {
       return (

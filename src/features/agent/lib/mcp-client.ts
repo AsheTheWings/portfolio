@@ -123,7 +123,7 @@ export class McpClient {
           tool: tool.name,
           description: tool.description,
           inputSchema: tool.inputSchema,
-          source: 'custom',
+          source: 'delegated',
         });
       }
     }

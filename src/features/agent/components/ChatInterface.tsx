@@ -31,7 +31,8 @@ function renderComponent(component: SessionComponent): React.ReactNode {
 
   // System panels get centered layout
   const isPanel = component.type === 'config-panel' || component.type === 'settings-panel'
-    || component.type === 'history-panel' || component.type === 'asset-picker-panel';
+    || component.type === 'history-panel' || component.type === 'asset-picker-panel'
+    || component.type === 'resume-workflow';
 
   return (
     <div key={component.id} id={component.id} className={isPanel ? 'w-full flex justify-center py-2' : 'w-full'}>

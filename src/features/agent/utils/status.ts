@@ -50,7 +50,7 @@ export type WorkflowStatus =
  *   responding       — model-message streaming.
  *   toolCalling      — awaiting tool result.
  *   waitingFeedback  — a tool-call requires user input.
- *   interrupted      — the run was aborted while this agent was active.
+ *   aborted          — the run was aborted while this agent was active.
  */
 export type AgentStatus =
   | 'idle'
@@ -59,7 +59,7 @@ export type AgentStatus =
   | 'responding'
   | 'toolCalling'
   | 'waitingFeedback'
-  | 'interrupted';
+  | 'aborted';
 
 /** Statuses that represent the agent actively producing output. */
 export const ACTIVE_STATUSES: readonly AgentStatus[] = [
@@ -161,7 +161,7 @@ export function deriveWorkflowStatus(events: SessionEvent[]): WorkflowStatus {
  *
  * Decision tree per agent:
  *   workflow last terminated as 'aborted' and the agent had any in-flight
- *     activity (no trailing agent-turn-completed) → 'interrupted'
+ *     activity (no trailing agent-turn-completed) → 'aborted'
  *   no events for this agent → 'idle'
  *   last non-system event is agent-turn-completed → 'idle'
  *   last non-system event is tool-effects with pending userActions → 'waitingFeedback'
@@ -216,9 +216,9 @@ export function deriveAgentStatuses(
       }
     }
 
-    // Mid-turn with no clean termination: 'interrupted' iff the run was
+    // Mid-turn with no clean termination: 'aborted' iff the run was
     // aborted, otherwise 'processing' (the run is still alive or paused).
-    statuses[agentId] = workflowStatus === 'aborted' ? 'interrupted' : 'processing';
+    statuses[agentId] = workflowStatus === 'aborted' ? 'aborted' : 'processing';
   }
 
   return statuses;
@@ -285,7 +285,7 @@ export function workflowStatusFromEvent(event: SessionEvent): WorkflowStatus | n
  * Returns the new statuses map (or null if no change).
  *
  *   workflow_started / workflow_resumed → every known agent → 'processing'
- *   workflow_aborted                    → every active agent → 'interrupted'
+ *   workflow_aborted                    → every active agent → 'aborted'
  *   workflow_completed / workflow_failed → every active agent → 'idle'
  */
 export function applyAgentStatusesForLifecycleEvent(
@@ -303,7 +303,7 @@ export function applyAgentStatusesForLifecycleEvent(
     case 'workflow_aborted': {
       const next = { ...current };
       for (const id of Object.keys(next)) {
-        if (next[id] !== 'idle') next[id] = 'interrupted';
+        if (next[id] !== 'idle') next[id] = 'aborted';
       }
       return next;
     }

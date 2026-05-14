@@ -235,7 +235,8 @@ export type SessionComponentType =
   | 'config-panel'
   | 'history-panel'
   | 'settings-panel'
-  | 'asset-picker-panel';
+  | 'asset-picker-panel'
+  | 'resume-workflow';
 
 // Session component controls (explicit button visibility)
 export interface SessionComponentControls {

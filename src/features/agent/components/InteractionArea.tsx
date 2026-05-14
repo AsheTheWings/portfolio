@@ -276,7 +276,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             onSend={submitUserInput}
             onInsert={insertUserMessage}
             isWorkflowRunning={isWorkflowRunning}
-            onPause={abortWorkflow}
+            onAbort={abortWorkflow}
             placeholder={viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}

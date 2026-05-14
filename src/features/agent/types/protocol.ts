@@ -88,11 +88,18 @@ export interface WsSubmitFeedbackMessage {
   feedbackData: unknown;
 }
 
-export interface WsCustomToolResultMessage {
-  type: 'custom_tool_result';
+export interface WsDelegatedToolResultMessage {
+  type: 'delegated_tool_result';
   sessionId: string;
   requestId: string;
   result: unknown;
+}
+
+export interface WsDelegatedToolErrorMessage {
+  type: 'delegated_tool_error';
+  sessionId: string;
+  requestId: string;
+  error: string;
 }
 
 export interface WsResumeWorkflowMessage {
@@ -120,7 +127,8 @@ export type WsClientMessage =
   | WsUserMessageMessage
   | WsAbortWorkflowMessage
   | WsSubmitFeedbackMessage
-  | WsCustomToolResultMessage
+  | WsDelegatedToolResultMessage
+  | WsDelegatedToolErrorMessage
   | WsResumeWorkflowMessage
   | WsRevertToSessionEventMessage
   | WsEditSessionEventMessage;
@@ -178,13 +186,21 @@ export interface WsWorkflowStartedAckMessage {
   workflowId: string;
 }
 
-export interface WsExecuteCustomToolMessage {
-  type: 'execute_custom_tool';
+export interface WsExecuteDelegatedToolMessage {
+  type: 'execute_delegated_tool';
   sessionId: string;
   requestId: string;
   server: string;
   tool: string;
   arguments: Record<string, unknown>;
+}
+
+export interface WsCancelDelegatedToolMessage {
+  type: 'cancel_delegated_tool';
+  sessionId: string;
+  runId: string;
+  requestId: string;
+  reason: string;
 }
 
 export interface WsErrorMessage {
@@ -203,6 +219,7 @@ export type WsServerMessage =
   | WsSessionCreatedMessage
   | WsWorkflowStatusMessage
   | WsWorkflowStartedAckMessage
-  | WsExecuteCustomToolMessage
+  | WsExecuteDelegatedToolMessage
+  | WsCancelDelegatedToolMessage
   | WsErrorMessage
   | WsSessionBranchedMessage;

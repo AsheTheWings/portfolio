@@ -19,7 +19,7 @@ export interface Tool {
   tool: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  source: 'builtin' | 'managed' | 'custom';
+  source: 'builtin' | 'managed' | 'delegated';
   handler?: ToolHandler;  // Built-in tools provide their own handler
 }
 

@@ -22,7 +22,7 @@ interface MessageInputProps {
   isWorkflowRunning?: boolean;
   /** Abort the active workflow run (sends abort_workflow over WS). Button
    *  only renders while `isWorkflowRunning` is true. */
-  onPause?: () => void;
+  onAbort?: () => void;
   placeholder?: string;
   onMentionOpenChange?: (isOpen: boolean) => void;
   collapsed?: boolean;
@@ -41,7 +41,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onInsert, isWorkflowRunning, onPause, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
+  ({ onSend, onInsert, isWorkflowRunning, onAbort, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -112,7 +112,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
   // Timeline 'developer' composition mode — turns the input border + submit button cyan
   const isDeveloperComposeMode = viewMode === 'developer' && !visuallyCollapsed;
-  const showPauseAction = !!isWorkflowRunning && !hasContent && !!onPause;
+  const showAbortAction = !!isWorkflowRunning && !hasContent && !!onAbort;
 
   // Delayed placeholder: appears 300ms after expansion animation completes
   const [showPlaceholder, setShowPlaceholder] = useState(!collapsed && !isAnimating);
@@ -206,7 +206,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         />
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
-          {/* Primary action: pause while working with empty input, otherwise submit/open. */}
+          {/* Primary action: abort active workflow run with empty input, otherwise submit/open. */}
           {/* Insert button — developer mode only, before staging */}
           {showInsert && (
             <Button
@@ -223,19 +223,19 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           )}
           <Button
             ref={buttonRef}
-            type={showPauseAction || collapsed ? 'button' : 'submit'}
-            disabled={showPauseAction ? false : collapsed ? false : !hasContent}
+            type={showAbortAction || collapsed ? 'button' : 'submit'}
+            disabled={showAbortAction ? false : collapsed ? false : !hasContent}
             size="icon-lg"
-            onClick={showPauseAction ? (e) => { e.stopPropagation(); onPause?.(); } : undefined}
+            onClick={showAbortAction ? (e) => { e.stopPropagation(); onAbort?.(); } : undefined}
             className={`rounded-full transition-transform duration-200 ease-out hover:scale-105 active:scale-95 ${
-              showPauseAction
+              showAbortAction
                 ? 'relative bg-primary text-primary-foreground hover:bg-primary/90'
                 : isDeveloperComposeMode && hasContent
                 ? 'bg-cyan-500 text-cyan-950 hover:bg-cyan-500/90'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
-            title={showPauseAction
-              ? 'Pause agents'
+            title={showAbortAction
+              ? 'Abort workflow'
               : collapsed
               ? 'Open input (Enter)'
               : isWorkflowRunning
@@ -246,7 +246,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
             tabIndex={collapsed ? -1 : 0}
             data-gsap="submit-btn"
           >
-            {showPauseAction ? (
+            {showAbortAction ? (
               <>
                 <span className="absolute inset-0 rounded-full border-3 border-transparent border-t-cyan-400 border-r-cyan-400/50 animate-spin" />
                 <span className="relative z-10">

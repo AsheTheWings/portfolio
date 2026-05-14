@@ -56,6 +56,8 @@ const AGENT_MESSAGE_CONTROLS: SessionComponentControls = {
   translate: true,
 };
 
+const RESUME_WORKFLOW_COMPONENT_ID = 'resume-workflow';
+
 // ============================================================
 // Public API
 // ============================================================
@@ -373,6 +375,21 @@ function processEventForChat(
       }
       break;
     }
+
+    // ── Workflow recovery ──────────────────────────────────
+    case 'workflow_aborted': {
+      upsertResumeWorkflowComponent(components, event);
+      break;
+    }
+
+    case 'workflow_started':
+    case 'workflow_resumed':
+    case 'workflow_paused':
+    case 'workflow_completed':
+    case 'workflow_failed': {
+      removeResumeWorkflowComponent(components);
+      break;
+    }
   }
 }
 
@@ -635,12 +652,47 @@ function processEventForFlat(
       }
       break;
     }
+
+    // ── Workflow recovery ──────────────────────────────────
+    case 'workflow_aborted': {
+      upsertResumeWorkflowComponent(components, event);
+      break;
+    }
+
+    case 'workflow_started':
+    case 'workflow_resumed':
+    case 'workflow_paused':
+    case 'workflow_completed':
+    case 'workflow_failed': {
+      removeResumeWorkflowComponent(components);
+      break;
+    }
   }
 }
 
 // ============================================================
 // Shared Helpers
 // ============================================================
+
+function removeResumeWorkflowComponent(components: SessionComponent[]): void {
+  for (let i = components.length - 1; i >= 0; i--) {
+    if (components[i]?.type === 'resume-workflow') components.splice(i, 1);
+  }
+}
+
+function upsertResumeWorkflowComponent(
+  components: SessionComponent[],
+  event: SessionEvent,
+): void {
+  removeResumeWorkflowComponent(components);
+  components.push({
+    id: RESUME_WORKFLOW_COMPONENT_ID,
+    role: 'system',
+    type: 'resume-workflow',
+    isStreaming: false,
+    data: { sessionEvents: [event] },
+  });
+}
 
 /**
  * Handle embedded sessionComponents from tool-effects.

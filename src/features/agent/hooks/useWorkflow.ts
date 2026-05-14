@@ -68,7 +68,7 @@ export function useWorkflow() {
   /**
    * Abort the active workflow run on the backend. Emits `workflow_aborted`
    * which transitions WorkflowStatus to 'aborted' and every active agent
-   * to 'interrupted'.
+   * to 'aborted'.
    */
   const abortWorkflow = useCallback(() => {
     const sessionId = useAgentStore.getState().currentSessionId;
