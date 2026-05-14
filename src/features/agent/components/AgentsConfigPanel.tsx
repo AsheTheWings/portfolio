@@ -58,7 +58,7 @@ export function AgentsConfigPanel() {
   const [showModelPicker, setShowModelPicker] = useState(false);
 
   // BYOK: check whether user has an OpenRouter key configured
-  const configuredProviders = useConfiguredProviders();
+  const { configuredProviders } = useConfiguredProviders();
   const hasOpenRouterKey = configuredProviders.has('openrouter');
 
   // Front agent + config (single source of truth)

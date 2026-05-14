@@ -6,6 +6,7 @@
  */
 
 import useSWR from 'swr';
+import { agentSWRKeys } from '../lib/swr-keys';
 
 export interface SessionRow {
   id: string;
@@ -34,7 +35,7 @@ const fetcher = async (url: string): Promise<SessionHistoryResponse> => {
 
 export function useSessionHistory(limit: number = 100) {
   const { data, error, isLoading, mutate } = useSWR<SessionHistoryResponse>(
-    `/api/agent/sessions?limit=${limit}`,
+    agentSWRKeys.sessionHistory(limit),
     fetcher,
     {
       refreshInterval: 30000,

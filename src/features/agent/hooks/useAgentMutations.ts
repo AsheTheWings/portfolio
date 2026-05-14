@@ -11,14 +11,13 @@
 
 import useSWRMutation from 'swr/mutation';
 import { acquireAgent, releaseAgent, deleteAgent } from '../lib/agent-api';
-
-const ACQUIRED_AGENTS_SWR_KEY = '/api/agent/agents/acquired';
+import { agentSWRKeys } from '../lib/swr-keys';
 
 type IdArg = { arg: string };
 
 export function useAcquireAgent() {
   return useSWRMutation(
-    ACQUIRED_AGENTS_SWR_KEY,
+    agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
       await acquireAgent(agentId);
     },
@@ -27,7 +26,7 @@ export function useAcquireAgent() {
 
 export function useReleaseAgent() {
   return useSWRMutation(
-    ACQUIRED_AGENTS_SWR_KEY,
+    agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
       await releaseAgent(agentId);
     },
@@ -36,7 +35,7 @@ export function useReleaseAgent() {
 
 export function useDeleteAgent() {
   return useSWRMutation(
-    ACQUIRED_AGENTS_SWR_KEY,
+    agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
       await deleteAgent(agentId);
     },

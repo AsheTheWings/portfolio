@@ -98,27 +98,30 @@ export function SessionPopover({
               }
               const saved = acquiredAgentsMap[a.agentId];
               return {
-                name: saved?.name ?? a.agentId,
+                name: saved?.name,
                 color: saved?.color ?? '#E2E8F0',
                 avatarImage: saved?.avatarImage ?? null,
                 agentId: a.agentId,
               };
             });
 
-            // Filter out 'none' agent when it's not the only one
-            const agentInfos = rawAgentInfos.length > 1 
-              ? rawAgentInfos.filter(a => a.agentId !== 'none')
-              : rawAgentInfos;
+            // Filter out agents without resolved names, then filter out 'none' agent when it's not the only one
+            const withNames = rawAgentInfos.filter(a => a.name);
+            const agentInfos = withNames.length > 1
+              ? withNames.filter(a => a.agentId !== 'none')
+              : withNames;
 
-            const firstName = agentInfos[0]?.name ?? 'Assistant';
+            const firstName = agentInfos[0]?.name;
             const othersCount = agentInfos.length - 1;
             
             // Build display name: "John", "John and Jane", or "John and 2 others"
             let displayName: string;
-            if (othersCount === 0) {
+            if (!firstName) {
+              displayName = '';
+            } else if (othersCount === 0) {
               displayName = firstName;
             } else if (othersCount === 1) {
-              const secondName = agentInfos[1]?.name ?? 'Assistant';
+              const secondName = agentInfos[1]?.name ?? '';
               displayName = `${firstName} and ${secondName}`;
             } else {
               displayName = `${firstName} and ${othersCount} others`;

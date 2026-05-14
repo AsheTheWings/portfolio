@@ -3,22 +3,41 @@
 /**
  * useConfiguredProviders Hook
  *
- * Fetches which providers have API keys configured from the backend.
- * Extracted from ModelPickerView so the picker stays a pure UI component.
+ * SWR-backed cache for provider API-key presence. This fetches only provider
+ * identifiers, never secret key values, and shares/dedupes state across panels.
  */
 
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { httpClient } from '@/features/shared/utils/http-client';
+import { agentSWRKeys } from '../lib/swr-keys';
 
-export function useConfiguredProviders(): Set<string> {
-  const [configured, setConfigured] = useState<Set<string>>(new Set());
+interface ConfiguredProvidersResponse {
+  configured: string[];
+}
 
-  useEffect(() => {
-    httpClient
-      .get<{ configured: string[] }>('/settings/api-keys')
-      .then((data) => setConfigured(new Set(data.configured)))
-      .catch(() => { /* panel still usable without key status */ });
-  }, []);
+async function fetchConfiguredProviders(): Promise<string[]> {
+  const data = await httpClient.get<ConfiguredProvidersResponse>(agentSWRKeys.configuredProviders);
+  return data.configured;
+}
 
-  return configured;
+export function useConfiguredProviders() {
+  const { data = [], error, isLoading, isValidating, mutate } = useSWR<string[]>(
+    agentSWRKeys.configuredProviders,
+    fetchConfiguredProviders,
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5_000,
+      keepPreviousData: true,
+    },
+  );
+
+  return {
+    configuredProviders: new Set(data),
+    configuredProviderIds: data,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  };
 }

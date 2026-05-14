@@ -13,6 +13,7 @@ import { useAgent } from '../hooks/useAgent';
 import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import { httpClient } from '@/features/shared/utils/http-client';
+import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { CustomModelProvidersSection } from './CustomModelProvidersSection';
 
 // ============================================================
@@ -59,11 +60,6 @@ const API_KEY_SECTIONS = [
 // ============================================================
 // API helpers
 // ============================================================
-
-async function fetchConfiguredProviders(): Promise<string[]> {
-  const data = await httpClient.get<{ configured: string[] }>('/settings/api-keys');
-  return data.configured;
-}
 
 async function saveProviderKey(provider: string, key: string): Promise<void> {
   await httpClient.put(`/settings/api-keys/${provider}`, { key });
@@ -233,16 +229,26 @@ export function SettingsPanel() {
   const [mcpPort, setMcpPort] = useState(() => loadMcpConfig().port);
   const prevMcpPort = useRef(mcpPort);
 
-  // BYOK state
-  const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
-  const [keysLoading, setKeysLoading] = useState(true);
+  // BYOK configured-provider state is shared via SWR across Settings + Agent config.
+  const {
+    configuredProviderIds,
+    isLoading: keysLoading,
+    mutate: mutateConfiguredProviders,
+  } = useConfiguredProviders();
 
-  useEffect(() => {
-    fetchConfiguredProviders()
-      .then(setConfiguredProviders)
-      .catch(() => { /* silently ignore — panel still usable */ })
-      .finally(() => setKeysLoading(false));
-  }, []);
+  const handleKeySaved = useCallback((providerId: string) => {
+    void mutateConfiguredProviders(
+      (current = []) => [...new Set([...current, providerId])],
+      { revalidate: true },
+    );
+  }, [mutateConfiguredProviders]);
+
+  const handleKeyRemoved = useCallback((providerId: string) => {
+    void mutateConfiguredProviders(
+      (current = []) => current.filter((id) => id !== providerId),
+      { revalidate: true },
+    );
+  }, [mutateConfiguredProviders]);
 
   const handleMcpEnabledToggle = async () => {
     const newEnabled = !mcpEnabled;
@@ -439,9 +445,9 @@ export function SettingsPanel() {
                         <ApiKeyRow
                           key={provider.id}
                           provider={provider}
-                          isConfigured={configuredProviders.includes(provider.id)}
-                          onSaved={(id) => setConfiguredProviders((prev) => [...new Set([...prev, id])])}
-                          onRemoved={(id) => setConfiguredProviders((prev) => prev.filter((p) => p !== id))}
+                          isConfigured={configuredProviderIds.includes(provider.id)}
+                          onSaved={handleKeySaved}
+                          onRemoved={handleKeyRemoved}
                         />
                       );
                     })}

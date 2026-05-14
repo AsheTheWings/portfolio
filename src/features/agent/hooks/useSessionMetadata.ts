@@ -9,6 +9,7 @@
 import { useRef, useCallback, useMemo } from 'react';
 import { mutate } from 'swr';
 import { useSessionHistory } from './useSessionHistory';
+import { agentSWRKeys } from '../lib/swr-keys';
 
 export interface SessionMetadata {
   id: string;
@@ -79,7 +80,7 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
       
       if (response.ok) {
         // Trigger cache revalidation for sessions list
-        mutate('/api/agent/sessions?limit=100');
+        mutate(agentSWRKeys.sessionHistory(100));
       }
     } catch (err) {
       console.error('Failed to save metadata:', err);

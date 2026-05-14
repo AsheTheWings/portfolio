@@ -12,15 +12,14 @@ import useSWR, { mutate as swrMutate } from 'swr';
 import { fetchAcquiredAgents } from '../lib/agent-api';
 import type { SavedAgent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
-
-const ACQUIRED_AGENTS_SWR_KEY = '/api/agent/agents/acquired';
+import { agentSWRKeys } from '../lib/swr-keys';
 
 /**
  * Trigger a revalidation of the acquired agents cache.
  * Call after mutations (acquire, release, delete) to refresh the store.
  */
 export function revalidateAcquiredAgents(): void {
-  swrMutate(ACQUIRED_AGENTS_SWR_KEY);
+  swrMutate(agentSWRKeys.acquiredAgents);
 }
 
 async function fetcher(): Promise<SavedAgent[]> {
@@ -31,7 +30,7 @@ export function useAcquiredAgentsQuery() {
   const setAcquiredAgents = useAgentStore((s) => s.setAcquiredAgents);
 
   const { data: agents = [], error, isLoading, isValidating, mutate } = useSWR<SavedAgent[]>(
-    ACQUIRED_AGENTS_SWR_KEY,
+    agentSWRKeys.acquiredAgents,
     fetcher,
     {
       revalidateOnFocus: true,

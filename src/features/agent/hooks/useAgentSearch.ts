@@ -11,10 +11,11 @@
 import useSWR from 'swr';
 import { searchAgents } from '../lib/agent-api';
 import type { SavedAgent } from '../types';
+import { agentSWRKeys } from '../lib/swr-keys';
 
 function buildKey(query: string | null): string | null {
   if (!query || query.trim().length === 0) return null;
-  return `/api/agent/agents/search?q=${encodeURIComponent(query.trim())}`;
+  return agentSWRKeys.agentSearch(query);
 }
 
 export function useAgentSearch(query: string | null) {
