@@ -121,7 +121,7 @@ export function AgentsConfigPanel() {
 
             <CardTitle>Agents Configuration</CardTitle>
           </div>
-          <CardDescription>Configure agent behavior and capabilities</CardDescription>
+          <CardDescription>Configure agents behavior and capabilities</CardDescription>
         </div>
         <CardAction>
           <button
@@ -318,6 +318,7 @@ export function AgentsConfigPanel() {
                         maxValue={100}
                         step={1}
                         className="w-24"
+                        inputClassName="text-xs md:text-xs"
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -466,6 +467,7 @@ export function AgentsConfigPanel() {
                             maxValue={10}
                             step={1}
                             className="w-24"
+                            inputClassName="text-xs md:text-xs"
                           />
                         </div>
                       </div>

@@ -214,6 +214,7 @@ export function ModelParameterControl({
             maxValue={schema.constraints.max}
             step={schema.constraints.step ?? 0.01}
             className="w-24"
+            inputClassName="text-xs md:text-xs"
           />
         </div>
       );
@@ -242,6 +243,7 @@ export function ModelParameterControl({
               maxValue={schema.constraints.max}
               step={schema.constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
               className="w-24"
+              inputClassName="text-xs md:text-xs"
             />
           </div>
         );
@@ -255,7 +257,8 @@ export function ModelParameterControl({
           minValue={schema.constraints?.min}
           maxValue={schema.constraints?.max}
           step={schema.constraints?.step}
-          className="w-full"
+          className="w-full max-w-[96px]"
+          inputClassName="text-xs md:text-xs"
         />
       );
     }
@@ -288,7 +291,12 @@ export function ModelParameterControl({
         >
           <div className="flex items-center gap-2">
             <Label className="font-normal text-[0.805rem] cursor-pointer">{schema.label}</Label>
-            {configured && <span className="text-[10px] text-primary">configured</span>}
+            <span
+              className={`text-[10px] text-primary ${configured ? 'visible' : 'invisible'}`}
+              aria-hidden={!configured}
+            >
+              configured
+            </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{schema.description}</p>
           {!expanded && helper && <p className="text-[0.7rem] text-muted-foreground mt-1">{helper}</p>}
@@ -303,7 +311,7 @@ export function ModelParameterControl({
             Configure
           </button>
         )}
-        {configured && (
+        {configured ? (
           <button
             type="button"
             onClick={clear}
@@ -312,6 +320,8 @@ export function ModelParameterControl({
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        ) : !expanded && !hasDefault ? null : (
+          <span className="w-3.5 shrink-0" aria-hidden="true" />
         )}
       </div>
 

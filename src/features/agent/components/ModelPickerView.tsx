@@ -15,8 +15,8 @@
  */
 
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, Search } from 'lucide-react';
-import { Input } from '@/features/shared/components/shadcn';
+import { ArrowLeft, Check, ChevronDown, Search } from 'lucide-react';
+import { Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/features/shared/components/shadcn';
 import type { ModelSpec } from '../types';
 import {
   getModelCapabilityBadges,
@@ -73,11 +73,22 @@ export function ModelPickerView({
     searchRef.current?.focus();
   }, []);
 
-  // Distinct provider display names in stable insertion order.
+  // Distinct provider display names — custom providers first, then OpenRouter.
   const providerNames = useMemo(() => {
     const seen = new Set<string>();
-    for (const m of models) seen.add(getModelProviderName(m));
-    return Array.from(seen);
+    const custom: string[] = [];
+    const builtin: string[] = [];
+    for (const m of models) {
+      const name = getModelProviderName(m);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      if (m.providerId === 'openrouter') {
+        builtin.push(name);
+      } else {
+        custom.push(name);
+      }
+    }
+    return [...custom, ...builtin];
   }, [models]);
 
   // Filtered + grouped by provider display name.
@@ -110,49 +121,54 @@ export function ModelPickerView({
 
   return (
     <div className="h-full flex flex-col gap-3 min-h-0">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-        <Input
-          ref={searchRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search models…"
-          className="pl-8 h-8 text-sm"
-        />
-      </div>
-
-      {/* Provider filter pills */}
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          onClick={() => setActiveProviderName('all')}
-          className={`px-2.5 py-0.5 rounded-full text-xs transition-colors border ${
-            activeProviderName === 'all'
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-          }`}
-        >
-          All
-        </button>
-        {providerNames.map((p) => (
-          <button
-            key={p}
-            onClick={() => setActiveProviderName(p === activeProviderName ? 'all' : p)}
-            className={`px-2.5 py-0.5 rounded-full text-xs transition-colors border ${
-              activeProviderName === p
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
+      {/* Search + Provider filter */}
+      <div className="flex items-center gap-2 mt-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search models…"
+            className="pl-8 h-8 text-sm"
+          />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 h-8 min-w-[140px] text-xs bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <span className="truncate">{activeProviderName === 'all' ? 'All providers' : activeProviderName}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => setActiveProviderName('all')}
+              className="text-xs"
+            >
+              <span className="flex-1">All providers</span>
+              {activeProviderName === 'all' && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </DropdownMenuItem>
+            {providerNames.map((p) => (
+              <DropdownMenuItem
+                key={p}
+                onClick={() => setActiveProviderName(p)}
+                className="text-xs"
+              >
+                <span className="flex-1">{p}</span>
+                {activeProviderName === p && <Check className="w-3 h-3 text-primary shrink-0" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Model metadata header */}
       <div className="grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 text-[10px] text-muted-foreground">
-        <span />
-        <span className="text-center">Context Length</span>
+        <span>Model</span>
+        <span className="text-center">Context</span>
         <span>Capabilities</span>
         <span />
       </div>
@@ -162,13 +178,20 @@ export function ModelPickerView({
         {grouped.size === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">No models found</p>
         )}
-        {Array.from(grouped.entries()).map(([providerName, providerModels]) => {
+        {Array.from(grouped.entries())
+          .sort(([, a], [, b]) => {
+            const aIsOpenRouter = a[0]?.providerId === 'openrouter';
+            const bIsOpenRouter = b[0]?.providerId === 'openrouter';
+            if (aIsOpenRouter === bIsOpenRouter) return 0;
+            return aIsOpenRouter ? 1 : -1;
+          })
+          .map(([providerName, providerModels]) => {
           const isOpenRouter = providerModels[0]?.providerId === 'openrouter';
 
           return (
             <div key={providerName}>
               {/* Provider section header */}
-              <div className="flex items-center gap-2 py-2 sticky top-0 bg-background z-10">
+              <div className="flex items-center gap-2 px-2 py-2 sticky top-0 bg-background z-10">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">
                   {providerName}
                 </span>
@@ -191,13 +214,13 @@ export function ModelPickerView({
                         handleSelect(model);
                       }
                     }}
-                    className={`w-full grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-sm
+                    className={`w-full grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 py-1.5 text-left transition-colors text-sm
                       ${!hasApiKey && !isSelected ? 'opacity-50' : ''}
                       ${isSelected
                         ? hasApiKey
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
-                        : 'hover:bg-accent text-foreground'
+                          ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20'
+                          : 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20'
+                        : 'hover:bg-cyan-500/5 text-foreground'
                       }`}
                   >
                     <span className="min-w-0 truncate text-xs">{displayName}</span>
@@ -208,12 +231,10 @@ export function ModelPickerView({
                       {capabilities.length ? capabilities.map((capability) => (
                         <span
                           key={capability}
-                          className={`rounded-full border px-1.5 py-0.5 text-[10px] leading-none ${
+                          className={`rounded-[1px] border px-1 py-0.5 text-[10px] leading-none ${
                             isSelected
-                              ? hasApiKey
-                                ? 'border-primary/30 bg-primary/10 text-primary'
-                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                              : 'border-border bg-background/50 text-muted-foreground'
+                              ? 'border-cyan-500/30 text-cyan-700 dark:text-cyan-400'
+                              : 'border-border text-muted-foreground'
                           }`}
                         >
                           {capability}
@@ -225,8 +246,8 @@ export function ModelPickerView({
                     <div className="flex justify-center shrink-0">
                       {isSelected && (
                         hasApiKey
-                          ? <Check className="w-3 h-3 text-primary" />
-                          : <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">→</span>
+                          ? <Check className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
+                          : <span className="text-[10px] font-medium text-cyan-700 dark:text-cyan-400">→</span>
                       )}
                     </div>
                   </button>
