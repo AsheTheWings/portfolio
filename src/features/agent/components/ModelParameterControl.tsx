@@ -80,6 +80,8 @@ export function ModelParameterControl({
   };
 
   const renderEditor = () => {
+    const constraints = schema.constraints;
+
     if (schema.control === 'reasoning-budget') {
       return (
         <Input
@@ -89,15 +91,15 @@ export function ModelParameterControl({
             [schema.key]: e.target.value ? { max_tokens: parseInt(e.target.value, 10) } : undefined,
           })}
           placeholder="Provider default"
-          min={schema.constraints?.min}
-          step={schema.constraints?.step}
+          min={constraints?.min}
+          step={constraints?.step}
           className="text-xs md:text-xs"
         />
       );
     }
 
     if (schema.control === 'select' || schema.type === 'enum') {
-      const selectedOption = (schema.constraints?.options ?? []).find((o) => o.value === explicitValue);
+      const selectedOption = (constraints?.options ?? []).find((o) => o.value === explicitValue);
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -117,7 +119,7 @@ export function ModelParameterControl({
               <span className="flex-1">Provider default</span>
               {!isSet(explicitValue) && <Check className="w-3 h-3 text-primary shrink-0" />}
             </DropdownMenuItem>
-            {(schema.constraints?.options ?? []).map((option) => (
+            {(constraints?.options ?? []).map((option) => (
               <DropdownMenuItem
                 key={option.value}
                 onClick={() => onUpdate({ [schema.key]: option.value })}
@@ -191,17 +193,17 @@ export function ModelParameterControl({
       );
     }
 
-    if (schema.control === 'slider' && typeof schema.constraints?.min === 'number' && typeof schema.constraints?.max === 'number') {
+    if (schema.control === 'slider' && typeof constraints?.min === 'number' && typeof constraints?.max === 'number') {
       const explicitNumber = numberValue(explicitValue);
       const defaultNumber = numberValue(defaultValue);
-      const current = explicitNumber !== '' ? explicitNumber : defaultNumber !== '' ? defaultNumber : schema.constraints.min;
+      const current = explicitNumber !== '' ? explicitNumber : defaultNumber !== '' ? defaultNumber : constraints.min;
       return (
         <div className="flex items-center gap-3">
           <Slider
             className="flex-1"
-            min={schema.constraints.min}
-            max={schema.constraints.max}
-            step={schema.constraints.step ?? 0.01}
+            min={constraints.min}
+            max={constraints.max}
+            step={constraints.step ?? 0.01}
             value={[current]}
             onValueChange={([value]) => onUpdate({ [schema.key]: value })}
           />
@@ -210,9 +212,9 @@ export function ModelParameterControl({
             onChange={(value) => onUpdate({
               [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
             })}
-            minValue={schema.constraints.min}
-            maxValue={schema.constraints.max}
-            step={schema.constraints.step ?? 0.01}
+            minValue={constraints.min}
+            maxValue={constraints.max}
+            step={constraints.step ?? 0.01}
             className="w-24"
             inputClassName="text-xs md:text-xs"
           />
@@ -221,16 +223,16 @@ export function ModelParameterControl({
     }
 
     if (schema.type === 'number' || schema.type === 'integer') {
-      const hasSlider = typeof schema.constraints?.min === 'number' && typeof schema.constraints?.max === 'number';
+      const hasSlider = typeof constraints?.min === 'number' && typeof constraints?.max === 'number';
       const numVal = numberValue(explicitValue);
       if (hasSlider && numVal !== '') {
         return (
           <div className="flex items-center gap-3">
             <Slider
               className="flex-1"
-              min={schema.constraints.min}
-              max={schema.constraints.max}
-              step={schema.constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
+              min={constraints.min}
+              max={constraints.max}
+              step={constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
               value={[numVal]}
               onValueChange={([value]) => onUpdate({ [schema.key]: value })}
             />
@@ -239,9 +241,9 @@ export function ModelParameterControl({
               onChange={(value) => onUpdate({
                 [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
               })}
-              minValue={schema.constraints.min}
-              maxValue={schema.constraints.max}
-              step={schema.constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
+              minValue={constraints.min}
+              maxValue={constraints.max}
+              step={constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
               className="w-24"
               inputClassName="text-xs md:text-xs"
             />
@@ -254,9 +256,9 @@ export function ModelParameterControl({
           onChange={(value) => onUpdate({
             [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
           })}
-          minValue={schema.constraints?.min}
-          maxValue={schema.constraints?.max}
-          step={schema.constraints?.step}
+          minValue={constraints?.min}
+          maxValue={constraints?.max}
+          step={constraints?.step}
           className="w-full max-w-[96px]"
           inputClassName="text-xs md:text-xs"
         />

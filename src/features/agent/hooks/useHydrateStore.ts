@@ -9,22 +9,15 @@
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { loadAgents, loadSelectedWorkflowId, saveSelectedWorkflowId } from '../utils/agent-storage';
-import type { Tool, Workflow, ModelParameterSchema, ModelSpec, AgentState } from '../types';
+import type { AgentServerData } from '../lib/server-data';
+import type { AgentState } from '../types';
 
 interface HydrateOptions {
-  initialTools?: Tool[];
-  initialWorkflows?: Workflow[];
-  initialModels?: ModelSpec[];
-  initialModelParameters?: ModelParameterSchema[];
-  initialDefaultModelId?: string | null;
+  initialAgentData?: AgentServerData;
 }
 
-export function useHydrateStore({ initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId }: HydrateOptions = {}) {
-  const initialToolsRef = useRef(initialTools);
-  const initialWorkflowsRef = useRef(initialWorkflows);
-  const initialModelsRef = useRef(initialModels);
-  const initialModelParametersRef = useRef(initialModelParameters);
-  const initialDefaultModelIdRef = useRef(initialDefaultModelId);
+export function useHydrateStore({ initialAgentData }: HydrateOptions = {}) {
+  const initialAgentDataRef = useRef(initialAgentData);
 
   useEffect(() => {
     const state = useAgentStore.getState();
@@ -36,24 +29,24 @@ export function useHydrateStore({ initialTools, initialWorkflows, initialModels,
     state.setAgents(savedAgents);
     useAgentStore.setState({ _hydrated: true } as Partial<AgentState>);
 
-    if (initialToolsRef.current?.length) {
-      useAgentStore.getState().setToolsPool(initialToolsRef.current);
+    const agentData = initialAgentDataRef.current;
+
+    if (agentData?.tools.length) {
+      useAgentStore.getState().setToolsPool(agentData.tools);
     }
-    if (initialWorkflowsRef.current?.length) {
-      const workflows = initialWorkflowsRef.current;
+    if (agentData?.workflows.length) {
+      const workflows = agentData.workflows;
       useAgentStore.getState().setWorkflowsPool(workflows);
 
-      // Resolve selectedWorkflowId: persisted id → valid registry entry → default
+      // Resolve selectedWorkflowId: persisted id → valid registry entry → default.
       const storedId = loadSelectedWorkflowId();
       const defaultId = (workflows.find((w) => w.isDefault) ?? workflows[0])?.id ?? '';
       const resolved = storedId && workflows.some((w) => w.id === storedId) ? storedId : defaultId;
       useAgentStore.getState().setSelectedWorkflowId(resolved);
       if (resolved !== storedId) saveSelectedWorkflowId(resolved);
     }
-    if (initialModelsRef.current?.length) {
-      const models = initialModelsRef.current;
-      const defaultModelId = initialDefaultModelIdRef.current ?? null;
-      useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined, initialModelParametersRef.current ?? []);
+    if (agentData?.llmRegistry) {
+      useAgentStore.getState().setLlmRegistry(agentData.llmRegistry);
     }
   }, []);
 }

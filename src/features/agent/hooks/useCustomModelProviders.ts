@@ -172,11 +172,7 @@ async function refreshModelRegistry(): Promise<void> {
   if (!isValidModelRegistry(registry)) {
     throw new Error('Unsupported model registry response.');
   }
-  useAgentStore.getState().setModelsPool(
-    registry.models,
-    registry.defaultModelId,
-    registry.parameters,
-  );
+  useAgentStore.getState().setLlmRegistry(registry);
 }
 
 export function useCustomModelProviders() {

@@ -20,18 +20,14 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const token = await getTokenCookie();
 
   const [agentData, initialEvents] = await Promise.all([
-    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [], models: [], modelParameters: [], defaultModelId: null }),
+    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [], llmRegistry: null, configuredProviders: [] }),
     token ? fetchSessionEventsSSR(token, sessionId) : Promise.resolve(null),
   ]);
 
   return (
     <AgentHome
       initialUser={initialUser}
-      initialTools={agentData.tools}
-      initialWorkflows={agentData.workflows}
-      initialModels={agentData.models}
-      initialModelParameters={agentData.modelParameters}
-      initialDefaultModelId={agentData.defaultModelId}
+      initialAgentData={agentData}
       initialEvents={initialEvents}
     />
   );

@@ -73,12 +73,18 @@ export function ModelPickerView({
     searchRef.current?.focus();
   }, []);
 
+  // Hide OpenRouter models when the user hasn't configured an API key.
+  const displayModels = useMemo(
+    () => (hasApiKey ? models : models.filter((m) => m.providerId !== 'openrouter')),
+    [models, hasApiKey]
+  );
+
   // Distinct provider display names — custom providers first, then OpenRouter.
   const providerNames = useMemo(() => {
     const seen = new Set<string>();
     const custom: string[] = [];
     const builtin: string[] = [];
-    for (const m of models) {
+    for (const m of displayModels) {
       const name = getModelProviderName(m);
       if (seen.has(name)) continue;
       seen.add(name);
@@ -89,12 +95,12 @@ export function ModelPickerView({
       }
     }
     return [...custom, ...builtin];
-  }, [models]);
+  }, [displayModels]);
 
   // Filtered + grouped by provider display name.
   const grouped = useMemo(() => {
     const q = query.toLowerCase();
-    const filtered = models.filter((m) => {
+    const filtered = displayModels.filter((m) => {
       const providerName = getModelProviderName(m);
       const displayName = getModelDisplayName(m);
       const matchProvider = activeProviderName === 'all' || providerName === activeProviderName;
@@ -112,7 +118,7 @@ export function ModelPickerView({
       groups.get(providerName)!.push(m);
     }
     return groups;
-  }, [models, query, activeProviderName]);
+  }, [displayModels, query, activeProviderName]);
 
   const handleSelect = (model: ModelSpec) => {
     onSelect({ providerId: model.providerId, modelId: model.id });
@@ -207,19 +213,10 @@ export function ModelPickerView({
                 return (
                   <button
                     key={`${model.providerId}:${model.id}`}
-                    onClick={() => {
-                      if (!hasApiKey && isSelected) {
-                        onOpenSettings();
-                      } else {
-                        handleSelect(model);
-                      }
-                    }}
+                    onClick={() => handleSelect(model)}
                     className={`w-full grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 py-1.5 text-left transition-colors text-sm
-                      ${!hasApiKey && !isSelected ? 'opacity-50' : ''}
                       ${isSelected
-                        ? hasApiKey
-                          ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20'
-                          : 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20'
+                        ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20'
                         : 'hover:bg-cyan-500/5 text-foreground'
                       }`}
                   >
@@ -245,9 +242,7 @@ export function ModelPickerView({
                     </span>
                     <div className="flex justify-center shrink-0">
                       {isSelected && (
-                        hasApiKey
-                          ? <Check className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
-                          : <span className="text-[10px] font-medium text-cyan-700 dark:text-cyan-400">→</span>
+                        <Check className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
                       )}
                     </div>
                   </button>

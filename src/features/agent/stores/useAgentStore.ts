@@ -28,7 +28,7 @@ import {
   type AgentStatus,
   type WorkflowStatus,
 } from '../utils/status';
-import type { ModelParameterSchema, ModelSpec } from '../types/llm';
+import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec } from '../types/llm';
 
 // ============================================================
 // Pure model selectors over `ModelSpec[]`
@@ -436,18 +436,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ selectedWorkflowId });
   },
 
-  setModelsPool: (modelsPool, defaultModelId?: string, modelParameters?: ModelParameterSchema[]) => {
-    const resolvedDefaultModelId = defaultModelId ?? null;
+  setLlmRegistry: (registry: LlmRegistrySnapshot) => {
+    const modelsPool = registry.models;
     const currentAgents = get().agents;
-    const agents = normalizeAgents(currentAgents, get().toolsPool, modelsPool, resolvedDefaultModelId);
+    const agents = normalizeAgents(currentAgents, get().toolsPool, modelsPool, registry.defaultModelId);
     saveAgents(agents);
     set((state) => {
       const nextStatuses: Record<string, AgentStatus> = {};
       for (const a of agents) nextStatuses[a.agentId] = state.agentStatuses[a.agentId] ?? 'idle';
       return {
         modelsPool,
-        defaultModelId: resolvedDefaultModelId,
-        modelParameters: modelParameters ?? [],
+        defaultModelId: registry.defaultModelId,
+        modelParameters: registry.parameters,
         agents,
         agentStatuses: nextStatuses,
       };

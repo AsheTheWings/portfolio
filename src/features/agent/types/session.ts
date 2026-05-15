@@ -3,7 +3,7 @@
  */
 
 import type { AgentStatus, WorkflowStatus } from '../utils/status';
-import type { ModelParameterSchema, ModelSpec } from './llm';
+import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec } from './llm';
 import type { Tool } from './tools';
 import type { Workflow } from './workflow';
 
@@ -570,7 +570,7 @@ export interface AgentState {
   setToolsPool: (tools: Tool[]) => void;
   setWorkflowsPool: (workflows: Workflow[]) => void;
   setSelectedWorkflowId: (id: string) => void;
-  setModelsPool: (models: ModelSpec[], defaultModelId?: string, modelParameters?: ModelParameterSchema[]) => void;
+  setLlmRegistry: (registry: LlmRegistrySnapshot) => void;
 
   // UI component actions
   setSessionComponents: (components: SessionComponent[] | ((prev: SessionComponent[]) => SessionComponent[])) => void;

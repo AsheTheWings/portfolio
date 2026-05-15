@@ -242,7 +242,7 @@ export function AgentsConfigPanel() {
               {/* Model Selection */}
               <div className="mb-6 flex flex-col gap-3" >
                 <Label>Model</Label>
-                {!hasOpenRouterKey ? (
+                {!hasOpenRouterKey && modelsPool.filter((m) => m.providerId !== 'openrouter').length === 0 ? (
                   <button
                     type="button"
                     onClick={() => upsertSystemPanel('settings-panel', 'settings-panel')}
@@ -264,7 +264,7 @@ export function AgentsConfigPanel() {
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   </button>
                 )}
-                {hasOpenRouterKey && (
+                {selectedModelSpec && (
                   <p className="text-xs text-muted-foreground">
                     Context: {getModelContextLength(selectedModelSpec)?.toLocaleString() || 'Unknown'} tokens
                   </p>
@@ -296,8 +296,7 @@ export function AgentsConfigPanel() {
               </div>
 
               {/* Run Limits */}
-              {hasOpenRouterKey && (
-                <div className="mb-6 flex flex-col gap-3">
+              <div className="mb-6 flex flex-col gap-3">
                   <Label>Run Limits</Label>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
@@ -331,7 +330,6 @@ export function AgentsConfigPanel() {
                     )}
                   </div>
                 </div>
-              )}
 
               {/* Streaming Section */}
               <div className="mb-6 flex flex-col gap-3" >
@@ -361,7 +359,7 @@ export function AgentsConfigPanel() {
               </div>
 
               {/* MCP Tools Section */}
-              {hasOpenRouterKey && supportsToolCalling && (
+              {supportsToolCalling && (
                 <div className="mb-6 flex flex-col gap-3">
                   <Label>MCP Tools</Label>
                   <div className="flex flex-col gap-1">
@@ -479,7 +477,7 @@ export function AgentsConfigPanel() {
 
             <div className="flex flex-col">
               {/* Model parameters (rendered in registry order). */}
-              {hasOpenRouterKey && visibleParameterSchemas.length > 0 && (
+              {visibleParameterSchemas.length > 0 && (
                 <div className="mb-6 flex flex-col gap-3">
                   <Label>Generation Parameters</Label>
                   <div className="flex flex-col gap-2">

@@ -5,7 +5,7 @@
  * contract versions are intentionally not supported.
  */
 
-import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec, Tool, Workflow } from '../types';
+import type { LlmRegistrySnapshot, Tool, Workflow } from '../types';
 import type { WireSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
@@ -13,13 +13,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 export interface AgentServerData {
   tools: Tool[];
   workflows: Workflow[];
-  models: ModelSpec[];
-  /**
-   * Ordered parameter schemas. Render order follows array order; clients
-   * filter `schema.hidden` and intersect with `ModelSpec.supportedParameters`.
-   */
-  modelParameters: ModelParameterSchema[];
-  defaultModelId: string | null;
+  llmRegistry: LlmRegistrySnapshot | null;
+  configuredProviders: string[];
 }
 
 function isValidRegistry(value: unknown): value is LlmRegistrySnapshot {
@@ -41,36 +36,36 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
   const empty: AgentServerData = {
     tools: [],
     workflows: [],
-    models: [],
-    modelParameters: [],
-    defaultModelId: null,
+    llmRegistry: null,
+    configuredProviders: [],
   };
 
   try {
-    const [toolsRes, workflowsRes, modelsRes] = await Promise.all([
+    const [toolsRes, workflowsRes, modelsRes, apiKeysRes] = await Promise.all([
       fetch(`${BACKEND_URL}/agent/tools`, { headers, cache: 'no-store' }),
       fetch(`${BACKEND_URL}/agent/workflows`, { headers, cache: 'no-store' }),
       fetch(`${BACKEND_URL}/agent/models`, { headers, cache: 'no-store' }),
+      fetch(`${BACKEND_URL}/settings/api-keys`, { headers, cache: 'no-store' }),
     ]);
 
     const tools = toolsRes.ok ? (await toolsRes.json()).tools ?? [] : [];
     const workflows = workflowsRes.ok ? (await workflowsRes.json()).workflows ?? [] : [];
+    const configuredProviders = apiKeysRes.ok ? (await apiKeysRes.json()).configured ?? [] : [];
 
-    if (!modelsRes.ok) return { ...empty, tools, workflows };
+    if (!modelsRes.ok) return { ...empty, tools, workflows, configuredProviders };
 
     const modelsData: unknown = await modelsRes.json();
     if (!isValidRegistry(modelsData)) {
       const version = (modelsData as { contractVersion?: unknown } | null)?.contractVersion;
       console.warn('[agent/server-data] Unsupported model contract version:', version);
-      return { ...empty, tools, workflows };
+      return { ...empty, tools, workflows, configuredProviders };
     }
 
     return {
       tools,
       workflows,
-      models: modelsData.models,
-      modelParameters: modelsData.parameters,
-      defaultModelId: modelsData.defaultModelId,
+      llmRegistry: modelsData,
+      configuredProviders,
     };
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch:', err instanceof Error ? err.message : String(err));

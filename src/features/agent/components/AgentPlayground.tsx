@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { SWRConfig } from 'swr';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAgent } from '../hooks/useAgent';
 import { useHydrateStore } from '../hooks/useHydrateStore';
@@ -22,31 +23,25 @@ import { FlatInterface } from './FlatInterface';
 import { ToolsBar } from './ToolsBar';
 import { QuickAccessHeader } from './QuickAccessHeader';
 import { AgentsHub } from './AgentsHub';
-import type { SessionComponentType, Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
+import type { SessionComponentType } from '../types';
 import type { WireSessionEvent } from '../types/protocol';
+import type { AgentServerData } from '../lib/server-data';
+import { agentSWRKeys } from '../lib/swr-keys';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 import { isWorkflowActive } from '../utils/status';
 
 interface AgentPlaygroundProps {
-  /** Session ID from URL (optional, for dynamic route) */
+  /** Session ID from URL (optional, for dynamic route). */
   sessionId?: string;
-  /** Server-fetched tools (hydrated into store on mount) */
-  initialTools?: Tool[];
-  /** Server-fetched workflows (hydrated into store on mount) */
-  initialWorkflows?: Workflow[];
-  /** Server-fetched models (hydrated into store on mount) */
-  initialModels?: ModelSpec[];
-  /** Server-fetched model parameter schemas (hydrated into store on mount) */
-  initialModelParameters?: ModelParameterSchema[];
-  /** Server-fetched default model id (from /agent/models) */
-  initialDefaultModelId?: string | null;
-  /** Server-fetched session events (SSR) */
+  /** Server-fetched bootstrap data hydrated into the store on mount. */
+  initialAgentData: AgentServerData;
+  /** Server-fetched session events (SSR). */
   initialEvents?: WireSessionEvent[] | null;
 }
 
-export function AgentPlayground({ sessionId, initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId, initialEvents }: AgentPlaygroundProps) {
-  // Hydrate store from localStorage + server-fetched data (client-side only, after mount)
-  useHydrateStore({ initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId });
+export function AgentPlayground({ sessionId, initialAgentData, initialEvents }: AgentPlaygroundProps) {
+  // Hydrate store from localStorage + server-fetched data (client-side only, after mount).
+  useHydrateStore({ initialAgentData });
   
   // Fetch acquired agents (owned + subscribed) and push into store
   useAcquiredAgentsQuery();
@@ -204,57 +199,59 @@ export function AgentPlayground({ sessionId, initialTools, initialWorkflows, ini
   }, [isProcessing, triggerSubmit, editingEventId, resetAllTranslations]);
 
   return (
-    <div className="h-full w-full bg-background text-foreground">
-      {/* Vertically Centered Tools Bar */}
-      <ToolsBar 
-        onNewSessionClick={handleNewSessionClick}
-        onAgentConfigClick={handleConfigurationsClick}
-        onHistoryClick={handleHistoryClick}
-        onConfigClick={handleSettingsClick}
-        onAgentsHubClick={() => setShowAgentsHub((v) => !v)}
-        isProcessing={isProcessing}
-        uiInterface={uiInterface}
-      />
+    <SWRConfig value={{ fallback: { [agentSWRKeys.configuredProviders]: initialAgentData.configuredProviders } }}>
+      <div className="h-full w-full bg-background text-foreground">
+        {/* Vertically Centered Tools Bar */}
+        <ToolsBar 
+          onNewSessionClick={handleNewSessionClick}
+          onAgentConfigClick={handleConfigurationsClick}
+          onHistoryClick={handleHistoryClick}
+          onConfigClick={handleSettingsClick}
+          onAgentsHubClick={() => setShowAgentsHub((v) => !v)}
+          isProcessing={isProcessing}
+          uiInterface={uiInterface}
+        />
 
-      <div className="h-full flex flex-col relative">
-        {/* Agents Hub overlay */}
-        {showAgentsHub && (
-          <AgentsHub onClose={() => setShowAgentsHub(false)} />
-        )}
+        <div className="h-full flex flex-col relative">
+          {/* Agents Hub overlay */}
+          {showAgentsHub && (
+            <AgentsHub onClose={() => setShowAgentsHub(false)} />
+          )}
 
-        {/* Conditional rendering based on UI interface */}
-        <>
-            {/* Quick Access Header */}
-            <QuickAccessHeader />
+          {/* Conditional rendering based on UI interface */}
+          <>
+              {/* Quick Access Header */}
+              <QuickAccessHeader />
 
-            {/* Animated Interface Transition with Scroll Preservation */}
-            <AnimatePresence mode="wait">
-              {uiInterface === 'chat' ? (
-                <motion.div
-                  key="chat"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className="flex-1 overflow-y-hidden"
-                >
-                  <ChatInterface />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="flat"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className="flex-1 overflow-hidden"
-                >
-                  <FlatInterface />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
+              {/* Animated Interface Transition with Scroll Preservation */}
+              <AnimatePresence mode="wait">
+                {uiInterface === 'chat' ? (
+                  <motion.div
+                    key="chat"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="flex-1 overflow-y-hidden"
+                  >
+                    <ChatInterface />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="flat"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="flex-1 overflow-hidden"
+                  >
+                    <FlatInterface />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+        </div>
       </div>
-    </div>
+    </SWRConfig>
   );
 }

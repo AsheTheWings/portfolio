@@ -133,6 +133,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
 
   // ── View state ──────────────────────────────────────────
   const [activeViewIndex, setActiveViewIndex] = useState(() => defaultSlotIndex(viewSlots));
+  const previousViewModeRef = useRef(viewMode);
 
   // ── Active slot ─────────────────────────────────────────
   const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
@@ -167,6 +168,14 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       if (lastItemIdx !== -1) setActiveViewIndex(lastItemIdx);
     }
   }, [viewSlots, isStreaming]);
+
+  useEffect(() => {
+    const previousViewMode = previousViewModeRef.current;
+    previousViewModeRef.current = viewMode;
+    if (previousViewMode !== 'developer' && viewMode === 'developer') {
+      setActiveViewIndex(Math.max(viewSlots.length - 1, 0));
+    }
+  }, [viewMode, viewSlots]);
 
   // ── Collapse listener (agent:collapseAll) ───────────────
   useEffect(() => {
@@ -444,4 +453,3 @@ function defaultSlotIndex(slots: ViewSlot[]): number {
   }
   return slots.length - 1;
 }
-

@@ -12,20 +12,16 @@ import { AuthGate } from '@/features/authentication/components/AuthGate';
 import { AgentConnectionProvider } from '@/features/agent/hooks/useAgentConnection';
 import { AgentPlayground } from '@/features/agent';
 import type { UserPublic } from '@/features/authentication/types';
-import type { Tool, Workflow, ModelParameterSchema, ModelSpec } from '@/features/agent/types';
+import type { AgentServerData } from '@/features/agent/lib/server-data';
 import type { WireSessionEvent } from '@/features/agent/types/protocol';
 
 interface AgentHomeProps {
   initialUser: UserPublic | null;
-  initialTools: Tool[];
-  initialWorkflows: Workflow[];
-  initialModels?: ModelSpec[];
-  initialModelParameters?: ModelParameterSchema[];
-  initialDefaultModelId?: string | null;
+  initialAgentData: AgentServerData;
   initialEvents?: WireSessionEvent[] | null;
 }
 
-export function AgentHome({ initialUser, initialTools, initialWorkflows, initialModels, initialModelParameters, initialDefaultModelId, initialEvents }: AgentHomeProps) {
+export function AgentHome({ initialUser, initialAgentData, initialEvents }: AgentHomeProps) {
   const { user, isAuthenticated, _hydrated, setUser } = useAuthStore();
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
@@ -48,7 +44,7 @@ export function AgentHome({ initialUser, initialTools, initialWorkflows, initial
 
   return (
     <AgentConnectionProvider>
-      <AgentPlayground sessionId={sessionId} initialTools={initialTools} initialWorkflows={initialWorkflows} initialModels={initialModels} initialModelParameters={initialModelParameters} initialDefaultModelId={initialDefaultModelId} initialEvents={initialEvents} />
+      <AgentPlayground sessionId={sessionId} initialAgentData={initialAgentData} initialEvents={initialEvents} />
     </AgentConnectionProvider>
   );
 }
