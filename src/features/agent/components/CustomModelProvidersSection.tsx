@@ -184,11 +184,11 @@ export function CustomModelProvidersSection() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <Label className="font-normal text-[0.805rem]">Provider <RequiredAsterisk /></Label>
+                  <Label className="font-normal text-xs">Provider <RequiredAsterisk /></Label>
                   <Input
                     value={draft.provider}
                     onChange={(e) => patchDraft({ provider: e.target.value })}
-                    className="h-8 text-sm"
+                    className="h-8 text-xs placeholder:text-xs"
                     placeholder="OpenAI"
                     autoComplete="off"
                     autoCorrect="off"
@@ -197,11 +197,11 @@ export function CustomModelProvidersSection() {
                   />
                 </div>
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <Label className="font-normal text-[0.805rem]">Base URL <RequiredAsterisk /></Label>
+                  <Label className="font-normal text-xs">Base URL <RequiredAsterisk /></Label>
                   <Input
                     value={draft.baseURL}
                     onChange={(e) => patchDraft({ baseURL: e.target.value })}
-                    className="h-8 font-mono text-xs"
+                    className="h-8 font-mono text-xs placeholder:text-xs"
                     placeholder="https://api.openai.com/v1"
                     autoComplete="off"
                     autoCorrect="off"
@@ -210,12 +210,12 @@ export function CustomModelProvidersSection() {
                   />
                 </div>
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <Label className="font-normal text-[0.805rem]">API Key {editingProvider?.hasApiKey ? '(configured)' : ''}</Label>
+                  <Label className="font-normal text-xs">API Key {editingProvider?.hasApiKey ? '(configured)' : ''}</Label>
                   <Input
                     type="password"
                     value={draft.apiKey}
                     onChange={(e) => patchDraft({ apiKey: e.target.value, removeApiKey: false })}
-                    className="h-8 font-mono text-xs"
+                    className="h-8 font-mono text-xs placeholder:text-xs"
                     placeholder={editingProvider?.hasApiKey ? 'Leave blank to keep existing key' : 'sk-...'}
                     autoComplete="new-password"
                     autoCorrect="off"
@@ -233,7 +233,7 @@ export function CustomModelProvidersSection() {
                   )}
                 </div>
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <Label className="font-normal text-[0.805rem]">Headers JSON</Label>
+                  <Label className="font-normal text-xs">Headers JSON</Label>
                   <Textarea
                     value={draft.headersJson}
                     onChange={(e) => patchDraft({ headersJson: e.target.value })}
@@ -247,7 +247,7 @@ export function CustomModelProvidersSection() {
 
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <Label className="font-normal text-[0.805rem]">Models</Label>
+                  <Label className="font-normal text-xs">Models</Label>
                   <button
                     type="button"
                     onClick={addModel}
@@ -261,7 +261,7 @@ export function CustomModelProvidersSection() {
                   <div key={index} className="rounded-md border border-border p-3 flex flex-col gap-3">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-col gap-1.5">
-                        <Label className="font-normal text-[0.805rem]">Model ID <RequiredAsterisk /></Label>
+                        <Label className="font-normal text-xs">Model ID <RequiredAsterisk /></Label>
                         <Input
                           value={model.id}
                           onChange={(e) => updateModel(index, { id: e.target.value })}
@@ -274,7 +274,7 @@ export function CustomModelProvidersSection() {
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <Label className="font-normal text-[0.805rem]">Model Display Name</Label>
+                        <Label className="font-normal text-xs">Model Display Name</Label>
                         <Input
                           value={model.name}
                           onChange={(e) => updateModel(index, { name: e.target.value })}
@@ -287,7 +287,7 @@ export function CustomModelProvidersSection() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
-                          <Label className="font-normal text-[0.805rem]">Context Length</Label>
+                          <Label className="font-normal text-xs">Context Length</Label>
                           <Input
                             value={model.contextLength}
                             onChange={(e) => updateModel(index, { contextLength: e.target.value })}
@@ -300,7 +300,7 @@ export function CustomModelProvidersSection() {
                           />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label className="font-normal text-[0.805rem]">Max Completion Tokens</Label>
+                          <Label className="font-normal text-xs">Max Completion Tokens</Label>
                           <Input
                             value={model.maxCompletionTokens}
                             onChange={(e) => updateModel(index, { maxCompletionTokens: e.target.value })}

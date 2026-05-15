@@ -433,7 +433,7 @@ export function SettingsPanel() {
               {API_KEY_SECTIONS.map((section) => (
                 <div key={section.id} className="flex flex-col gap-3">
                   <div>
-                    <h3 className="text-sm font-medium text-foreground">{section.title}</h3>
+                    <h3 className="text-xs font-medium text-foreground">{section.title}</h3>
                     <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
                   </div>
                   <div className="flex flex-col gap-2">
