@@ -37,7 +37,7 @@ interface AgentPlaygroundProps {
   /** Server-fetched models (hydrated into store on mount) */
   initialModels?: ModelSpec[];
   /** Server-fetched model parameter schemas (hydrated into store on mount) */
-  initialModelParameters?: Record<string, ModelParameterSchema>;
+  initialModelParameters?: ModelParameterSchema[];
   /** Server-fetched default model id (from /agent/models) */
   initialDefaultModelId?: string | null;
   /** Server-fetched session events (SSR) */

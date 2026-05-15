@@ -4,30 +4,26 @@
  * Model Picker View
  *
  * Full-panel replacement for the model dropdown in AgentsConfigPanel.
- * Activated when the user clicks the model trigger button.
  *
- * Features:
  *  - Search across all models
- *  - Provider filter pills
- *  - Grouped list by provider, each section has a header with API key status
- *  - Models dimmed when the provider has no configured key
- *  - Capability badge columns (Thinking, Vision, Image Gen, Tool Calling)
- *  - "Add API Key" row action → opens Settings panel
- *  - Back button returns to main config view
+ *  - Provider filter pills (driven by `ModelSpec.provider` display name)
+ *  - Grouped list by provider display name
+ *  - Selection passes `{ providerId, modelId }` so duplicate model ids
+ *    across providers disambiguate correctly
+ *  - Capability badges derived from `supportedParameters` /
+ *    `inputModalities` (no separate capabilities array)
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, Search } from 'lucide-react';
 import { Input } from '@/features/shared/components/shadcn';
 import type { ModelSpec } from '../types';
-import { ModelCapability } from '../types';
 import {
-  getModelCapabilities,
+  getModelCapabilityBadges,
   getModelContextLength,
   getModelDisplayName,
-  getModelProvider,
   getModelProviderName,
-} from '../utils/openrouter-models';
+} from '../utils/models';
 
 // ============================================================
 // Types
@@ -46,18 +42,6 @@ export interface ModelPickerViewProps {
 }
 
 // ============================================================
-// Constants
-// ============================================================
-
-export const PROVIDER_LABELS: Record<string, string> = {
-  google: 'Google',
-  fireworks: 'Fireworks AI',
-  openrouter: 'OpenRouter',
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-};
-
-// ============================================================
 // Helpers
 // ============================================================
 
@@ -67,64 +51,6 @@ function formatContext(tokens?: number): string {
   if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
   return String(tokens);
 }
-
-// ============================================================
-// Capability badge icons (inline SVG keeps the bundle lean)
-// ============================================================
-
-function CapabilityIcon({ cap }: { cap: ModelCapability }) {
-  switch (cap) {
-    case ModelCapability.THINKING:
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
-          <title>Thinking</title>
-          <path d="M8 2a4 4 0 0 1 3.874 4.99A3 3 0 0 1 11 13H5a3 3 0 0 1-.874-5.01A4 4 0 0 1 8 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-          <path d="M6 13v1M8 13v2M10 13v1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-        </svg>
-      );
-    case ModelCapability.VISION:
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
-          <title>Vision</title>
-          <ellipse cx="8" cy="8" rx="6" ry="4" stroke="currentColor" strokeWidth="1.3"/>
-          <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
-        </svg>
-      );
-    case ModelCapability.IMAGE_GENERATION:
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
-          <title>Image Generation</title>
-          <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-          <circle cx="5.5" cy="6.5" r="1" stroke="currentColor" strokeWidth="1.2"/>
-          <path d="M2 11l3.5-3 2.5 2.5L11 7.5l3 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-        </svg>
-      );
-    case ModelCapability.TOOL_CALLING:
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
-          <title>Tool Calling</title>
-          <path d="M9 3L13 7L7.5 12.5C7 13 6 13 5.5 12.5L3.5 10.5C3 10 3 9 3.5 8.5L9 3Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-          <path d="M11 1L15 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-const ALL_CAPABILITIES = [
-  ModelCapability.THINKING,
-  ModelCapability.VISION,
-  ModelCapability.IMAGE_GENERATION,
-  ModelCapability.TOOL_CALLING,
-] as const;
-
-const CAPABILITY_LABELS: Record<(typeof ALL_CAPABILITIES)[number], string> = {
-  [ModelCapability.THINKING]: 'Thinking',
-  [ModelCapability.VISION]: 'Vision',
-  [ModelCapability.IMAGE_GENERATION]: 'Img Gen',
-  [ModelCapability.TOOL_CALLING]: 'Tools',
-};
 
 // ============================================================
 // Component
@@ -140,30 +66,27 @@ export function ModelPickerView({
   onOpenSettings,
 }: ModelPickerViewProps) {
   const [query, setQuery] = useState('');
-  const [activeProvider, setActiveProvider] = useState<string>('all');
+  const [activeProviderName, setActiveProviderName] = useState<string>('all');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Focus search on mount
   React.useEffect(() => {
     searchRef.current?.focus();
   }, []);
 
-  // Distinct provider list in stable insertion order from models array
-  const providers = useMemo(() => {
+  // Distinct provider display names in stable insertion order.
+  const providerNames = useMemo(() => {
     const seen = new Set<string>();
-    for (const m of models) {
-      seen.add(getModelProvider(m));
-    }
+    for (const m of models) seen.add(getModelProviderName(m));
     return Array.from(seen);
   }, [models]);
 
-  // Filtered + grouped
+  // Filtered + grouped by provider display name.
   const grouped = useMemo(() => {
     const q = query.toLowerCase();
     const filtered = models.filter((m) => {
-      const provider = getModelProvider(m);
+      const providerName = getModelProviderName(m);
       const displayName = getModelDisplayName(m);
-      const matchProvider = activeProvider === 'all' || provider === activeProvider;
+      const matchProvider = activeProviderName === 'all' || providerName === activeProviderName;
       const matchQuery =
         !q ||
         displayName.toLowerCase().includes(q) ||
@@ -171,18 +94,17 @@ export function ModelPickerView({
       return matchProvider && matchQuery;
     });
 
-    // Group by provider, preserving insertion order
     const groups = new Map<string, ModelSpec[]>();
     for (const m of filtered) {
-      const provider = getModelProvider(m);
-      if (!groups.has(provider)) groups.set(provider, []);
-      groups.get(provider)!.push(m);
+      const providerName = getModelProviderName(m);
+      if (!groups.has(providerName)) groups.set(providerName, []);
+      groups.get(providerName)!.push(m);
     }
     return groups;
-  }, [models, query, activeProvider]);
+  }, [models, query, activeProviderName]);
 
   const handleSelect = (model: ModelSpec) => {
-    onSelect({ providerId: getModelProvider(model), modelId: model.id });
+    onSelect({ providerId: model.providerId, modelId: model.id });
     onClose();
   };
 
@@ -203,40 +125,36 @@ export function ModelPickerView({
       {/* Provider filter pills */}
       <div className="flex flex-wrap gap-1.5">
         <button
-          onClick={() => setActiveProvider('all')}
+          onClick={() => setActiveProviderName('all')}
           className={`px-2.5 py-0.5 rounded-full text-xs transition-colors border ${
-            activeProvider === 'all'
+            activeProviderName === 'all'
               ? 'bg-primary text-primary-foreground border-primary'
               : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
           }`}
         >
           All
         </button>
-        {providers.map((p) => (
+        {providerNames.map((p) => (
           <button
             key={p}
-            onClick={() => setActiveProvider(p === activeProvider ? 'all' : p)}
+            onClick={() => setActiveProviderName(p === activeProviderName ? 'all' : p)}
             className={`px-2.5 py-0.5 rounded-full text-xs transition-colors border ${
-              activeProvider === p
+              activeProviderName === p
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
             }`}
           >
-            {PROVIDER_LABELS[p] ?? p}
+            {p}
           </button>
         ))}
       </div>
 
-      {/* Capability legend header */}
-      <div className="flex items-center text-[10px] text-muted-foreground px-1 gap-1">
-        <span className="flex-1 min-w-0" />
-        <span className="w-10 text-center shrink-0">Context</span>
-        {ALL_CAPABILITIES.map((cap) => (
-          <span key={cap} className="w-7 text-center shrink-0 flex justify-center">
-            <CapabilityIcon cap={cap} />
-          </span>
-        ))}
-        <div className="w-4 shrink-0" /> {/* checkbox column */}
+      {/* Model metadata header */}
+      <div className="grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 text-[10px] text-muted-foreground">
+        <span />
+        <span className="text-center">Context Length</span>
+        <span>Capabilities</span>
+        <span />
       </div>
 
       {/* Scrollable model list */}
@@ -244,30 +162,28 @@ export function ModelPickerView({
         {grouped.size === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">No models found</p>
         )}
-        {Array.from(grouped.entries()).map(([provider, providerModels]) => {
-          const label = getModelProviderName(providerModels[0]) || PROVIDER_LABELS[provider] || provider;
-          const isOpenRouter = provider === 'openrouter';
+        {Array.from(grouped.entries()).map(([providerName, providerModels]) => {
+          const isOpenRouter = providerModels[0]?.providerId === 'openrouter';
 
           return (
-            <div key={provider}>
+            <div key={providerName}>
               {/* Provider section header */}
               <div className="flex items-center gap-2 py-2 sticky top-0 bg-background z-10">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">
-                  {label}
+                  {providerName}
                 </span>
                 <span className="text-[10px] text-muted-foreground">{isOpenRouter ? 'built-in' : 'custom'}</span>
               </div>
 
               {/* Model rows */}
               {providerModels.map((model) => {
-                const modelProviderId = getModelProvider(model);
-                const isSelected = model.id === selectedModelId && modelProviderId === selectedProviderId;
+                const isSelected = model.id === selectedModelId && model.providerId === selectedProviderId;
                 const displayName = getModelDisplayName(model);
-                const capabilities = getModelCapabilities(model);
+                const capabilities = getModelCapabilityBadges(model);
 
                 return (
                   <button
-                    key={model.id}
+                    key={`${model.providerId}:${model.id}`}
                     onClick={() => {
                       if (!hasApiKey && isSelected) {
                         onOpenSettings();
@@ -275,7 +191,7 @@ export function ModelPickerView({
                         handleSelect(model);
                       }
                     }}
-                    className={`w-full flex items-center gap-1 px-2 py-1.5 rounded-md text-left transition-colors text-sm
+                    className={`w-full grid grid-cols-[minmax(0,1fr)_88px_minmax(160px,0.75fr)_16px] items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-sm
                       ${!hasApiKey && !isSelected ? 'opacity-50' : ''}
                       ${isSelected
                         ? hasApiKey
@@ -284,26 +200,29 @@ export function ModelPickerView({
                         : 'hover:bg-accent text-foreground'
                       }`}
                   >
-                    <span className="flex-1 min-w-0 truncate text-xs">{displayName}</span>
-                    <span className="w-10 text-center shrink-0 text-[10px] text-muted-foreground font-mono">
+                    <span className="min-w-0 truncate text-xs">{displayName}</span>
+                    <span className="text-center shrink-0 text-[10px] text-muted-foreground font-mono">
                       {formatContext(getModelContextLength(model))}
                     </span>
-                    {ALL_CAPABILITIES.map((cap) => (
-                      <span
-                        key={cap}
-                        title={CAPABILITY_LABELS[cap]}
-                        className={`w-7 flex justify-center shrink-0 ${
-                          capabilities.includes(cap)
-                            ? isSelected && !hasApiKey
-                              ? 'text-amber-700 dark:text-amber-400'
-                              : 'text-primary'
-                            : 'text-transparent'
-                        }`}
-                      >
-                        <CapabilityIcon cap={cap} />
-                      </span>
-                    ))}
-                    <div className="w-4 flex justify-center shrink-0">
+                    <span className="flex min-w-0 flex-wrap gap-1">
+                      {capabilities.length ? capabilities.map((capability) => (
+                        <span
+                          key={capability}
+                          className={`rounded-full border px-1.5 py-0.5 text-[10px] leading-none ${
+                            isSelected
+                              ? hasApiKey
+                                ? 'border-primary/30 bg-primary/10 text-primary'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                              : 'border-border bg-background/50 text-muted-foreground'
+                          }`}
+                        >
+                          {capability}
+                        </span>
+                      )) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      )}
+                    </span>
+                    <div className="flex justify-center shrink-0">
                       {isSelected && (
                         hasApiKey
                           ? <Check className="w-3 h-3 text-primary" />

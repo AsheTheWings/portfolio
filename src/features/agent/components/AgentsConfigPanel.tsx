@@ -25,11 +25,11 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  InputWithStackedButtons,
 } from '@/features/shared/components/shadcn';
 import type { AgentConfig, Agent } from '../types/session';
 import type { Tool, McpHostStatus } from '../types/tools';
-import { ModelCapability } from '../types/llm';
-import { useAgentStore, selectModelById } from '../stores/useAgentStore';
+import { useAgentStore, selectModel } from '../stores/useAgentStore';
 import { createDefaultAgentConfig } from '../utils/agent-factory';
 import { useAgent } from '../hooks/useAgent';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
@@ -39,12 +39,8 @@ import { ModelParameterControl } from './ModelParameterControl';
 import {
   getModelContextLength,
   getModelDisplayName,
-  modelHasCapability,
-} from '../utils/openrouter-models';
-import {
-  getEffectiveParameterDefault,
-  getSupportedModelParameterSchemas,
-} from '../utils/model-parameters';
+  modelSupportsTools,
+} from '../utils/models';
 
 export function AgentsConfigPanel() {
   // Store state
@@ -69,12 +65,17 @@ export function AgentsConfigPanel() {
   const config = agentConfig || createDefaultAgentConfig(undefined, modelsPool);
   const setAgentConfig = updateFrontAgentConfig;
 
-  // Model capabilities (derived from OpenRouter model metadata)
-  const selectedModelSpec = selectModelById(modelsPool, config.modelId);
-  const supportsToolCalling = modelHasCapability(selectedModelSpec, ModelCapability.TOOL_CALLING);
-  const parameterSchemas = getSupportedModelParameterSchemas(selectedModelSpec, modelParameters);
-  const primaryParameterSchemas = parameterSchemas.filter((schema) => schema.group !== 'advanced');
-  const advancedParameterSchemas = parameterSchemas.filter((schema) => schema.group === 'advanced');
+  // Selected model is resolved by `(providerId, modelId)`.
+  const selectedModelSpec = selectModel(modelsPool, {
+    providerId: config.providerId ?? 'openrouter',
+    modelId: config.modelId,
+  });
+  const supportsToolCalling = modelSupportsTools(selectedModelSpec);
+  // Render parameters in registry order, intersected with the selected model
+  // and filtered by `schema.hidden`. Registry order IS the rendering contract.
+  const supportedParameters = new Set(selectedModelSpec?.supportedParameters ?? []);
+  const visibleParameterSchemas = modelParameters
+    .filter((schema) => !schema.hidden && supportedParameters.has(schema.key));
 
   // Chat mode = standalone (centered card), side-by-side = inline
   const isStandalone = uiInterface === 'chat';
@@ -299,18 +300,26 @@ export function AgentsConfigPanel() {
                 <div className="mb-6 flex flex-col gap-3">
                   <Label>Run Limits</Label>
                   <div className="flex flex-col gap-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
-                      <span className="text-sm text-muted-foreground">{config.maxModelCalls}</span>
+                    <Label htmlFor="maxModelCalls" className="font-normal text-[0.805rem]">Max Model Responses</Label>
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        id="maxModelCalls"
+                        className="flex-1"
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={[config.maxModelCalls]}
+                        onValueChange={([value]) => updateConfig({ maxModelCalls: value })}
+                      />
+                      <InputWithStackedButtons
+                        value={config.maxModelCalls}
+                        onChange={(value) => updateConfig({ maxModelCalls: value })}
+                        minValue={1}
+                        maxValue={100}
+                        step={1}
+                        className="w-24"
+                      />
                     </div>
-                    <Slider
-                      id="maxModelCalls"
-                      min={1}
-                      max={100}
-                      step={1}
-                      value={[config.maxModelCalls]}
-                      onValueChange={([value]) => updateConfig({ maxModelCalls: value })}
-                    />
                     <p className="text-xs text-muted-foreground">
                       Maximum allowed model responses in one agent call
                     </p>
@@ -439,18 +448,26 @@ export function AgentsConfigPanel() {
 
                       {/* Max Concurrent Tools */}
                       <div className="flex flex-col gap-2 pt-2">
-                        <div className="flex justify-between">
-                          <Label htmlFor="maxConcurrentTools" className="text-[0.805rem]">Max Concurrent Tools</Label>
-                          <span className="text-sm text-muted-foreground">{config.maxConcurrentTools}</span>
+                        <Label htmlFor="maxConcurrentTools" className="text-[0.805rem]">Max Concurrent Tools</Label>
+                        <div className="flex items-center gap-3">
+                          <Slider
+                            id="maxConcurrentTools"
+                            className="flex-1"
+                            min={1}
+                            max={10}
+                            step={1}
+                            value={[config.maxConcurrentTools]}
+                            onValueChange={([value]) => updateConfig({ maxConcurrentTools: value })}
+                          />
+                          <InputWithStackedButtons
+                            value={config.maxConcurrentTools}
+                            onChange={(value) => updateConfig({ maxConcurrentTools: value })}
+                            minValue={1}
+                            maxValue={10}
+                            step={1}
+                            className="w-24"
+                          />
                         </div>
-                        <Slider
-                          id="maxConcurrentTools"
-                          min={1}
-                          max={10}
-                          step={1}
-                          value={[config.maxConcurrentTools]}
-                          onValueChange={([value]) => updateConfig({ maxConcurrentTools: value })}
-                        />
                       </div>
                     </>
                   )}
@@ -459,35 +476,17 @@ export function AgentsConfigPanel() {
             </div>
 
             <div className="flex flex-col">
-              {/* Generation Parameters */}
-              {hasOpenRouterKey && primaryParameterSchemas.length > 0 && (
+              {/* Model parameters (rendered in registry order). */}
+              {hasOpenRouterKey && visibleParameterSchemas.length > 0 && (
                 <div className="mb-6 flex flex-col gap-3">
                   <Label>Generation Parameters</Label>
                   <div className="flex flex-col gap-2">
-                    {primaryParameterSchemas.map((schema) => (
+                    {visibleParameterSchemas.map((schema) => (
                       <ModelParameterControl
                         key={schema.key}
                         schema={schema}
                         providerParameters={config.providerParameters ?? {}}
-                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
-                        onUpdate={updateProviderParameters}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Advanced Parameters */}
-              {hasOpenRouterKey && advancedParameterSchemas.length > 0 && (
-                <div className="mb-6 flex flex-col gap-3">
-                  <Label>Advanced Parameters</Label>
-                  <div className="flex flex-col gap-2">
-                    {advancedParameterSchemas.map((schema) => (
-                      <ModelParameterControl
-                        key={schema.key}
-                        schema={schema}
-                        providerParameters={config.providerParameters ?? {}}
-                        defaultValue={getEffectiveParameterDefault(selectedModelSpec, schema)}
+                        defaultValue={schema.default}
                         onUpdate={updateProviderParameters}
                       />
                     ))}

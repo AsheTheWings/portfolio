@@ -1,78 +1,37 @@
 'use client';
 
+/**
+ * Custom OpenAI-compatible providers — settings UI.
+ *
+ * The frontend never constructs provider-shaped (OpenRouter SDK) model
+ * payloads. Drafts collected here are converted into
+ * `CustomProviderModelInput[]`; the backend canonicalises them into
+ * `ModelSpec[]` server-side.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input, Label, Switch, Textarea } from '@/features/shared/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
-import type { ModelSpec } from '../types/llm';
-import { getModelContextLength, getModelDisplayName } from '../utils/openrouter-models';
+import type { CustomProviderModelInput, ModelSpec, UserModelProviderSettings } from '../types/llm';
+import { getModelContextLength, getModelDisplayName, getModelMaxCompletionTokens, modelSupportsVision } from '../utils/models';
 import { httpClient } from '@/features/shared/utils/http-client';
 
-interface OpenRouterCompatibleModel {
-  architecture: {
-    inputModalities: string[];
-    instructType?: string | null;
-    modality: string | null;
-    outputModalities: string[];
-    tokenizer?: string;
-  };
-  canonicalSlug: string;
-  contextLength: number | null;
-  created: number;
-  defaultParameters: Record<string, unknown> | null;
-  description?: string;
-  expirationDate?: string | null;
-  huggingFaceId?: string | null;
-  id: string;
-  knowledgeCutoff?: string | null;
-  links: { details: string };
-  name: string;
-  perRequestLimits: { completionTokens: number; promptTokens: number } | null;
-  pricing: { prompt: string; completion: string; [key: string]: unknown };
-  supportedParameters?: string[];
-  supportedVoices: string[] | null;
-  topProvider: {
-    contextLength?: number | null;
-    isModerated: boolean;
-    maxCompletionTokens?: number | null;
-  };
-}
-
-interface ProviderModelSettings {
-  id: string;
-  providerId: string;
-  modelId: string;
-  model: OpenRouterCompatibleModel;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface UserModelProviderSettings {
-  id: string;
-  providerKey: string;
-  name: string;
-  baseURL: string;
-  headers: Record<string, string>;
-  enabled: boolean;
-  hasApiKey: boolean;
-  credentialProvider: `model-provider:${string}`;
-  models: ProviderModelSettings[];
-  createdAt: string;
-  updatedAt: string;
-}
+// ============================================================
+// Draft types
+// ============================================================
 
 interface ModelDraft {
   id: string;
   name: string;
   contextLength: string;
+  maxCompletionTokens: string;
   supportsImageInput: boolean;
 }
 
 interface ProviderDraft {
   id?: string;
-  providerKey: string;
-  name: string;
+  provider: string;
   baseURL: string;
   apiKey: string;
   removeApiKey: boolean;
@@ -85,12 +44,12 @@ const EMPTY_MODEL: ModelDraft = {
   id: '',
   name: '',
   contextLength: '',
-  supportsImageInput: true,
+  maxCompletionTokens: '',
+  supportsImageInput: false,
 };
 
 const EMPTY_PROVIDER: ProviderDraft = {
-  providerKey: '',
-  name: '',
+  provider: '',
   baseURL: '',
   apiKey: '',
   removeApiKey: false,
@@ -103,99 +62,64 @@ const FALLBACK_MODEL_PLACEHOLDER = {
   id: 'moonshotai/kimi-k2.6',
   name: 'Kimi K2.6',
   contextLength: '262144',
+  maxCompletionTokens: '',
 };
 
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'custom-provider';
+// ============================================================
+// Draft <-> wire conversions
+// ============================================================
+
+function parseOptionalPositiveInteger(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
-function buildModelFromDraft(draft: ModelDraft, providerName: string, baseURL: string): OpenRouterCompatibleModel {
-  const contextLength = draft.contextLength.trim() ? Number.parseInt(draft.contextLength.trim(), 10) : null;
-  const id = draft.id.trim();
-  const name = draft.name.trim() || id;
-  const safeBaseURL = baseURL.replace(/\/$/, '');
-  const inputModalities = draft.supportsImageInput ? ['text', 'image'] : ['text'];
-
+function modelInputFromDraft(draft: ModelDraft): CustomProviderModelInput {
   return {
-    architecture: {
-      inputModalities,
-      modality: draft.supportsImageInput ? 'text+image->text' : 'text->text',
-      outputModalities: ['text'],
-    },
-    canonicalSlug: id,
-    contextLength,
-    created: Math.floor(Date.now() / 1000),
-    defaultParameters: null,
-    description: `${name} via ${providerName}`,
-    id,
-    links: { details: safeBaseURL || 'custom-provider' },
-    name,
-    perRequestLimits: contextLength ? { promptTokens: contextLength, completionTokens: Math.max(1, Math.floor(contextLength / 2)) } : null,
-    pricing: { prompt: '0', completion: '0' },
-    supportedVoices: null,
-    topProvider: {
-      contextLength,
-      isModerated: false,
-      maxCompletionTokens: contextLength ? Math.max(1, Math.floor(contextLength / 2)) : null,
-    },
+    id: draft.id.trim(),
+    name: draft.name.trim() || undefined,
+    contextLength: parseOptionalPositiveInteger(draft.contextLength),
+    maxCompletionTokens: parseOptionalPositiveInteger(draft.maxCompletionTokens),
+    inputModalities: draft.supportsImageInput ? ['text', 'image'] : ['text'],
   };
 }
 
-function modelDraftFromSettings(model: OpenRouterCompatibleModel): ModelDraft {
+function modelDraftFromSpec(spec: ModelSpec): ModelDraft {
   return {
-    id: model.id,
-    name: model.name,
-    contextLength: typeof model.contextLength === 'number' ? String(model.contextLength) : '',
-    supportsImageInput: model.architecture.inputModalities.includes('image'),
+    id: spec.id,
+    name: spec.name,
+    contextLength: spec.contextLength != null ? String(spec.contextLength) : '',
+    maxCompletionTokens: spec.maxCompletionTokens != null ? String(spec.maxCompletionTokens) : '',
+    supportsImageInput: modelSupportsVision(spec),
   };
 }
 
 function providerDraftFromSettings(provider: UserModelProviderSettings): ProviderDraft {
   return {
     id: provider.id,
-    providerKey: provider.providerKey,
-    name: provider.name,
+    provider: provider.provider,
     baseURL: provider.baseURL,
     apiKey: '',
     removeApiKey: false,
     enabled: provider.enabled,
     headersJson: JSON.stringify(provider.headers ?? {}, null, 2),
     models: provider.models.length
-      ? provider.models.map((entry) => modelDraftFromSettings(entry.model))
+      ? provider.models.map(modelDraftFromSpec)
       : [{ ...EMPTY_MODEL }],
   };
 }
 
-async function fetchModelProviders(): Promise<UserModelProviderSettings[]> {
-  const data = await httpClient.get<{ providers: UserModelProviderSettings[] }>('/settings/model-providers');
-  return data.providers;
-}
-
-async function createModelProvider(draft: ProviderDraft): Promise<void> {
-  await httpClient.post('/settings/model-providers', toPayload(draft, false));
-}
-
-async function updateModelProvider(draft: ProviderDraft): Promise<void> {
-  if (!draft.id) return;
-  await httpClient.patch(`/settings/model-providers/${draft.id}`, toPayload(draft, true));
-}
-
-async function deleteModelProvider(id: string): Promise<void> {
-  await httpClient.delete(`/settings/model-providers/${id}`);
-}
-
-function toPayload(draft: ProviderDraft, isUpdate: boolean) {
+function toPayload(draft: ProviderDraft, isUpdate: boolean): Record<string, unknown> {
   const headers = JSON.parse(draft.headersJson || '{}') as Record<string, string>;
   const models = draft.models
     .filter((model) => model.id.trim())
-    .map((model) => buildModelFromDraft(model, draft.name.trim(), draft.baseURL.trim()));
+    .map(modelInputFromDraft);
+
   const payload: Record<string, unknown> = {
-    providerKey: draft.providerKey.trim() || slugify(draft.name),
-    name: draft.name.trim(),
+    provider: draft.provider.trim(),
     baseURL: draft.baseURL.trim(),
     headers,
     enabled: draft.enabled,
@@ -211,13 +135,45 @@ function cloneModelDraft(draft: ModelDraft): ModelDraft {
   return { ...draft };
 }
 
+// ============================================================
+// API
+// ============================================================
+
+async function fetchModelProviders(): Promise<UserModelProviderSettings[]> {
+  const data = await httpClient.get<{ providers: UserModelProviderSettings[] }>('/settings/model-providers');
+  return data.providers;
+}
+
+async function createModelProvider(draft: ProviderDraft): Promise<UserModelProviderSettings | null> {
+  const data = await httpClient.post<{ provider: UserModelProviderSettings | null }>(
+    '/settings/model-providers',
+    toPayload(draft, false),
+  );
+  return data.provider;
+}
+
+async function updateModelProvider(draft: ProviderDraft): Promise<UserModelProviderSettings | null> {
+  if (!draft.id) return null;
+  const data = await httpClient.patch<{ provider: UserModelProviderSettings | null }>(
+    `/settings/model-providers/${draft.id}`,
+    toPayload(draft, true),
+  );
+  return data.provider;
+}
+
+async function deleteModelProvider(id: string): Promise<void> {
+  await httpClient.delete(`/settings/model-providers/${id}`);
+}
+
+// ============================================================
+// Placeholder
+// ============================================================
+
 function getOpenRouterDefaultPlaceholder(modelsPool: ModelSpec[], defaultModelId: string | null): typeof FALLBACK_MODEL_PLACEHOLDER {
   const defaultModel = (defaultModelId
     ? modelsPool.find((model) => model.providerId === 'openrouter' && model.id === defaultModelId)
     : undefined)
-    ?? modelsPool.find((model) => model.providerId === 'openrouter' && model.id === FALLBACK_MODEL_PLACEHOLDER.id)
     ?? modelsPool.find((model) => model.providerId === 'openrouter')
-    ?? modelsPool.find((model) => model.source === 'built-in')
     ?? modelsPool[0];
 
   if (!defaultModel) return FALLBACK_MODEL_PLACEHOLDER;
@@ -226,14 +182,28 @@ function getOpenRouterDefaultPlaceholder(modelsPool: ModelSpec[], defaultModelId
     id: defaultModel.id || FALLBACK_MODEL_PLACEHOLDER.id,
     name: getModelDisplayName(defaultModel) || FALLBACK_MODEL_PLACEHOLDER.name,
     contextLength: String(getModelContextLength(defaultModel) ?? FALLBACK_MODEL_PLACEHOLDER.contextLength),
+    maxCompletionTokens: getModelMaxCompletionTokens(defaultModel) != null
+      ? String(getModelMaxCompletionTokens(defaultModel))
+      : '',
   };
 }
 
+// ============================================================
+// Component
+// ============================================================
+
 export function CustomModelProvidersSection() {
   const { modelsPool, defaultModelId } = useAgent();
-  const modelPlaceholder = useMemo(() => getOpenRouterDefaultPlaceholder(modelsPool, defaultModelId), [modelsPool, defaultModelId]);
+  const modelPlaceholder = useMemo(
+    () => getOpenRouterDefaultPlaceholder(modelsPool, defaultModelId),
+    [modelsPool, defaultModelId],
+  );
+
   const [providers, setProviders] = useState<UserModelProviderSettings[]>([]);
-  const [draft, setDraft] = useState<ProviderDraft>(() => ({ ...EMPTY_PROVIDER, models: [cloneModelDraft(EMPTY_MODEL)] }));
+  const [draft, setDraft] = useState<ProviderDraft>(() => ({
+    ...EMPTY_PROVIDER,
+    models: [cloneModelDraft(EMPTY_MODEL)],
+  }));
   const [selectedId, setSelectedId] = useState<string>('new');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -261,7 +231,9 @@ export function CustomModelProvidersSection() {
     setError(null);
     setSelectedId(id);
     const provider = providers.find((item) => item.id === id);
-    setDraft(provider ? providerDraftFromSettings(provider) : { ...EMPTY_PROVIDER, models: [cloneModelDraft(EMPTY_MODEL)] });
+    setDraft(provider
+      ? providerDraftFromSettings(provider)
+      : { ...EMPTY_PROVIDER, models: [cloneModelDraft(EMPTY_MODEL)] });
   };
 
   const patchDraft = (updates: Partial<ProviderDraft>) => {
@@ -278,7 +250,9 @@ export function CustomModelProvidersSection() {
   const refreshProviders = async (preferredId?: string) => {
     const items = await fetchModelProviders();
     setProviders(items);
-    const next = preferredId ? items.find((provider) => provider.id === preferredId) : selectedProvider;
+    const next = preferredId
+      ? items.find((provider) => provider.id === preferredId)
+      : selectedProvider;
     if (next) {
       setSelectedId(next.id);
       setDraft(providerDraftFromSettings(next));
@@ -297,14 +271,8 @@ export function CustomModelProvidersSection() {
         await updateModelProvider(draft);
         await refreshProviders(draft.id);
       } else {
-        await createModelProvider(draft);
-        const items = await fetchModelProviders();
-        setProviders(items);
-        const created = items.find((provider) => provider.providerKey === (draft.providerKey.trim() || slugify(draft.name)));
-        if (created) {
-          setSelectedId(created.id);
-          setDraft(providerDraftFromSettings(created));
-        }
+        const created = await createModelProvider(draft);
+        await refreshProviders(created?.id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save provider');
@@ -315,7 +283,7 @@ export function CustomModelProvidersSection() {
 
   const remove = async () => {
     if (!draft.id) return;
-    if (!window.confirm(`Delete ${draft.name}?`)) return;
+    if (!window.confirm(`Delete ${draft.provider}?`)) return;
     setSaving(true);
     setError(null);
     try {
@@ -333,7 +301,7 @@ export function CustomModelProvidersSection() {
       <div>
         <Label>Custom Model Providers</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Add OpenAI-compatible providers. Model metadata is stored in the same shape as the model registry.
+          Add OpenAI-compatible providers. Models are exposed through the same registry as built-in providers.
         </p>
       </div>
 
@@ -356,31 +324,56 @@ export function CustomModelProvidersSection() {
                 onClick={() => selectProvider(provider.id)}
                 className={`rounded-full border px-2.5 py-1 text-xs ${selectedId === provider.id ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
               >
-                {provider.name}
+                {provider.provider}
                 {provider.hasApiKey ? ' · key' : ' · no key'}
               </button>
             ))}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label className="font-normal text-[0.805rem]">Provider Name</Label>
-              <Input value={draft.name} onChange={(e) => patchDraft({ name: e.target.value, providerKey: draft.providerKey || slugify(e.target.value) })} className="h-8 text-sm" placeholder="OpenAI" autoComplete="off" autoCorrect="off" spellCheck={false} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="font-normal text-[0.805rem]">Provider Key</Label>
-              <Input value={draft.providerKey} onChange={(e) => patchDraft({ providerKey: e.target.value })} className="h-8 font-mono text-xs" placeholder="openai" autoComplete="off" autoCorrect="off" spellCheck={false} />
+            <div className="sm:col-span-2 flex flex-col gap-1.5">
+              <Label className="font-normal text-[0.805rem]">Provider</Label>
+              <Input
+                value={draft.provider}
+                onChange={(e) => patchDraft({ provider: e.target.value })}
+                className="h-8 text-sm"
+                placeholder="OpenAI"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
             </div>
             <div className="sm:col-span-2 flex flex-col gap-1.5">
               <Label className="font-normal text-[0.805rem]">Base URL</Label>
-              <Input value={draft.baseURL} onChange={(e) => patchDraft({ baseURL: e.target.value })} className="h-8 font-mono text-xs" placeholder="https://api.openai.com/v1" autoComplete="off" autoCorrect="off" spellCheck={false} />
+              <Input
+                value={draft.baseURL}
+                onChange={(e) => patchDraft({ baseURL: e.target.value })}
+                className="h-8 font-mono text-xs"
+                placeholder="https://api.openai.com/v1"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
             </div>
             <div className="sm:col-span-2 flex flex-col gap-1.5">
               <Label className="font-normal text-[0.805rem]">API Key {selectedProvider?.hasApiKey ? '(configured)' : ''}</Label>
-              <Input type="password" value={draft.apiKey} onChange={(e) => patchDraft({ apiKey: e.target.value, removeApiKey: false })} className="h-8 font-mono text-xs" placeholder={selectedProvider?.hasApiKey ? 'Leave blank to keep existing key' : 'sk-...'} autoComplete="new-password" autoCorrect="off" spellCheck={false} />
+              <Input
+                type="password"
+                value={draft.apiKey}
+                onChange={(e) => patchDraft({ apiKey: e.target.value, removeApiKey: false })}
+                className="h-8 font-mono text-xs"
+                placeholder={selectedProvider?.hasApiKey ? 'Leave blank to keep existing key' : 'sk-...'}
+                autoComplete="new-password"
+                autoCorrect="off"
+                spellCheck={false}
+              />
               {selectedProvider?.hasApiKey && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={draft.removeApiKey} onChange={(e) => patchDraft({ removeApiKey: e.target.checked, apiKey: e.target.checked ? '' : draft.apiKey })} />
+                  <input
+                    type="checkbox"
+                    checked={draft.removeApiKey}
+                    onChange={(e) => patchDraft({ removeApiKey: e.target.checked, apiKey: e.target.checked ? '' : draft.apiKey })}
+                  />
                   Remove stored key on save
                 </label>
               )}
@@ -394,14 +387,25 @@ export function CustomModelProvidersSection() {
             </div>
             <div className="sm:col-span-2 flex flex-col gap-1.5">
               <Label className="font-normal text-[0.805rem]">Headers JSON</Label>
-              <Textarea value={draft.headersJson} onChange={(e) => patchDraft({ headersJson: e.target.value })} className="min-h-20 font-mono text-xs" autoComplete="off" autoCorrect="off" spellCheck={false} />
+              <Textarea
+                value={draft.headersJson}
+                onChange={(e) => patchDraft({ headersJson: e.target.value })}
+                className="min-h-20 font-mono text-xs"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <Label className="font-normal text-[0.805rem]">Models</Label>
-              <button type="button" onClick={() => patchDraft({ models: [...draft.models, cloneModelDraft(EMPTY_MODEL)] })} className="text-xs text-primary hover:text-primary/80">
+              <button
+                type="button"
+                onClick={() => patchDraft({ models: [...draft.models, cloneModelDraft(EMPTY_MODEL)] })}
+                className="text-xs text-primary hover:text-primary/80"
+              >
                 Add model
               </button>
             </div>
@@ -411,15 +415,55 @@ export function CustomModelProvidersSection() {
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-col gap-1.5">
                     <Label className="font-normal text-[0.805rem]">Model ID</Label>
-                    <Input value={model.id} onChange={(e) => updateModel(index, { id: e.target.value })} placeholder={modelPlaceholder.id} className="h-8 font-mono text-xs placeholder:text-xs" autoComplete="off" autoCorrect="off" spellCheck={false} />
+                    <Input
+                      value={model.id}
+                      onChange={(e) => updateModel(index, { id: e.target.value })}
+                      placeholder={modelPlaceholder.id}
+                      className="h-8 font-mono text-xs placeholder:text-xs"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label className="font-normal text-[0.805rem]">Model Name</Label>
-                    <Input value={model.name} onChange={(e) => updateModel(index, { name: e.target.value })} placeholder={modelPlaceholder.name} className="h-8 text-xs placeholder:text-xs" autoComplete="off" autoCorrect="off" spellCheck={false} />
+                    <Label className="font-normal text-[0.805rem]">Model Display Name</Label>
+                    <Input
+                      value={model.name}
+                      onChange={(e) => updateModel(index, { name: e.target.value })}
+                      placeholder={modelPlaceholder.name}
+                      className="h-8 text-xs placeholder:text-xs"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="font-normal text-[0.805rem]">Context Length</Label>
-                    <Input value={model.contextLength} onChange={(e) => updateModel(index, { contextLength: e.target.value })} placeholder={modelPlaceholder.contextLength} className="h-8 text-xs placeholder:text-xs" inputMode="numeric" autoComplete="off" autoCorrect="off" spellCheck={false} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="font-normal text-[0.805rem]">Context Length</Label>
+                      <Input
+                        value={model.contextLength}
+                        onChange={(e) => updateModel(index, { contextLength: e.target.value })}
+                        placeholder={modelPlaceholder.contextLength}
+                        className="h-8 text-xs placeholder:text-xs"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="font-normal text-[0.805rem]">Max Completion Tokens</Label>
+                      <Input
+                        value={model.maxCompletionTokens}
+                        onChange={(e) => updateModel(index, { maxCompletionTokens: e.target.value })}
+                        placeholder={modelPlaceholder.maxCompletionTokens || 'optional'}
+                        className="h-8 text-xs placeholder:text-xs"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -428,7 +472,10 @@ export function CustomModelProvidersSection() {
                     <div className="text-xs font-medium">Image Input</div>
                     <div className="text-xs text-muted-foreground">Allow text plus image prompts for this model.</div>
                   </div>
-                  <Switch checked={model.supportsImageInput} onCheckedChange={(checked) => updateModel(index, { supportsImageInput: checked })} />
+                  <Switch
+                    checked={model.supportsImageInput}
+                    onCheckedChange={(checked) => updateModel(index, { supportsImageInput: checked })}
+                  />
                 </div>
 
                 <div className="rounded-md border border-border p-2 text-xs text-muted-foreground">
@@ -436,7 +483,11 @@ export function CustomModelProvidersSection() {
                 </div>
 
                 <div className="flex justify-end">
-                  <button type="button" onClick={() => patchDraft({ models: draft.models.filter((_, i) => i !== index) })} className="text-xs text-destructive hover:text-destructive/80">
+                  <button
+                    type="button"
+                    onClick={() => patchDraft({ models: draft.models.filter((_, i) => i !== index) })}
+                    className="text-xs text-destructive hover:text-destructive/80"
+                  >
                     <Trash2 className="inline size-3" /> Remove
                   </button>
                 </div>
@@ -447,11 +498,21 @@ export function CustomModelProvidersSection() {
           {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => void save()} disabled={saving || !draft.name.trim() || !draft.baseURL.trim()} className="text-xs text-primary transition-colors hover:text-primary/80 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={saving || !draft.provider.trim() || !draft.baseURL.trim()}
+              className="text-xs text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
+            >
               {saving ? 'Saving…' : draft.id ? 'Save provider' : 'Create provider'}
             </button>
             {draft.id && (
-              <button type="button" onClick={() => void remove()} disabled={saving} className="text-xs text-destructive transition-colors hover:text-destructive/80 disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => void remove()}
+                disabled={saving}
+                className="text-xs text-destructive transition-colors hover:text-destructive/80 disabled:opacity-50"
+              >
                 Delete provider
               </button>
             )}

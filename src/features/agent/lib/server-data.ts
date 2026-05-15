@@ -1,64 +1,50 @@
 /**
  * Server-side data fetching for the agent feature.
- * Called from Server Components — fetches directly from the backend.
+ *
+ * Consumes the canonical `LlmRegistrySnapshot` (contractVersion 5). Older
+ * contract versions are intentionally not supported.
  */
 
-import type { Tool, Workflow, ModelParameterSchema, ModelSpec } from '../types';
+import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec, Tool, Workflow } from '../types';
 import type { WireSessionEvent } from '../types/protocol';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
-
-type RegisteredModel = {
-  providerId: string;
-  providerName: string;
-  source: 'built-in' | 'custom';
-  model: ModelSpec;
-};
-
-function normalizeModelRegistry(data: Record<string, unknown>): { models: ModelSpec[]; defaultModelId: string | null } | null {
-  if (data.contractVersion === 4) {
-    const entries = Array.isArray(data.models) ? data.models as RegisteredModel[] : [];
-    return {
-      models: entries.flatMap((entry) => {
-        if (!entry?.model?.id || !entry.providerId) return [];
-        return [{
-          ...entry.model,
-          providerId: entry.providerId,
-          providerName: entry.providerName,
-          source: entry.source,
-          provider: entry.providerId === 'openrouter' ? entry.model.provider : entry.providerName,
-        }];
-      }),
-      defaultModelId: typeof data.defaultModelId === 'string' ? data.defaultModelId : null,
-    };
-  }
-
-  if (data.contractVersion === 3) {
-    return {
-      models: Array.isArray(data.models) ? data.models as ModelSpec[] : [],
-      defaultModelId: typeof data.defaultModelId === 'string' ? data.defaultModelId : null,
-    };
-  }
-
-  return null;
-}
 
 export interface AgentServerData {
   tools: Tool[];
   workflows: Workflow[];
   models: ModelSpec[];
-  modelParameters: Record<string, ModelParameterSchema>;
+  /**
+   * Ordered parameter schemas. Render order follows array order; clients
+   * filter `schema.hidden` and intersect with `ModelSpec.supportedParameters`.
+   */
+  modelParameters: ModelParameterSchema[];
   defaultModelId: string | null;
 }
 
+function isValidRegistry(value: unknown): value is LlmRegistrySnapshot {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.contractVersion === 5
+    && Array.isArray(v.models)
+    && typeof v.defaultModelId === 'string'
+    && Array.isArray(v.parameters);
+}
+
 /**
- * Fetch tools, workflows, and models from the backend.
- * Requires the JWT token for authorization.
- * Returns empty arrays on failure (non-blocking).
+ * Fetch tools, workflows, and the LLM registry from the backend. Requires
+ * the JWT token for authorization. Failures degrade to empty data —
+ * non-blocking by design.
  */
 export async function fetchAgentServerData(token: string): Promise<AgentServerData> {
   const headers = { Authorization: `Bearer ${token}` };
-  const empty: AgentServerData = { tools: [], workflows: [], models: [], modelParameters: {}, defaultModelId: null };
+  const empty: AgentServerData = {
+    tools: [],
+    workflows: [],
+    models: [],
+    modelParameters: [],
+    defaultModelId: null,
+  };
 
   try {
     const [toolsRes, workflowsRes, modelsRes] = await Promise.all([
@@ -69,22 +55,23 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
 
     const tools = toolsRes.ok ? (await toolsRes.json()).tools ?? [] : [];
     const workflows = workflowsRes.ok ? (await workflowsRes.json()).workflows ?? [] : [];
-    const modelsData = modelsRes.ok ? await modelsRes.json() : {};
 
-    const registry = modelsRes.ok ? normalizeModelRegistry(modelsData) : null;
-    if (modelsRes.ok && !registry) {
-      console.warn(
-        '[agent/server-data] Unsupported model contract version:',
-        modelsData.contractVersion
-      );
+    if (!modelsRes.ok) return { ...empty, tools, workflows };
+
+    const modelsData: unknown = await modelsRes.json();
+    if (!isValidRegistry(modelsData)) {
+      const version = (modelsData as { contractVersion?: unknown } | null)?.contractVersion;
+      console.warn('[agent/server-data] Unsupported model contract version:', version);
       return { ...empty, tools, workflows };
     }
 
-    const models = registry?.models ?? [];
-    const modelParameters = modelsData.parameters ?? {};
-    const defaultModelId = registry?.defaultModelId ?? null;
-
-    return { tools, workflows, models, modelParameters, defaultModelId };
+    return {
+      tools,
+      workflows,
+      models: modelsData.models,
+      modelParameters: modelsData.parameters,
+      defaultModelId: modelsData.defaultModelId,
+    };
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch:', err instanceof Error ? err.message : String(err));
     return empty;
@@ -92,13 +79,12 @@ export async function fetchAgentServerData(token: string): Promise<AgentServerDa
 }
 
 /**
- * Fetch session events from the backend (server-side).
- * Returns events as wire format (ISO string timestamps) for SSR serialization.
- * Returns null on failure (non-blocking).
+ * Fetch session events from the backend (server-side). Returns events as
+ * wire format (ISO timestamps) for SSR serialization.
  */
 export async function fetchSessionEventsSSR(
   token: string,
-  sessionId: string
+  sessionId: string,
 ): Promise<WireSessionEvent[] | null> {
   try {
     const res = await fetch(`${BACKEND_URL}/agent/sessions/${sessionId}/events`, {

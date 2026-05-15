@@ -510,7 +510,7 @@ export interface AgentState {
   toolsPool: Tool[];
   workflowsPool: Workflow[];
   modelsPool: ModelSpec[];
-  modelParameters: Record<string, ModelParameterSchema>;
+  modelParameters: ModelParameterSchema[];
   defaultModelId: string | null;
 
   // Active session workflow selection (persisted in localStorage)
@@ -570,7 +570,7 @@ export interface AgentState {
   setToolsPool: (tools: Tool[]) => void;
   setWorkflowsPool: (workflows: Workflow[]) => void;
   setSelectedWorkflowId: (id: string) => void;
-  setModelsPool: (models: ModelSpec[], defaultModelId?: string, modelParameters?: Record<string, ModelParameterSchema>) => void;
+  setModelsPool: (models: ModelSpec[], defaultModelId?: string, modelParameters?: ModelParameterSchema[]) => void;
 
   // UI component actions
   setSessionComponents: (components: SessionComponent[] | ((prev: SessionComponent[]) => SessionComponent[])) => void;

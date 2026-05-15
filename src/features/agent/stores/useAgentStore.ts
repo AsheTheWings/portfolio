@@ -29,41 +29,50 @@ import {
   type WorkflowStatus,
 } from '../utils/status';
 import type { ModelParameterSchema, ModelSpec } from '../types/llm';
-import { ModelCapability } from '../types/llm';
-import { modelHasCapability } from '../utils/openrouter-models';
 
 // ============================================================
-// Pure model selectors (no mutable module-level registry)
+// Pure model selectors over `ModelSpec[]`
 // ============================================================
 
-export function selectModelsById(modelsPool: ModelSpec[]): Record<string, ModelSpec> {
-  const map: Record<string, ModelSpec> = {};
-  for (const m of modelsPool) map[m.id] = m;
-  return map;
+const DEFAULT_PROVIDER_ID = 'openrouter';
+
+export interface ModelSelection {
+  providerId: string;
+  modelId: string;
 }
 
-function getModelProviderId(model: ModelSpec | undefined): string {
-  return model?.providerId ?? 'openrouter';
-}
-
-export function selectModelById(modelsPool: ModelSpec[], id: string): ModelSpec | undefined {
-  return selectModelsById(modelsPool)[id];
-}
-
-function selectFallbackModel(modelsPool: ModelSpec[], defaultModelId: string | null): ModelSpec | undefined {
-  return (defaultModelId ? selectModelById(modelsPool, defaultModelId) : undefined) ?? modelsPool[0];
-}
-
-function resolveValidModel(modelsPool: ModelSpec[], modelId: string, defaultModelId: string | null): ModelSpec | undefined {
-  return selectModelById(modelsPool, modelId) ?? selectFallbackModel(modelsPool, defaultModelId);
-}
-
-export function selectHasCapability(
+/**
+ * Select a model by `(providerId, modelId)`. Custom providers may share a
+ * model id (`gpt-4.1`, ...) with each other or with OpenRouter, so id alone
+ * is not unique.
+ */
+export function selectModel(
   modelsPool: ModelSpec[],
-  modelId: string,
-  capability: ModelCapability,
-): boolean {
-  return modelHasCapability(selectModelById(modelsPool, modelId), capability);
+  selection: ModelSelection,
+): ModelSpec | undefined {
+  return modelsPool.find(
+    (m) => m.providerId === selection.providerId && m.id === selection.modelId,
+  );
+}
+
+function selectDefaultModel(
+  modelsPool: ModelSpec[],
+  defaultModelId: string | null,
+): ModelSpec | undefined {
+  if (modelsPool.length === 0) return undefined;
+  if (defaultModelId) {
+    const exact = modelsPool.find((m) => m.id === defaultModelId);
+    if (exact) return exact;
+  }
+  return modelsPool[0];
+}
+
+function resolveValidModel(
+  modelsPool: ModelSpec[],
+  selection: ModelSelection,
+  defaultModelId: string | null,
+): ModelSpec | undefined {
+  return selectModel(modelsPool, selection) ?? selectDefaultModel(modelsPool, defaultModelId);
 }
 
 /**
@@ -123,26 +132,24 @@ function enforceConfigInvariants(
   modelsPool: ModelSpec[],
   defaultModelId: string | null,
 ): AgentConfig {
-  const selectedModel = resolveValidModel(modelsPool, config.modelId, defaultModelId);
+  const requestedSelection: ModelSelection = {
+    providerId: config.providerId ?? DEFAULT_PROVIDER_ID,
+    modelId: config.modelId,
+  };
+  const selectedModel = resolveValidModel(modelsPool, requestedSelection, defaultModelId);
+
   const finalConfig: AgentConfig = {
     ...config,
     modelId: selectedModel?.id ?? config.modelId,
-    providerId: getModelProviderId(selectedModel),
+    providerId: selectedModel?.providerId ?? requestedSelection.providerId,
     providerParameters: { ...(config.providerParameters ?? {}) },
   };
 
-if (selectedModel) {
-    const supportedParameters = new Set([
-      ...((selectedModel.supported_parameters ?? []) as string[]),
-      ...((selectedModel.supportedParameters ?? []) as string[]),
-    ]);
-
-    if (!supportedParameters.has('reasoning') && !supportedParameters.has('reasoning_effort')) {
-      delete finalConfig.providerParameters.reasoning;
-      delete finalConfig.providerParameters.reasoning_effort;
-    }
-    if (!supportedParameters.has('include_reasoning')) {
-      delete finalConfig.providerParameters.include_reasoning;
+  if (selectedModel) {
+    // Drop provider parameters the selected model does not support.
+    const supported = new Set(selectedModel.supportedParameters);
+    for (const key of Object.keys(finalConfig.providerParameters)) {
+      if (!supported.has(key)) delete finalConfig.providerParameters[key];
     }
   }
 
@@ -213,7 +220,7 @@ const initialState = {
   toolsPool: [] as import('../types/tools').Tool[],
   workflowsPool: [] as import('../types/workflow').Workflow[],
   modelsPool: [] as import('../types/llm').ModelSpec[],
-  modelParameters: {} as Record<string, ModelParameterSchema>,
+  modelParameters: [] as ModelParameterSchema[],
   defaultModelId: null as string | null,
   selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
   
@@ -429,7 +436,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ selectedWorkflowId });
   },
 
-  setModelsPool: (modelsPool, defaultModelId?: string, modelParameters?: Record<string, ModelParameterSchema>) => {
+  setModelsPool: (modelsPool, defaultModelId?: string, modelParameters?: ModelParameterSchema[]) => {
     const resolvedDefaultModelId = defaultModelId ?? null;
     const currentAgents = get().agents;
     const agents = normalizeAgents(currentAgents, get().toolsPool, modelsPool, resolvedDefaultModelId);
@@ -440,7 +447,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return {
         modelsPool,
         defaultModelId: resolvedDefaultModelId,
-        modelParameters: modelParameters ?? {},
+        modelParameters: modelParameters ?? [],
         agents,
         agentStatuses: nextStatuses,
       };

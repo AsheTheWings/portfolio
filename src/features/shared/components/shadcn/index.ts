@@ -12,6 +12,7 @@ export { Textarea } from './textarea';
 export { Label } from './label';
 export { Checkbox } from './checkbox';
 export { Switch } from './switch';
+export { InputWithStackedButtons } from './input-with-stacked-buttons';
 export * from './radio-group';
 export * from './select';
 export * from './form';

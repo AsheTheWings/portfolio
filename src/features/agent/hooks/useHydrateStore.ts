@@ -15,7 +15,7 @@ interface HydrateOptions {
   initialTools?: Tool[];
   initialWorkflows?: Workflow[];
   initialModels?: ModelSpec[];
-  initialModelParameters?: Record<string, ModelParameterSchema>;
+  initialModelParameters?: ModelParameterSchema[];
   initialDefaultModelId?: string | null;
 }
 
@@ -53,7 +53,7 @@ export function useHydrateStore({ initialTools, initialWorkflows, initialModels,
     if (initialModelsRef.current?.length) {
       const models = initialModelsRef.current;
       const defaultModelId = initialDefaultModelIdRef.current ?? null;
-      useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined, initialModelParametersRef.current ?? {});
+      useAgentStore.getState().setModelsPool(models, defaultModelId ?? undefined, initialModelParametersRef.current ?? []);
     }
   }, []);
 }

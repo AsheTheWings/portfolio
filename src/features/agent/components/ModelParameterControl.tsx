@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, SlidersHorizontal, X, Check } from 'lucide-react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
-import { Input, Label, Slider } from '@/features/shared/components/shadcn';
+import { Input, Label, Slider, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, InputWithStackedButtons } from '@/features/shared/components/shadcn';
 import type { ModelParameterSchema } from '../types/llm';
 
 type ProviderParameters = Record<string, unknown>;
@@ -91,38 +91,89 @@ export function ModelParameterControl({
           placeholder="Provider default"
           min={schema.constraints?.min}
           step={schema.constraints?.step}
+          className="text-xs md:text-xs"
         />
       );
     }
 
     if (schema.control === 'select' || schema.type === 'enum') {
+      const selectedOption = (schema.constraints?.options ?? []).find((o) => o.value === explicitValue);
       return (
-        <select
-          value={typeof explicitValue === 'string' ? explicitValue : ''}
-          onChange={(e) => onUpdate({ [schema.key]: e.target.value || undefined })}
-          className="w-full px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Provider default</option>
-          {(schema.constraints?.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <span className="flex-1 text-left truncate">{selectedOption?.label ?? 'Provider default'}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+            <DropdownMenuItem
+              onClick={() => onUpdate({ [schema.key]: undefined })}
+              className="text-xs"
+            >
+              <span className="flex-1">Provider default</span>
+              {!isSet(explicitValue) && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </DropdownMenuItem>
+            {(schema.constraints?.options ?? []).map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => onUpdate({ [schema.key]: option.value })}
+                className="text-xs"
+              >
+                <span className="flex-1">{option.label}</span>
+                {explicitValue === option.value && <Check className="w-3 h-3 text-primary shrink-0" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
 
     if (schema.control === 'tri-state' || schema.type === 'boolean') {
+      const valueLabel =
+        typeof explicitValue === 'boolean'
+          ? explicitValue
+            ? 'Enabled'
+            : 'Disabled'
+          : 'Provider default';
       return (
-        <select
-          value={typeof explicitValue === 'boolean' ? String(explicitValue) : ''}
-          onChange={(e) => onUpdate({
-            [schema.key]: e.target.value === '' ? undefined : e.target.value === 'true',
-          })}
-          className="w-full px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Provider default</option>
-          <option value="true">Enabled</option>
-          <option value="false">Disabled</option>
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <span className="flex-1 text-left truncate">{valueLabel}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+            <DropdownMenuItem
+              onClick={() => onUpdate({ [schema.key]: undefined })}
+              className="text-xs"
+            >
+              <span className="flex-1">Provider default</span>
+              {typeof explicitValue !== 'boolean' && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onUpdate({ [schema.key]: true })}
+              className="text-xs"
+            >
+              <span className="flex-1">Enabled</span>
+              {explicitValue === true && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onUpdate({ [schema.key]: false })}
+              className="text-xs"
+            >
+              <span className="flex-1">Disabled</span>
+              {explicitValue === false && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
 
@@ -135,7 +186,7 @@ export function ModelParameterControl({
             onUpdate({ [schema.key]: parseStringArray(e.target.value) });
           }}
           placeholder="One stop sequence per line"
-          className="min-h-20 w-full px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+          className="min-h-20 w-full px-3 py-2 text-xs bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring resize-y"
         />
       );
     }
@@ -145,43 +196,66 @@ export function ModelParameterControl({
       const defaultNumber = numberValue(defaultValue);
       const current = explicitNumber !== '' ? explicitNumber : defaultNumber !== '' ? defaultNumber : schema.constraints.min;
       return (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <Slider
-              min={schema.constraints.min}
-              max={schema.constraints.max}
-              step={schema.constraints.step ?? 0.01}
-              value={[current]}
-              onValueChange={([value]) => onUpdate({ [schema.key]: value })}
-            />
-            <Input
-              type="number"
-              value={current}
-              onChange={(e) => onUpdate({
-                [schema.key]: parseNumberInput(e.target.value, schema.type === 'integer'),
-              })}
-              min={schema.constraints.min}
-              max={schema.constraints.max}
-              step={schema.constraints.step}
-              className="w-20"
-            />
-          </div>
+        <div className="flex items-center gap-3">
+          <Slider
+            className="flex-1"
+            min={schema.constraints.min}
+            max={schema.constraints.max}
+            step={schema.constraints.step ?? 0.01}
+            value={[current]}
+            onValueChange={([value]) => onUpdate({ [schema.key]: value })}
+          />
+          <InputWithStackedButtons
+            value={current}
+            onChange={(value) => onUpdate({
+              [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
+            })}
+            minValue={schema.constraints.min}
+            maxValue={schema.constraints.max}
+            step={schema.constraints.step ?? 0.01}
+            className="w-24"
+          />
         </div>
       );
     }
 
     if (schema.type === 'number' || schema.type === 'integer') {
+      const hasSlider = typeof schema.constraints?.min === 'number' && typeof schema.constraints?.max === 'number';
+      const numVal = numberValue(explicitValue);
+      if (hasSlider && numVal !== '') {
+        return (
+          <div className="flex items-center gap-3">
+            <Slider
+              className="flex-1"
+              min={schema.constraints.min}
+              max={schema.constraints.max}
+              step={schema.constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
+              value={[numVal]}
+              onValueChange={([value]) => onUpdate({ [schema.key]: value })}
+            />
+            <InputWithStackedButtons
+              value={numVal}
+              onChange={(value) => onUpdate({
+                [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
+              })}
+              minValue={schema.constraints.min}
+              maxValue={schema.constraints.max}
+              step={schema.constraints.step ?? (schema.type === 'integer' ? 1 : 0.01)}
+              className="w-24"
+            />
+          </div>
+        );
+      }
       return (
-        <Input
-          type="number"
-          value={numberValue(explicitValue)}
-          onChange={(e) => onUpdate({
-            [schema.key]: parseNumberInput(e.target.value, schema.type === 'integer'),
+        <InputWithStackedButtons
+          value={numVal === '' ? undefined : numVal}
+          onChange={(value) => onUpdate({
+            [schema.key]: parseNumberInput(String(value), schema.type === 'integer'),
           })}
-          placeholder="Provider default"
-          min={schema.constraints?.min}
-          max={schema.constraints?.max}
+          minValue={schema.constraints?.min}
+          maxValue={schema.constraints?.max}
           step={schema.constraints?.step}
+          className="w-full"
         />
       );
     }
@@ -191,6 +265,7 @@ export function ModelParameterControl({
         value={typeof explicitValue === 'string' ? explicitValue : ''}
         onChange={(e) => onUpdate({ [schema.key]: e.target.value || undefined })}
         placeholder="Provider default"
+        className="text-xs md:text-xs"
       />
     );
   };

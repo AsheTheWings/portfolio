@@ -20,7 +20,7 @@ interface AgentHomeProps {
   initialTools: Tool[];
   initialWorkflows: Workflow[];
   initialModels?: ModelSpec[];
-  initialModelParameters?: Record<string, ModelParameterSchema>;
+  initialModelParameters?: ModelParameterSchema[];
   initialDefaultModelId?: string | null;
   initialEvents?: WireSessionEvent[] | null;
 }

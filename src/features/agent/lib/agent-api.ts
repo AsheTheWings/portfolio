@@ -8,7 +8,7 @@
  * attach the auth cookie as a Bearer token.
  */
 
-import type { ModelSpec } from '../types/llm';
+import type { LlmRegistrySnapshot } from '../types/llm';
 import type {
   AgentConfig,
   SessionEvent,
@@ -36,12 +36,7 @@ export interface SessionEventsResponse {
   events: SessionEvent[];
 }
 
-export interface ModelsResponse {
-  contractVersion: number;
-  models: ModelSpec[];
-  providers: string[];
-  defaultModelId: string;
-}
+export type ModelsResponse = LlmRegistrySnapshot;
 
 export interface BranchResponse {
   sessionId: string;

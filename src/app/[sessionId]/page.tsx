@@ -20,7 +20,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const token = await getTokenCookie();
 
   const [agentData, initialEvents] = await Promise.all([
-    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [], models: [], modelParameters: {}, defaultModelId: null }),
+    token ? fetchAgentServerData(token) : Promise.resolve({ tools: [], workflows: [], models: [], modelParameters: [], defaultModelId: null }),
     token ? fetchSessionEventsSSR(token, sessionId) : Promise.resolve(null),
   ]);
 
