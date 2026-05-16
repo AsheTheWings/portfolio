@@ -8,10 +8,12 @@ import { useAuthStore } from '@/features/authentication/stores/authStore';
 import { logoutUser } from '@/features/authentication/lib/auth-client';
 import IconAiLab02 from '@/features/shared/icons/IconAiLab';
 import IconLibrary from '@/features/shared/icons/IconLibrary';
+import { Crown } from 'lucide-react';
 
 const TIMELINE_NAV_ITEMS: NavItem[] = [
   { href: '/', icon: <IconAiLab02 size="20" />, title: 'Agent', isActive: (p) => p === '/' || /^\/[A-Za-z0-9_-]{16,36}$/.test(p) },
   { href: '/library', icon: <IconLibrary size="20" />, title: 'Library', isActive: (p) => p === '/library' || p.startsWith('/library/') },
+  { href: '/chess', icon: <Crown size="20" />, title: 'Chess', isActive: (p) => p === '/chess' || p.startsWith('/chess/') },
 ];
 
 export function TimelineNav() {
