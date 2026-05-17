@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2023", "dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@portfolio/api-client": ["../../packages/api-client/src/index.ts"],
+      "@portfolio/api-client/*": ["../../packages/api-client/src/*"],
+      "@portfolio/auth": ["../../packages/auth/src/index.ts"],
+      "@portfolio/auth/*": ["../../packages/auth/src/*"],
+      "@portfolio/chess": ["../../packages/chess/src/index.ts"],
+      "@portfolio/chess/*": ["../../packages/chess/src/*"],
+      "@portfolio/timeline": ["../../packages/timeline/src/index.ts"],
+      "@portfolio/timeline/*": ["../../packages/timeline/src/*"],
+      "@portfolio/ui": ["../../packages/ui/src/index.ts"],
+      "@portfolio/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "../../packages/**/*.ts",
+    "../../packages/**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../../packages/timeline/src/agent/tools/agent-job-deprecated",
+    "../../packages/timeline/src/agent/components/BackgroundJobInterfaceDeprecated.tsx"
+  ]
+}
