@@ -85,27 +85,16 @@ export function ChessGameShell({ initialUser }: ChessGameShellProps) {
   }
 
   return (
-    <main className="h-[calc(100vh)] overflow-hidden bg-background pl-20">
-      <div className="flex h-full flex-col gap-5 p-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Timeline Chess</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Play Stockfish</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              A standalone chess subsystem with backend-validated moves, persistent history, and engine analysis.
-            </p>
-          </div>
-          <div className="min-w-72">
-            <ChessControls
-              game={snapshot?.game ?? null}
-              connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
-              onCreateGame={handleCreateGame}
-              onResign={() => void controlsGame.resign()}
-              onAbort={() => void controlsGame.abort()}
-              isCreating={isCreating}
-            />
-          </div>
-        </header>
+    <main className="h-dvh overflow-hidden bg-background pl-20">
+      <div className="flex h-full min-h-0 flex-col gap-3 p-3 lg:p-4">
+        <ChessControls
+          game={snapshot?.game ?? null}
+          connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
+          onCreateGame={handleCreateGame}
+          onResign={() => void controlsGame.resign()}
+          onAbort={() => void controlsGame.abort()}
+          isCreating={isCreating}
+        />
 
         {error && (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -113,9 +102,9 @@ export function ChessGameShell({ initialUser }: ChessGameShellProps) {
           </div>
         )}
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 2xl:grid-cols-[280px_1fr]">
-          <aside className="min-h-0 overflow-auto rounded-2xl border border-border-subtle bg-surface-1 p-3 shadow-depth-sm">
-            <h2 className="mb-3 px-2 text-sm font-semibold">Games</h2>
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 2xl:grid-cols-[16rem_minmax(0,1fr)]">
+          <aside className="hidden min-h-0 overflow-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-depth-sm 2xl:block">
+            <h2 className="mb-2 px-2 text-sm font-semibold">Games</h2>
             {games.length === 0 ? (
               <p className="px-2 py-6 text-sm text-muted-foreground">No saved games yet.</p>
             ) : (

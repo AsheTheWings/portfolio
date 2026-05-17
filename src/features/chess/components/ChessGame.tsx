@@ -49,8 +49,8 @@ export function ChessGame({ gameId }: ChessGameProps) {
   const pgn = snapshot.game.pgn || buildMoveText(snapshot.moves);
 
   return (
-    <div className="grid min-h-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(360px,1fr)_420px]">
-      <div className="flex min-h-0 items-center justify-center">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(420px,1fr)_minmax(360px,420px)]">
+      <div className="flex min-h-0 items-start justify-center">
         <ChessBoard
           fen={snapshot.game.currentFen}
           legalMoves={snapshot.legalMoves}
@@ -60,8 +60,8 @@ export function ChessGame({ gameId }: ChessGameProps) {
         />
       </div>
 
-      <div className="min-h-0 space-y-4 overflow-auto pr-1">
-        <div className="rounded-2xl border border-border-subtle bg-surface-1 p-4 shadow-depth-sm">
+      <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-3 overflow-hidden pr-1">
+        <div className="rounded-2xl border border-border-subtle bg-surface-1 p-3 shadow-depth-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">{snapshot.game.white.displayName} vs {snapshot.game.black.displayName}</p>
@@ -71,21 +71,21 @@ export function ChessGame({ gameId }: ChessGameProps) {
           </div>
         </div>
 
-        <ChessMoveList moves={snapshot.moves} />
+        <ChessMoveList moves={snapshot.moves} className="min-h-0" />
         <ChessEnginePanel gameId={gameId} isEngineThinking={engineThinking} />
 
         <div className="rounded-2xl border border-border-subtle bg-surface-1 shadow-depth-sm">
-          <div className="border-b border-border-subtle px-4 py-3">
+          <div className="border-b border-border-subtle px-3 py-2">
             <h2 className="text-sm font-semibold">FEN / PGN</h2>
           </div>
-          <div className="space-y-3 p-4">
+          <div className="space-y-2 p-3">
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">FEN</p>
-              <code className="block break-all rounded-xl bg-surface-2 p-3 font-mono text-xs">{snapshot.game.currentFen}</code>
+              <code className="block truncate rounded-xl bg-surface-2 p-2 font-mono text-xs" title={snapshot.game.currentFen}>{snapshot.game.currentFen}</code>
             </div>
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">PGN</p>
-              <code className="block max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-2 p-3 font-mono text-xs">{pgn || '—'}</code>
+              <code className="block max-h-16 overflow-auto whitespace-pre-wrap rounded-xl bg-surface-2 p-2 font-mono text-xs">{pgn || '—'}</code>
             </div>
           </div>
         </div>
