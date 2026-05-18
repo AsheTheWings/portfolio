@@ -29,6 +29,7 @@ export * from './tabs';
 export * from './accordion';
 export * from './scroll-area';
 export * from './carousel';
+export * from './resizable';
 
 // Overlay components
 export * from './dialog';

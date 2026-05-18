@@ -1,17 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { TbLayoutSidebar, TbLayoutSidebarFilled } from 'react-icons/tb';
+import { toast } from 'sonner';
+import { Button } from '@portfolio/ui/components/shadcn';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { AuthGate } from '@portfolio/auth/components/AuthGate';
 import { createChessGame, fetchChessGames } from '../lib/chess-api';
 import { useChessStore } from '../stores/useChessStore';
-import { ChessControls } from './ChessControls';
 import { ChessGame } from './ChessGame';
+import { ChessPrimaryPanel } from './ChessPrimaryPanel';
+import { BOARD_MIN_SIZE_PX, ChessSplitLayout, SECONDARY_MIN_SIZE_PX } from './ChessSplitLayout';
 import { useChessGame } from '../hooks/useChessGame';
 import type { ChessColor } from '../types/chess';
+import type { PanelSize } from 'react-resizable-panels';
 import type { UserPublic } from '@portfolio/auth/types';
 
 export type ChessGameShellVariant = 'standalone' | 'timeline-embedded';
+
+type PrimaryPanelMode = 'open' | 'auto-collapsed' | 'manual-collapsed' | 'manual-open';
+
+const PANEL_AUTO_THRESHOLD_PERCENT = 40;
+
+function isPanelAtAutoThreshold(size: PanelSize, minSizePx: number) {
+  return size.asPercentage <= PANEL_AUTO_THRESHOLD_PERCENT || size.inPixels <= minSizePx;
+}
 
 interface ChessGameShellProps {
   initialUser: UserPublic | null;
@@ -35,7 +48,49 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   const upsertSnapshot = useChessStore((state) => state.upsertSnapshot);
   const setError = useChessStore((state) => state.setError);
   const [isCreating, setIsCreating] = useState(false);
+  const [primaryPanelMode, setPrimaryPanelMode] = useState<PrimaryPanelMode>('open');
   const controlsGame = useChessGame(selectedGameId);
+  const lastToastedErrorRef = useRef<string | null>(null);
+  const primaryPanelCollapsed = primaryPanelMode === 'auto-collapsed' || primaryPanelMode === 'manual-collapsed';
+
+  const handleBoardResize = useCallback((size: PanelSize) => {
+    const boardAtCollapseThreshold = isPanelAtAutoThreshold(size, BOARD_MIN_SIZE_PX);
+
+    setPrimaryPanelMode((currentMode) => {
+      if (currentMode === 'manual-collapsed') return currentMode;
+      if (currentMode === 'manual-open') return boardAtCollapseThreshold ? currentMode : 'open';
+      if (currentMode === 'open' && boardAtCollapseThreshold) return 'auto-collapsed';
+      return currentMode;
+    });
+  }, []);
+
+  const handleSecondaryResize = useCallback((size: PanelSize) => {
+    const secondaryAtExpandThreshold = isPanelAtAutoThreshold(size, SECONDARY_MIN_SIZE_PX);
+
+    setPrimaryPanelMode((currentMode) => {
+      if (currentMode !== 'auto-collapsed') return currentMode;
+      return secondaryAtExpandThreshold ? 'open' : currentMode;
+    });
+  }, []);
+
+  function collapsePrimaryPanel() {
+    setPrimaryPanelMode('manual-collapsed');
+  }
+
+  function expandPrimaryPanel() {
+    setPrimaryPanelMode('manual-open');
+  }
+
+  useEffect(() => {
+    if (!error) {
+      lastToastedErrorRef.current = null;
+      return;
+    }
+
+    if (lastToastedErrorRef.current === error) return;
+    lastToastedErrorRef.current = error;
+    toast.error('Chess error', { description: error });
+  }, [error]);
 
   useEffect(() => {
     if (initialUser && !user) setUser(initialUser);
@@ -92,52 +147,47 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
     ? 'h-dvh overflow-hidden bg-background pl-20'
     : 'h-dvh overflow-hidden bg-background';
   const contentClassName = isTimelineEmbedded
-    ? 'flex h-full min-h-0 flex-col gap-3 p-3 lg:p-4'
-    : 'mx-auto flex h-full min-h-0 max-w-[1800px] flex-col gap-4 p-4 lg:p-6';
+    ? 'relative flex h-full min-h-0 gap-0'
+    : 'relative flex h-full min-h-0 w-full gap-0';
 
   return (
     <main className={rootClassName}>
       <div className={contentClassName}>
-        <ChessControls
-          game={snapshot?.game ?? null}
-          connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
-          onCreateGame={handleCreateGame}
-          onResign={() => void controlsGame.resign()}
-          onAbort={() => void controlsGame.abort()}
-          isCreating={isCreating}
-        />
+        <div className="relative flex h-full shrink-0">
+          {!primaryPanelCollapsed && (
+            <ChessPrimaryPanel
+              games={games}
+              selectedGameId={selectedGameId}
+              snapshot={snapshot}
+              connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
+              engineThinking={controlsGame.engineThinking}
+              onCreateGame={handleCreateGame}
+              onSelectGame={selectGame}
+              onResign={() => void controlsGame.resign()}
+              onAbort={() => void controlsGame.abort()}
+              isCreating={isCreating}
+            />
+          )}
 
-        {error && (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={primaryPanelCollapsed ? 'Expand primary panel' : 'Collapse primary panel'}
+            onClick={primaryPanelCollapsed ? expandPrimaryPanel : collapsePrimaryPanel}
+            className="absolute left-full top-3 z-30 ml-0.5"
+          >
+            {primaryPanelCollapsed ? <TbLayoutSidebar className="size-4" /> : <TbLayoutSidebarFilled className="size-4" />}
+          </Button>
+        </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 2xl:grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className="hidden min-h-0 overflow-auto rounded-2xl border border-border-subtle bg-surface-1 p-2 shadow-depth-sm 2xl:block">
-            <h2 className="mb-2 px-2 text-sm font-semibold">Games</h2>
-            {games.length === 0 ? (
-              <p className="px-2 py-6 text-sm text-muted-foreground">No saved games yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {games.map((game) => (
-                  <button
-                    key={game.id}
-                    type="button"
-                    onClick={() => selectGame(game.id)}
-                    className={`w-full rounded-xl px-3 py-2 text-left transition-colors ${game.id === selectedGameId ? 'bg-primary text-primary-foreground' : 'bg-surface-2 hover:bg-muted'}`}
-                  >
-                    <div className="truncate text-sm font-medium">{game.white.displayName} vs {game.black.displayName}</div>
-                    <div className="mt-1 text-xs opacity-75">{game.status} · ply {game.ply}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </aside>
-
-          <section className="min-h-0 overflow-hidden">
-            <ChessGame gameId={selectedGameId} />
-          </section>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ChessSplitLayout
+            board={<ChessGame gameId={selectedGameId} />}
+            secondary={<div className="h-full" aria-label="Secondary chess panel" />}
+            onBoardResize={handleBoardResize}
+            onSecondaryResize={handleSecondaryResize}
+          />
         </div>
       </div>
     </main>

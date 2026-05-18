@@ -42,15 +42,15 @@ export function ChessBoard({ fen, legalMoves, orientation, disabled = false, onM
   }
 
   return (
-    <div className="h-[min(calc(100dvh-8.25rem),calc(100vw-35rem),760px)] min-h-[360px] overflow-hidden rounded-3xl border border-border-subtle bg-surface-1 p-2 shadow-depth-lg">
-      <div className="relative aspect-square h-full overflow-hidden rounded-2xl border border-border-subtle">
+    <div className="aspect-square size-full overflow-hidden rounded-3xl border border-border-subtle bg-surface-1 p-2 shadow-depth-lg">
+      <div className="relative aspect-square size-full overflow-hidden rounded-2xl border border-border-subtle">
         <Image
           src="/chess/board.png"
           alt=""
           fill
           priority
           draggable={false}
-          sizes="(min-width: 1280px) min(calc(100vh - 8.25rem), calc(100vw - 35rem), 760px), calc(100vw - 3rem)"
+          sizes="(min-width: 1280px) min(100vw, 100vh), calc(100vw - 3rem)"
           className={`object-cover ${orientation === 'black' ? 'rotate-180' : ''}`}
         />
         <div className="relative z-10 grid h-full grid-cols-8 grid-rows-8">
