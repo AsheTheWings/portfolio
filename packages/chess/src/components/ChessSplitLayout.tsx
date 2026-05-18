@@ -30,12 +30,12 @@ export function ChessSplitLayout({ board, secondary, onBoardResize, onSecondaryR
         defaultSize={BOARD_DEFAULT_SIZE}
         minSize={BOARD_MIN_SIZE}
         onResize={(size) => onBoardResize?.(size)}
-        className="min-h-0 overflow-hidden p-12"
+        className="min-h-0 overflow-hidden"
       >
         {board}
       </ResizablePanel>
 
-      <ResizableHandle withHandle className="w-2 bg-transparent" />
+      <ResizableHandle withHandle className="relative z-40 w-2 bg-transparent" />
 
       <ResizablePanel
         defaultSize={SECONDARY_DEFAULT_SIZE}

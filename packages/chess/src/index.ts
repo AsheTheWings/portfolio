@@ -1,4 +1,4 @@
 export { ChessGameShell } from './components/ChessGameShell';
-export { ChessGame } from './components/ChessGame';
+export { ChessBoardArea } from './components/ChessBoardArea';
 export type * from './types/chess';
 export type * from './types/protocol';

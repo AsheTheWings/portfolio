@@ -1,14 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TbLayoutSidebar, TbLayoutSidebarFilled } from 'react-icons/tb';
 import { toast } from 'sonner';
-import { Button } from '@portfolio/ui/components/shadcn';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { AuthGate } from '@portfolio/auth/components/AuthGate';
 import { createChessGame, fetchChessGames } from '../lib/chess-api';
+import {
+  CHESS_SETTINGS_STORAGE_KEY,
+  DEFAULT_CHESS_SETTINGS,
+  getSettingsWithDefaults,
+  type ChessSettings,
+} from '../lib/chess-settings';
 import { useChessStore } from '../stores/useChessStore';
-import { ChessGame } from './ChessGame';
+import { ChessBoardArea } from './ChessBoardArea';
 import { ChessPrimaryPanel } from './ChessPrimaryPanel';
 import { BOARD_MIN_SIZE_PX, ChessSplitLayout, SECONDARY_MIN_SIZE_PX } from './ChessSplitLayout';
 import { useChessGame } from '../hooks/useChessGame';
@@ -49,6 +53,8 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   const setError = useChessStore((state) => state.setError);
   const [isCreating, setIsCreating] = useState(false);
   const [primaryPanelMode, setPrimaryPanelMode] = useState<PrimaryPanelMode>('open');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<ChessSettings>(DEFAULT_CHESS_SETTINGS);
   const controlsGame = useChessGame(selectedGameId);
   const lastToastedErrorRef = useRef<string | null>(null);
   const primaryPanelCollapsed = primaryPanelMode === 'auto-collapsed' || primaryPanelMode === 'manual-collapsed';
@@ -95,6 +101,23 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   useEffect(() => {
     if (initialUser && !user) setUser(initialUser);
   }, [initialUser, setUser, user]);
+
+  useEffect(() => {
+    const rawSettings = window.localStorage.getItem(CHESS_SETTINGS_STORAGE_KEY);
+    if (!rawSettings) return;
+
+    try {
+      setSettings(getSettingsWithDefaults(JSON.parse(rawSettings)));
+    } catch {
+      setSettings(DEFAULT_CHESS_SETTINGS);
+    }
+  }, []);
+
+  function saveSettings(nextSettings: ChessSettings) {
+    const settingsWithDefaults = getSettingsWithDefaults(nextSettings);
+    setSettings(settingsWithDefaults);
+    window.localStorage.setItem(CHESS_SETTINGS_STORAGE_KEY, JSON.stringify(settingsWithDefaults));
+  }
 
   const effectiveUser = _hydrated ? user : (user ?? initialUser);
   const effectiveAuth = _hydrated ? isAuthenticated : (isAuthenticated || !!initialUser);
@@ -168,22 +191,22 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
               isCreating={isCreating}
             />
           )}
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={primaryPanelCollapsed ? 'Expand primary panel' : 'Collapse primary panel'}
-            onClick={primaryPanelCollapsed ? expandPrimaryPanel : collapsePrimaryPanel}
-            className="absolute left-full top-3 z-30 ml-0.5"
-          >
-            {primaryPanelCollapsed ? <TbLayoutSidebar className="size-4" /> : <TbLayoutSidebarFilled className="size-4" />}
-          </Button>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ChessSplitLayout
-            board={<ChessGame gameId={selectedGameId} />}
+            board={
+              <ChessBoardArea
+                gameId={selectedGameId}
+                settings={settings}
+                settingsOpen={settingsOpen}
+                primaryPanelCollapsed={primaryPanelCollapsed}
+                onTogglePrimaryPanel={primaryPanelCollapsed ? expandPrimaryPanel : collapsePrimaryPanel}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onCloseSettings={() => setSettingsOpen(false)}
+                onSaveSettings={saveSettings}
+              />
+            }
             secondary={<div className="h-full" aria-label="Secondary chess panel" />}
             onBoardResize={handleBoardResize}
             onSecondaryResize={handleSecondaryResize}

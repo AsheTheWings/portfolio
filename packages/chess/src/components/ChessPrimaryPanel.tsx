@@ -42,13 +42,26 @@ export function ChessPrimaryPanel({
   return (
     <aside className="grid h-full min-h-0 w-[340px] shrink-0 grid-rows-[minmax(0,1fr)_180px] overflow-hidden border-r border-border-subtle bg-surface-1 shadow-depth-sm">
       <Tabs defaultValue="moves" className="min-h-0 gap-0 overflow-hidden">
-        <div className="border-b border-border-subtle p-3">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="moves">Moves</TabsTrigger>
-            <TabsTrigger value="games">Games</TabsTrigger>
-            <TabsTrigger value="new-game">New Game</TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="grid h-auto w-full grid-cols-3 rounded-none border-b border-border-subtle bg-background p-0">
+          <TabsTrigger
+            value="moves"
+            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
+          >
+            Moves
+          </TabsTrigger>
+          <TabsTrigger
+            value="games"
+            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
+          >
+            Games
+          </TabsTrigger>
+          <TabsTrigger
+            value="new-game"
+            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
+          >
+            New Game
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="moves" className="min-h-0 overflow-hidden p-3">
           <ChessMoveList moves={snapshot?.moves ?? []} className="h-full shadow-none" />
