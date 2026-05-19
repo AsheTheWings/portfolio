@@ -21,9 +21,11 @@ import {
 } from '@portfolio/ui/components/shadcn';
 import {
   CHESS_MOVE_METHODS,
+  PIECE_NOTATION_OPTIONS,
   getSettingsWithDefaults,
   type ChessMoveMethod,
   type ChessSettings,
+  type PieceNotation,
 } from '../lib/chess-settings';
 import { CHESS_SOUND_THEMES, getPieceAssetUrl, getSoundUrl } from '../lib/chess-assets';
 import { useTheme, type Theme } from '@portfolio/ui/contexts/ThemeContext';
@@ -209,18 +211,34 @@ function GeneralSettings({ activeSection, appTheme, draft, selectedMoveMethod, o
         <p className="text-xs text-muted-foreground">Choose whether moves are made by dragging, clicking, or both.</p>
 
         <div className="mt-3 flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="chess-move-method" className="text-xs md:text-sm">Move Method</Label>
-            <Select value={draft.moveMethod} onValueChange={(moveMethod) => onUpdate({ moveMethod: moveMethod as ChessMoveMethod })}>
-              <SelectTrigger id="chess-move-method" className="w-full bg-surface-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CHESS_MOVE_METHODS.map((method) => (
-                  <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-3 @[640px]/settings-body:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="chess-move-method" className="text-xs md:text-sm">Move Method</Label>
+              <Select value={draft.moveMethod} onValueChange={(moveMethod) => onUpdate({ moveMethod: moveMethod as ChessMoveMethod })}>
+                <SelectTrigger id="chess-move-method" className="w-full bg-surface-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHESS_MOVE_METHODS.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="chess-piece-notation" className="text-xs md:text-sm">Piece Notation</Label>
+              <Select value={draft.pieceNotation} onValueChange={(pieceNotation) => onUpdate({ pieceNotation: pieceNotation as PieceNotation })}>
+                <SelectTrigger id="chess-piece-notation" className="w-full bg-surface-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PIECE_NOTATION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-col items-center gap-4">

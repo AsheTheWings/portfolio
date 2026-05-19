@@ -107,8 +107,12 @@ export function ChessThemeSettings({ activeSection, settings, onSectionChange, o
                       : 'border-border-subtle hover:border-primary/60'
                   }`}
                 >
-                  <Image src={getBackgroundPreviewUrl(theme)} alt="" fill unoptimized sizes="420px" className="object-cover opacity-70 transition group-hover:opacity-90" />
-                  <span className="relative z-10 px-4 text-sm font-semibold text-white drop-shadow-md">{theme.name}</span>
+                  {theme.slug === 'default' ? (
+                    <div className="absolute inset-0 bg-background" />
+                  ) : (
+                    <Image src={getBackgroundPreviewUrl(theme)} alt="" fill unoptimized sizes="420px" className="object-cover opacity-70 transition group-hover:opacity-90" />
+                  )}
+                  <span className={`relative z-10 px-4 text-sm font-semibold ${theme.slug === 'default' ? 'text-foreground' : 'text-white drop-shadow-md'}`}>{theme.name}</span>
                   {settings.backgroundSlug === theme.slug && <SelectionBadge className="right-4 top-1/2 -translate-y-1/2" />}
                 </button>
               ))}

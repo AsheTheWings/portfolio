@@ -1,6 +1,7 @@
 import { CHESS_BACKGROUND_THEMES, CHESS_BOARD_THEMES, CHESS_PIECE_THEMES, CHESS_SOUND_THEMES } from './chess-assets';
 
 export type ChessMoveMethod = 'drag-or-click' | 'click-squares' | 'drag-pieces';
+export type PieceNotation = 'text' | 'figurine';
 
 export interface ChessSettings {
   boardSlug: string;
@@ -12,6 +13,7 @@ export interface ChessSettings {
   coordinatesPosition: 'inside' | 'outside';
   highlightMoves: boolean;
   moveMethod: ChessMoveMethod;
+  pieceNotation: PieceNotation;
 }
 
 export const CHESS_SETTINGS_STORAGE_KEY = 'portfolio.chess.settings.v1';
@@ -34,16 +36,22 @@ export const CHESS_MOVE_METHODS: Array<{ label: string; value: ChessMoveMethod; 
   },
 ];
 
+export const PIECE_NOTATION_OPTIONS: Array<{ label: string; value: PieceNotation }> = [
+  { label: 'Text', value: 'text' },
+  { label: 'Figurine', value: 'figurine' },
+];
+
 export const DEFAULT_CHESS_SETTINGS: ChessSettings = {
   boardSlug: 'green',
   pieceSlug: 'classic',
-  backgroundSlug: 'dark',
+  backgroundSlug: 'default',
   soundSlug: 'default',
   soundsEnabled: true,
   showCoordinates: true,
   coordinatesPosition: 'inside',
   highlightMoves: true,
   moveMethod: 'drag-or-click',
+  pieceNotation: 'figurine',
 };
 
 export function getSettingsWithDefaults(value: unknown): ChessSettings {
@@ -75,6 +83,9 @@ export function getSettingsWithDefaults(value: unknown): ChessSettings {
     moveMethod: CHESS_MOVE_METHODS.some((method) => method.value === candidate.moveMethod)
       ? (candidate.moveMethod as ChessMoveMethod)
       : DEFAULT_CHESS_SETTINGS.moveMethod,
+    pieceNotation: PIECE_NOTATION_OPTIONS.some((option) => option.value === candidate.pieceNotation)
+      ? (candidate.pieceNotation as PieceNotation)
+      : DEFAULT_CHESS_SETTINGS.pieceNotation,
   };
 }
 

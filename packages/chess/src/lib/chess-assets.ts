@@ -158,6 +158,7 @@ export const CHESS_PIECE_THEMES: ChessPieceTheme[] = [
 ];
 
 export const CHESS_BACKGROUND_THEMES: ChessBackgroundTheme[] = [
+  { name: 'Default', slug: 'default', previewUrl: '', backgroundUrl: '' },
   backgroundTheme('Standard', 'dark', 'dark.png'),
   backgroundTheme('Game Room', 'game_room', 'game_room.jpeg'),
   backgroundTheme('Classic', 'classic', 'classic.jpeg'),

@@ -8,6 +8,7 @@ import { ChessSettingsDialog } from './ChessSettingsDialog';
 import { useChessGame } from '../hooks/useChessGame';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { getBackgroundTextureUrlBySlug } from '../lib/chess-assets';
+import { getFenAtPly } from '../lib/chess-history';
 import type { ChessSettings } from '../lib/chess-settings';
 import type { ChessColor } from '../types/chess';
 
@@ -15,6 +16,7 @@ interface ChessBoardAreaProps {
   gameId: string | null;
   settings: ChessSettings;
   settingsOpen: boolean;
+  viewedPly: number | null;
   primaryPanelCollapsed: boolean;
   onTogglePrimaryPanel: () => void;
   onOpenSettings: () => void;
@@ -39,6 +41,7 @@ export function ChessBoardArea({
   gameId,
   settings,
   settingsOpen,
+  viewedPly,
   primaryPanelCollapsed,
   onTogglePrimaryPanel,
   onOpenSettings,
@@ -88,7 +91,11 @@ export function ChessBoardArea({
   }
 
   const orientation = inferOrientation(user?.id, snapshot.game.white.refId, snapshot.game.black.refId);
-  const disabled = snapshot.game.status !== 'active' || isSubmittingMove || engineThinking;
+  const currentPly = snapshot.moves.length;
+  const boundedViewedPly = Math.min(Math.max(viewedPly ?? currentPly, 0), currentPly);
+  const isViewingLatestPosition = boundedViewedPly === currentPly;
+  const boardFen = isViewingLatestPosition ? snapshot.game.currentFen : getFenAtPly(snapshot.game, snapshot.moves, boundedViewedPly);
+  const disabled = snapshot.game.status !== 'active' || isSubmittingMove || engineThinking || !isViewingLatestPosition;
 
   return (
     <ChessBoardAreaFrame
@@ -103,8 +110,8 @@ export function ChessBoardArea({
     >
       <div className="aspect-square size-[min(100cqw,100cqh)]">
         <ChessBoard
-          fen={snapshot.game.currentFen}
-          legalMoves={snapshot.legalMoves}
+          fen={boardFen}
+          legalMoves={isViewingLatestPosition ? snapshot.legalMoves : []}
           orientation={orientation}
           disabled={disabled}
           settings={settings}
@@ -178,7 +185,7 @@ function ChessBoardAreaControls({ primaryPanelCollapsed, settingsOpen, onToggleP
           size="icon-sm"
           aria-label={primaryPanelCollapsed ? 'Expand primary panel' : 'Collapse primary panel'}
           onClick={onTogglePrimaryPanel}
-          className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
+          className="pointer-events-auto"
         >
           {primaryPanelCollapsed ? <TbLayoutSidebar className="size-4" /> : <TbLayoutSidebarFilled className="size-4" />}
         </Button>
@@ -192,7 +199,7 @@ function ChessBoardAreaControls({ primaryPanelCollapsed, settingsOpen, onToggleP
           aria-label="Open chess settings"
           aria-pressed={settingsOpen}
           onClick={onOpenSettings}
-          className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
+          className="pointer-events-auto"
         >
           <SettingsIcon className="size-4" />
         </Button>
@@ -206,6 +213,10 @@ interface ImageBackgroundProps {
 }
 
 function ImageBackground({ src }: ImageBackgroundProps) {
+  if (!src) {
+    return <div className="absolute inset-0 bg-background" />;
+  }
+
   return (
     <>
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${src})` }} />

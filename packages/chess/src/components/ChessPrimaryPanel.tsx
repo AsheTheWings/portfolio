@@ -3,8 +3,9 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@portfolio/ui/components/shadcn';
 import { cn } from '@portfolio/ui/lib/utils';
 import { ChessControls } from './ChessControls';
-import { ChessMoveList } from './ChessMoveList';
+import { ChessMoves } from './ChessMoves';
 import { colorLabel, resultReasonLabel } from '../lib/notation';
+import type { PieceNotation } from '../lib/chess-settings';
 import type { ChessColor, ChessGameRecord, ChessGameSnapshot } from '../types/chess';
 
 type ChessPrimaryPanelLayout = 'desktop' | 'mobile';
@@ -16,9 +17,18 @@ interface ChessPrimaryPanelProps {
   connectionState: string;
   engineThinking: boolean;
   isCreating: boolean;
+  pieceNotation: PieceNotation;
+  viewedPly: number;
+  isMovePlaybackRunning: boolean;
   layout?: ChessPrimaryPanelLayout;
   onSelectGame: (gameId: string) => void;
   onCreateGame: (options: { humanColor: ChessColor; skillLevel: number }) => void;
+  onFirstMove: () => void;
+  onPreviousMove: () => void;
+  onToggleMovePlayback: () => void;
+  onNextMove: () => void;
+  onLastMove: () => void;
+  onSelectViewedPly: (ply: number) => void;
   onResign: () => void;
   onAbort: () => void;
 }
@@ -36,13 +46,28 @@ export function ChessPrimaryPanel({
   connectionState,
   engineThinking,
   isCreating,
+  pieceNotation,
+  viewedPly,
+  isMovePlaybackRunning,
   layout = 'desktop',
   onSelectGame,
   onCreateGame,
+  onFirstMove,
+  onPreviousMove,
+  onToggleMovePlayback,
+  onNextMove,
+  onLastMove,
+  onSelectViewedPly,
   onResign,
   onAbort,
 }: ChessPrimaryPanelProps) {
   const game = snapshot?.game ?? null;
+
+  const TABS = [
+    { value: 'moves', label: 'Moves' },
+    { value: 'games', label: 'Games' },
+    { value: 'new-game', label: 'New Game' },
+  ] as const;
 
   return (
     <aside
@@ -52,29 +77,32 @@ export function ChessPrimaryPanel({
       )}
     >
       <Tabs defaultValue="moves" className="min-h-0 gap-0 overflow-hidden">
-        <TabsList className="grid h-auto w-full grid-cols-3 rounded-none border-b border-border-subtle bg-background p-0">
-          <TabsTrigger
-            value="moves"
-            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
-          >
-            Moves
-          </TabsTrigger>
-          <TabsTrigger
-            value="games"
-            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
-          >
-            Games
-          </TabsTrigger>
-          <TabsTrigger
-            value="new-game"
-            className="h-12 rounded-none border-0 border-b-2 border-transparent bg-background data-[state=active]:border-primary data-[state=active]:shadow-none"
-          >
-            New Game
-          </TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-3 rounded-none border-b border-border-subtle bg-surface-1 p-0">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="h-12 rounded-none border-0 border-b-2 border-transparent bg-surface-1 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="moves" className="min-h-0 overflow-hidden p-3">
-          <ChessMoveList moves={snapshot?.moves ?? []} className="h-full shadow-none" />
+          <ChessMoves
+            moves={snapshot?.moves ?? []}
+            pieceNotation={pieceNotation}
+            viewedPly={viewedPly}
+            isPlaying={isMovePlaybackRunning}
+            className="h-full shadow-none"
+            onFirstMove={onFirstMove}
+            onPreviousMove={onPreviousMove}
+            onTogglePlayback={onToggleMovePlayback}
+            onNextMove={onNextMove}
+            onLastMove={onLastMove}
+            onSelectPly={onSelectViewedPly}
+          />
         </TabsContent>
 
         <TabsContent value="games" className="min-h-0 overflow-auto p-3">
