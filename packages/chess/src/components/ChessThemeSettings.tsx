@@ -53,7 +53,7 @@ export function ChessThemeSettings({ activeSection, settings, onSectionChange, o
               <TabsTrigger
                 key={section.value}
                 value={section.value}
-                className="h-auto flex-1 shrink-0 rounded-none border-0 border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-black data-[state=active]:bg-muted/30 data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-white dark:data-[state=active]:bg-input/30"
+                className="h-auto flex-1 shrink-0 rounded-none border-0 border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-semibold text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground data-[state=active]:border-black data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-white dark:data-[state=active]:bg-transparent"
               >
                 {section.label}
               </TabsTrigger>

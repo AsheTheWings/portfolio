@@ -20,6 +20,7 @@ interface ChessBoardAreaProps {
   onOpenSettings: () => void;
   onCloseSettings: () => void;
   onSaveSettings: (settings: ChessSettings) => void;
+  showPanelButton?: boolean;
 }
 
 function inferOrientation(snapshotUserId: string | undefined, whiteRefId: string | undefined, blackRefId: string | undefined): ChessColor {
@@ -43,6 +44,7 @@ export function ChessBoardArea({
   onOpenSettings,
   onCloseSettings,
   onSaveSettings,
+  showPanelButton = true,
 }: ChessBoardAreaProps) {
   const user = useAuthStore((state) => state.user);
   const { snapshot, engineThinking, isLoading, isSubmittingMove, submitMove } = useChessGame(gameId);
@@ -57,6 +59,7 @@ export function ChessBoardArea({
         onOpenSettings={onOpenSettings}
         onCloseSettings={onCloseSettings}
         onSaveSettings={onSaveSettings}
+        showPanelButton={showPanelButton}
       >
         <div className="flex h-full min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-surface-1/90 p-10 text-center text-muted-foreground backdrop-blur-sm">
           Create a game to start playing Stockfish.
@@ -75,6 +78,7 @@ export function ChessBoardArea({
         onOpenSettings={onOpenSettings}
         onCloseSettings={onCloseSettings}
         onSaveSettings={onSaveSettings}
+        showPanelButton={showPanelButton}
       >
         <div className="flex h-full min-h-[420px] items-center justify-center rounded-3xl border border-border-subtle bg-surface-1/90 p-10 text-center text-muted-foreground backdrop-blur-sm">
           Loading chess board area…
@@ -95,6 +99,7 @@ export function ChessBoardArea({
       onOpenSettings={onOpenSettings}
       onCloseSettings={onCloseSettings}
       onSaveSettings={onSaveSettings}
+      showPanelButton={showPanelButton}
     >
       <div className="aspect-square size-[min(100cqw,100cqh)]">
         <ChessBoard
@@ -119,6 +124,7 @@ interface ChessBoardAreaFrameProps {
   onOpenSettings: () => void;
   onCloseSettings: () => void;
   onSaveSettings: (settings: ChessSettings) => void;
+  showPanelButton?: boolean;
 }
 
 function ChessBoardAreaFrame({
@@ -130,6 +136,7 @@ function ChessBoardAreaFrame({
   onOpenSettings,
   onCloseSettings,
   onSaveSettings,
+  showPanelButton = true,
 }: ChessBoardAreaFrameProps) {
   return (
     <div className="relative grid size-full min-h-0 place-items-center overflow-hidden p-12 [container-type:size]">
@@ -139,6 +146,7 @@ function ChessBoardAreaFrame({
         settingsOpen={settingsOpen}
         onTogglePrimaryPanel={onTogglePrimaryPanel}
         onOpenSettings={onOpenSettings}
+        showPanelButton={showPanelButton}
       />
       <div className="relative z-10 contents">{children}</div>
       <ChessSettingsDialog open={settingsOpen} settings={settings} onClose={onCloseSettings} onSave={onSaveSettings} />
@@ -151,6 +159,7 @@ interface ChessBoardAreaControlsProps {
   settingsOpen: boolean;
   onTogglePrimaryPanel: () => void;
   onOpenSettings: () => void;
+  showPanelButton?: boolean;
 }
 
 /**
@@ -159,31 +168,35 @@ interface ChessBoardAreaControlsProps {
  * @param props - Panel and settings control state.
  * @returns Chess board area control buttons.
  */
-function ChessBoardAreaControls({ primaryPanelCollapsed, settingsOpen, onTogglePrimaryPanel, onOpenSettings }: ChessBoardAreaControlsProps) {
+function ChessBoardAreaControls({ primaryPanelCollapsed, settingsOpen, onTogglePrimaryPanel, onOpenSettings, showPanelButton = true }: ChessBoardAreaControlsProps) {
   return (
     <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-center justify-between">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={primaryPanelCollapsed ? 'Expand primary panel' : 'Collapse primary panel'}
-        onClick={onTogglePrimaryPanel}
-        className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
-      >
-        {primaryPanelCollapsed ? <TbLayoutSidebar className="size-4" /> : <TbLayoutSidebarFilled className="size-4" />}
-      </Button>
+      {showPanelButton && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={primaryPanelCollapsed ? 'Expand primary panel' : 'Collapse primary panel'}
+          onClick={onTogglePrimaryPanel}
+          className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
+        >
+          {primaryPanelCollapsed ? <TbLayoutSidebar className="size-4" /> : <TbLayoutSidebarFilled className="size-4" />}
+        </Button>
+      )}
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Open chess settings"
-        aria-pressed={settingsOpen}
-        onClick={onOpenSettings}
-        className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
-      >
-        <SettingsIcon className="size-4" />
-      </Button>
+      <div className={showPanelButton ? '' : 'ml-auto'}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Open chess settings"
+          aria-pressed={settingsOpen}
+          onClick={onOpenSettings}
+          className="pointer-events-auto bg-background/70 shadow-depth-sm backdrop-blur"
+        >
+          <SettingsIcon className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }

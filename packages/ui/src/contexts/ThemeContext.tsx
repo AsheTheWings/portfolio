@@ -18,7 +18,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const COOKIE_KEY = 'timeline_theme';
+const COOKIE_KEY = 'portfolio_theme';
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year
 
 function setCookie(key: string, value: string) {

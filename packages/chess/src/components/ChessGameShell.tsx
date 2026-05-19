@@ -170,13 +170,49 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
     ? 'h-dvh overflow-hidden bg-background pl-20'
     : 'h-dvh overflow-hidden bg-background';
   const contentClassName = isTimelineEmbedded
-    ? 'relative flex h-full min-h-0 gap-0'
-    : 'relative flex h-full min-h-0 w-full gap-0';
+    ? 'relative flex h-full min-h-0 gap-0 flex-col lg:flex-row'
+    : 'relative flex h-full min-h-0 w-full gap-0 flex-col lg:flex-row';
 
   return (
     <main className={rootClassName}>
       <div className={contentClassName}>
-        <div className="relative flex h-full shrink-0">
+        {/* Mobile layout: scrollable full-viewport sections for board, primary panel, and secondary panel. */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto lg:hidden">
+          <section className="h-dvh min-h-0" aria-label="Chess board section">
+            <ChessBoardArea
+              gameId={selectedGameId}
+              settings={settings}
+              settingsOpen={settingsOpen}
+              primaryPanelCollapsed={false}
+              onTogglePrimaryPanel={() => {}}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onCloseSettings={() => setSettingsOpen(false)}
+              onSaveSettings={saveSettings}
+              showPanelButton={false}
+            />
+          </section>
+
+          <section className="h-dvh min-h-0" aria-label="Primary chess panel section">
+            <ChessPrimaryPanel
+              games={games}
+              selectedGameId={selectedGameId}
+              snapshot={snapshot}
+              connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
+              engineThinking={controlsGame.engineThinking}
+              layout="mobile"
+              onCreateGame={handleCreateGame}
+              onSelectGame={selectGame}
+              onResign={() => void controlsGame.resign()}
+              onAbort={() => void controlsGame.abort()}
+              isCreating={isCreating}
+            />
+          </section>
+
+          <section className="h-dvh min-h-0 border-t border-border-subtle bg-surface-1" aria-label="Secondary chess panel" />
+        </div>
+
+        {/* Desktop layout: current structure with splitter */}
+        <div className="hidden lg:flex relative h-full shrink-0">
           {!primaryPanelCollapsed && (
             <ChessPrimaryPanel
               games={games}
@@ -193,7 +229,7 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
           )}
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="hidden lg:flex min-h-0 min-w-0 flex-1 flex-col">
           <ChessSplitLayout
             board={
               <ChessBoardArea

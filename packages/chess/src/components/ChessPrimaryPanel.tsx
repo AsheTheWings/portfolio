@@ -1,10 +1,13 @@
 'use client';
 
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@portfolio/ui/components/shadcn';
+import { cn } from '@portfolio/ui/lib/utils';
 import { ChessControls } from './ChessControls';
 import { ChessMoveList } from './ChessMoveList';
 import { colorLabel, resultReasonLabel } from '../lib/notation';
 import type { ChessColor, ChessGameRecord, ChessGameSnapshot } from '../types/chess';
+
+type ChessPrimaryPanelLayout = 'desktop' | 'mobile';
 
 interface ChessPrimaryPanelProps {
   games: ChessGameRecord[];
@@ -13,6 +16,7 @@ interface ChessPrimaryPanelProps {
   connectionState: string;
   engineThinking: boolean;
   isCreating: boolean;
+  layout?: ChessPrimaryPanelLayout;
   onSelectGame: (gameId: string) => void;
   onCreateGame: (options: { humanColor: ChessColor; skillLevel: number }) => void;
   onResign: () => void;
@@ -20,9 +24,9 @@ interface ChessPrimaryPanelProps {
 }
 
 /**
- * Render the fixed-width primary chess panel with tabs and game actions.
+ * Render the primary chess panel with tabs and game actions.
  *
- * @param props - Game state, creation state, and lifecycle callbacks.
+ * @param props - Game state, creation state, layout mode, and lifecycle callbacks.
  * @returns Primary panel containing Moves, Games, New Game, and action regions.
  */
 export function ChessPrimaryPanel({
@@ -32,6 +36,7 @@ export function ChessPrimaryPanel({
   connectionState,
   engineThinking,
   isCreating,
+  layout = 'desktop',
   onSelectGame,
   onCreateGame,
   onResign,
@@ -40,7 +45,12 @@ export function ChessPrimaryPanel({
   const game = snapshot?.game ?? null;
 
   return (
-    <aside className="grid h-full min-h-0 w-[340px] shrink-0 grid-rows-[minmax(0,1fr)_180px] overflow-hidden border-r border-border-subtle bg-surface-1 shadow-depth-sm">
+    <aside
+      className={cn(
+        'grid h-full min-h-0 shrink-0 grid-rows-[minmax(0,1fr)_180px] overflow-hidden border-border-subtle bg-surface-1 shadow-depth-sm',
+        layout === 'mobile' ? 'w-full border-y' : 'w-[340px] border-r',
+      )}
+    >
       <Tabs defaultValue="moves" className="min-h-0 gap-0 overflow-hidden">
         <TabsList className="grid h-auto w-full grid-cols-3 rounded-none border-b border-border-subtle bg-background p-0">
           <TabsTrigger
