@@ -535,7 +535,7 @@ export function Library({
 
   return (
     <div className={className || (isPickerMode ? 'h-full bg-background' : 'h-screen bg-background')}>
-      <div className="flex flex-col overflow-hidden h-full">
+      <div className="flex flex-col h-full">
         {/* Breadcrumbs Header */}
         <div className={`border-b ${isPickerMode ? 'px-4 py-2' : 'px-6 py-3'}`}>
           {searchQuery.trim() ? (

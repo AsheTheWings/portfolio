@@ -5,10 +5,10 @@
  * Shows AuthGate when not authenticated, AgentPlayground when authenticated.
  */
 
-import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { AuthGate } from '@portfolio/auth/components/AuthGate';
+import { AuthHydrator } from '@portfolio/auth/components/AuthHydrator';
 import { AgentConnectionProvider } from '@portfolio/timeline/agent/hooks/useAgentConnection';
 import { AgentPlayground } from '@portfolio/timeline/agent';
 import type { UserPublic } from '@portfolio/auth/types';
@@ -22,29 +22,27 @@ interface HomeProps {
 }
 
 export function Home({ initialUser, initialAgentData, initialEvents }: HomeProps) {
-  const { user, isAuthenticated, _hydrated, setUser } = useAuthStore();
+  const { isAuthenticated, _hydrated } = useAuthStore();
   const params = useParams();
   const sessionId = params?.sessionId as string | undefined;
 
-  // Hydrate auth store from server-rendered initial data
-  useEffect(() => {
-    if (initialUser && !user) {
-      setUser(initialUser);
-    }
-  }, [initialUser, user, setUser]);
-
   // Once the store has been hydrated (setUser called), it's authoritative.
   // This ensures logout() immediately deauths even if stale SSR initialUser is still in props.
-  const effectiveUser = _hydrated ? user : (user ?? initialUser);
   const effectiveAuth = _hydrated ? isAuthenticated : (isAuthenticated || !!initialUser);
 
-  if (!effectiveAuth || !effectiveUser) {
-    return <AuthGate />;
+  if (!effectiveAuth) {
+    return (
+      <AuthHydrator initialUser={initialUser}>
+        <AuthGate />
+      </AuthHydrator>
+    );
   }
 
   return (
-    <AgentConnectionProvider>
-      <AgentPlayground sessionId={sessionId} initialAgentData={initialAgentData} initialEvents={initialEvents} />
-    </AgentConnectionProvider>
+    <AuthHydrator initialUser={initialUser}>
+      <AgentConnectionProvider>
+        <AgentPlayground sessionId={sessionId} initialAgentData={initialAgentData} initialEvents={initialEvents} />
+      </AgentConnectionProvider>
+    </AuthHydrator>
   );
 }

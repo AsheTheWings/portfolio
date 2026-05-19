@@ -24,10 +24,17 @@ export function useFolderActions() {
   const removeFolder = useLibraryStore((state) => state.removeFolder);
 
   const createFolder = useCallback(async (name: string, parentId: string | null) => {
+    const allFolders = useLibraryStore.getState().allFolders;
+    const parentFolder = parentId ? allFolders.find(f => f.id === parentId) : null;
+
+    // Calculate path: parent.path/name for nested, /name for root
+    const normalizedName = name.trim().replace(/\s+/g, '_').replace(/[<>:"/\\|?*]/g, '_');
+    const path = parentFolder ? `${parentFolder.path}/${normalizedName}` : `/${normalizedName}`;
+
     const response = await fetch('/api/library/folders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parentId: parentId }),
+      body: JSON.stringify({ name, parentId: parentId, path }),
     });
 
     if (!response.ok) {

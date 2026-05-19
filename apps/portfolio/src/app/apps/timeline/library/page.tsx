@@ -7,6 +7,8 @@
  */
 
 import { Library } from '@portfolio/timeline/library/components/Library';
+import { verifyToken } from '@portfolio/auth/lib/cookies';
+import { AuthHydrator } from '@portfolio/auth/components/AuthHydrator';
 
 interface LibraryPageProps {
   searchParams: Promise<{ path?: string }>;
@@ -14,6 +16,12 @@ interface LibraryPageProps {
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const params = await searchParams;
+  const payload = await verifyToken();
+  const initialUser = payload ? { id: payload.userId, username: payload.username } : null;
 
-  return <Library initialPath={params.path} />;
+  return (
+    <AuthHydrator initialUser={initialUser}>
+      <Library initialPath={params.path} />
+    </AuthHydrator>
+  );
 }
