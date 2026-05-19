@@ -1,9 +1,5 @@
-import { ChessGameShell } from '@portfolio/chess';
-import { verifyToken } from '@portfolio/auth/lib/cookies';
+import { ChessRoutePage } from './ChessRoutePage';
 
 export default async function ChessPage() {
-  const payload = await verifyToken();
-  const initialUser = payload ? { id: payload.userId, username: payload.username } : null;
-
-  return <ChessGameShell initialUser={initialUser} variant="standalone" />;
+  return <ChessRoutePage routeFamily="standalone" variant="standalone" />;
 }

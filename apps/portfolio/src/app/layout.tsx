@@ -29,7 +29,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const [cookieStore, payload] = await Promise.all([cookies(), verifyToken()]);
-  const themeCookie = cookieStore.get('timeline_theme')?.value as 'dark' | 'light' | 'system' | undefined;
+  const themeCookie = cookieStore.get('portfolio_theme')?.value as 'dark' | 'light' | 'system' | undefined;
   const ssrTheme = themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
   const initialUser = payload
     ? { id: payload.userId, username: payload.username }
@@ -38,19 +38,19 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`h-full overflow-hidden ${ssrTheme ?? ''}`}>
       <head>
-        {/* Fallback: resolve theme on first visit (no cookie yet) or system preference */}
+        {/* Resolve system preference before paint when the cookie does not contain a concrete theme. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
                   var el = document.documentElement;
-                  if (el.classList.contains('dark') || el.classList.contains('light')) return;
-                  var c = document.cookie.match(/(?:^|;)\\s*timeline_theme=([^;]*)/);
-                  var theme = (c && c[1]) || 'system';
-                  var resolved = theme === 'system'
-                    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-                    : theme;
+                  el.classList.remove('dark', 'light');
+                  var c = document.cookie.match(/(?:^|;)\\s*portfolio_theme=([^;]*)/);
+                  var theme = c ? decodeURIComponent(c[1]) : 'system';
+                  var resolved = theme === 'dark' || theme === 'light'
+                    ? theme
+                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                   el.classList.add(resolved);
                 } catch (e) {
                   document.documentElement.classList.add('dark');

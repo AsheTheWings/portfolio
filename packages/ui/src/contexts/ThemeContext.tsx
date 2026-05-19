@@ -53,19 +53,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return 'dark';
   });
 
-  // Load theme from cookie on mount
+  // Load the user's preference from the cookie on mount.
   useEffect(() => {
     const stored = readCookie(COOKIE_KEY) as Theme | null;
-    if (stored && ['dark', 'light', 'system'].includes(stored)) {
-      setThemeState(stored);
-      const resolved = resolveTheme(stored);
-      setResolvedTheme(resolved);
-      setCookie(COOKIE_KEY, resolved);
-    } else {
-      const systemResolved = getSystemTheme();
-      setResolvedTheme(systemResolved);
-      setCookie(COOKIE_KEY, systemResolved);
-    }
+    const nextTheme: Theme = stored && ['dark', 'light', 'system'].includes(stored) ? stored : 'system';
+    setThemeState(nextTheme);
+    setResolvedTheme(resolveTheme(nextTheme));
+    setCookie(COOKIE_KEY, nextTheme);
   }, []);
 
   // Listen to system theme changes
@@ -74,9 +68,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
-      const resolved = e.matches ? 'dark' : 'light';
-      setResolvedTheme(resolved);
-      setCookie(COOKIE_KEY, resolved);
+      setResolvedTheme(e.matches ? 'dark' : 'light');
     };
 
     mediaQuery.addEventListener('change', handler);
@@ -92,9 +84,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    const resolved = resolveTheme(newTheme);
-    setResolvedTheme(resolved);
-    setCookie(COOKIE_KEY, resolved);
+    setResolvedTheme(resolveTheme(newTheme));
+    setCookie(COOKIE_KEY, newTheme);
   };
 
   return (

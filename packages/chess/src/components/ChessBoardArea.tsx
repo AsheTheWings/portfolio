@@ -8,7 +8,7 @@ import { ChessSettingsDialog } from './ChessSettingsDialog';
 import { useChessGame } from '../hooks/useChessGame';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { getBackgroundTextureUrlBySlug } from '../lib/chess-assets';
-import { getFenAtPly } from '../lib/chess-history';
+import { STANDARD_CHESS_START_FEN, getFenAtPly } from '../lib/chess-history';
 import type { ChessSettings } from '../lib/chess-settings';
 import type { ChessColor } from '../types/chess';
 
@@ -64,8 +64,15 @@ export function ChessBoardArea({
         onSaveSettings={onSaveSettings}
         showPanelButton={showPanelButton}
       >
-        <div className="flex h-full min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-surface-1/90 p-10 text-center text-muted-foreground backdrop-blur-sm">
-          Create a game to start playing Stockfish.
+        <div className="aspect-square size-[min(100cqw,100cqh)]">
+          <ChessBoard
+            fen={STANDARD_CHESS_START_FEN}
+            legalMoves={[]}
+            orientation="white"
+            disabled
+            settings={settings}
+            onMove={() => {}}
+          />
         </div>
       </ChessBoardAreaFrame>
     );

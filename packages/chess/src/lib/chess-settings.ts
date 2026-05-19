@@ -16,7 +16,8 @@ export interface ChessSettings {
   pieceNotation: PieceNotation;
 }
 
-export const CHESS_SETTINGS_STORAGE_KEY = 'portfolio.chess.settings.v1';
+export const CHESS_SETTINGS_COOKIE_KEY = 'portfolio_chess_settings';
+export const CHESS_SETTINGS_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export const CHESS_MOVE_METHODS: Array<{ label: string; value: ChessMoveMethod; description: string }> = [
   {
@@ -53,6 +54,20 @@ export const DEFAULT_CHESS_SETTINGS: ChessSettings = {
   moveMethod: 'drag-or-click',
   pieceNotation: 'figurine',
 };
+
+export function parseChessSettingsCookie(value: string | undefined): ChessSettings {
+  if (!value) return DEFAULT_CHESS_SETTINGS;
+
+  try {
+    return getSettingsWithDefaults(JSON.parse(decodeURIComponent(value)));
+  } catch {
+    return DEFAULT_CHESS_SETTINGS;
+  }
+}
+
+export function serializeChessSettingsCookie(settings: ChessSettings): string {
+  return encodeURIComponent(JSON.stringify(getSettingsWithDefaults(settings)));
+}
 
 export function getSettingsWithDefaults(value: unknown): ChessSettings {
   if (!value || typeof value !== 'object') return DEFAULT_CHESS_SETTINGS;

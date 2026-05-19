@@ -6,7 +6,7 @@ import { ChessControls } from './ChessControls';
 import { ChessMoves } from './ChessMoves';
 import { colorLabel, resultReasonLabel } from '../lib/notation';
 import type { PieceNotation } from '../lib/chess-settings';
-import type { ChessColor, ChessGameRecord, ChessGameSnapshot } from '../types/chess';
+import type { ChessColor, ChessEngineProfile, ChessGameRecord, ChessGameSnapshot } from '../types/chess';
 
 type ChessPrimaryPanelLayout = 'desktop' | 'mobile';
 
@@ -14,6 +14,7 @@ interface ChessPrimaryPanelProps {
   games: ChessGameRecord[];
   selectedGameId: string | null;
   snapshot: ChessGameSnapshot | undefined;
+  engineProfiles: ChessEngineProfile[];
   connectionState: string;
   engineThinking: boolean;
   isCreating: boolean;
@@ -22,7 +23,7 @@ interface ChessPrimaryPanelProps {
   isMovePlaybackRunning: boolean;
   layout?: ChessPrimaryPanelLayout;
   onSelectGame: (gameId: string) => void;
-  onCreateGame: (options: { humanColor: ChessColor; skillLevel: number }) => void;
+  onCreateGame: (options: { humanColor: ChessColor; engineProfileId: string; skillLevel: number }) => void;
   onFirstMove: () => void;
   onPreviousMove: () => void;
   onToggleMovePlayback: () => void;
@@ -43,6 +44,7 @@ export function ChessPrimaryPanel({
   games,
   selectedGameId,
   snapshot,
+  engineProfiles,
   connectionState,
   engineThinking,
   isCreating,
@@ -126,7 +128,7 @@ export function ChessPrimaryPanel({
         </TabsContent>
 
         <TabsContent value="new-game" className="min-h-0 overflow-auto p-3">
-          <ChessControls onCreateGame={onCreateGame} isCreating={isCreating} />
+          <ChessControls engineProfiles={engineProfiles} onCreateGame={onCreateGame} isCreating={isCreating} />
         </TabsContent>
       </Tabs>
 
@@ -142,6 +144,12 @@ export function ChessPrimaryPanel({
                 <span className="text-muted-foreground">Status</span>
                 <span className="font-medium capitalize">{game.status}</span>
               </div>
+              {game.engineProfile && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Engine</span>
+                  <span className="truncate text-right font-medium">{game.engineProfile.displayName}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Socket</span>
                 <span className="font-medium capitalize">{connectionState}</span>

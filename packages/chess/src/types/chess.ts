@@ -33,14 +33,41 @@ export interface ChessActor {
   displayName: string;
 }
 
+export type ChessEngineFamily = string;
+export type ChessEngineProvider = string;
+
+export type ChessEngineCapability =
+  | 'play'
+  | 'analysis'
+  | 'multipv'
+  | 'limit_strength'
+  | 'uci_options'
+  | 'neural_network';
+
 export interface ChessEngineConfig {
   enabled: boolean;
+  profileId: string;
   skillLevel?: number;
   limitStrength?: boolean;
   elo?: number;
   movetimeMs?: number;
   depth?: number;
   multipv?: number;
+  uciOptions?: Record<string, string | number | boolean>;
+}
+
+export interface ChessEngineProfileSnapshot {
+  id: string;
+  family: ChessEngineFamily;
+  name: string;
+  version: string | null;
+  provider: ChessEngineProvider;
+  displayName: string;
+}
+
+export interface ChessEngineProfile extends ChessEngineProfileSnapshot {
+  capabilities: ChessEngineCapability[];
+  defaultConfig: ChessEngineConfig;
 }
 
 export interface ChessClockConfig {
@@ -66,6 +93,7 @@ export interface ChessGameRecord {
   result: ChessResult | null;
   resultReason: ChessResultReason | null;
   engineConfig: ChessEngineConfig;
+  engineProfile: ChessEngineProfileSnapshot | null;
   clockConfig: ChessClockConfig | null;
   whiteTimeRemainingMs: number | null;
   blackTimeRemainingMs: number | null;
@@ -121,6 +149,7 @@ export interface CreateChessGameRequest {
   black?: ChessActor;
   humanColor?: ChessColor;
   initialFen?: string;
+  engineProfileId?: string;
   engineConfig?: Partial<ChessEngineConfig>;
   clockConfig?: ChessClockConfig | null;
   autoStart?: boolean;

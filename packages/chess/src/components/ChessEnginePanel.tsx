@@ -33,7 +33,7 @@ export function ChessEnginePanel({ gameId, isEngineThinking }: ChessEnginePanelP
       <div className="space-y-2 p-3">
         {isEngineThinking && (
           <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-700 dark:text-cyan-200">
-            Stockfish is thinking…
+            Engine is thinking…
           </div>
         )}
 

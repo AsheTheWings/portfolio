@@ -2,6 +2,7 @@
 
 import type {
   ChessAnalysisResult,
+  ChessEngineProfile,
   ChessGameRecord,
   ChessGameSnapshot,
   CreateChessGameRequest,
@@ -27,6 +28,17 @@ export async function fetchChessGames(): Promise<ChessGameRecord[]> {
   const res = await fetch(`${BASE}/games`, { credentials: 'include' });
   const data = await json<{ games: ChessGameRecord[] }>(res);
   return data.games;
+}
+
+/**
+ * Fetches backend-owned engine profiles available for new chess games.
+ *
+ * @returns Available engine profiles.
+ */
+export async function fetchChessEngineProfiles(): Promise<ChessEngineProfile[]> {
+  const res = await fetch(`${BASE}/engine-profiles`, { credentials: 'include' });
+  const data = await json<{ profiles: ChessEngineProfile[] }>(res);
+  return data.profiles;
 }
 
 /**

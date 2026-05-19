@@ -1,14 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuthStore } from '@portfolio/auth/stores/authStore';
 import { AuthGate } from '@portfolio/auth/components/AuthGate';
-import { createChessGame, fetchChessGames } from '../lib/chess-api';
+import { createChessGame, fetchChessEngineProfiles, fetchChessGames } from '../lib/chess-api';
 import {
-  CHESS_SETTINGS_STORAGE_KEY,
+  CHESS_SETTINGS_COOKIE_KEY,
+  CHESS_SETTINGS_MAX_AGE_SECONDS,
   DEFAULT_CHESS_SETTINGS,
   getSettingsWithDefaults,
+  serializeChessSettingsCookie,
   type ChessSettings,
 } from '../lib/chess-settings';
 import { useChessStore } from '../stores/useChessStore';
@@ -17,11 +20,12 @@ import { ChessPrimaryPanel } from './ChessPrimaryPanel';
 import { ChessResponsiveLayout } from './ChessResponsiveLayout';
 import { BOARD_MIN_SIZE_PX, SECONDARY_MIN_SIZE_PX } from './ChessSplitLayout';
 import { useChessGame } from '../hooks/useChessGame';
-import type { ChessColor } from '../types/chess';
+import type { ChessColor, ChessEngineProfile, ChessGameRecord, ChessGameSnapshot } from '../types/chess';
 import type { PanelSize } from 'react-resizable-panels';
 import type { UserPublic } from '@portfolio/auth/types';
 
 export type ChessGameShellVariant = 'standalone' | 'timeline-embedded';
+export type ChessRouteFamily = 'standalone' | 'timeline';
 
 type PrimaryPanelMode = 'open' | 'auto-collapsed' | 'manual-collapsed' | 'manual-open';
 
@@ -34,15 +38,36 @@ function isPanelAtAutoThreshold(size: PanelSize, minSizePx: number) {
 interface ChessGameShellProps {
   initialUser: UserPublic | null;
   variant?: ChessGameShellVariant;
+  routeFamily?: ChessRouteFamily;
+  routeGameId?: string | null;
+  initialGames?: ChessGameRecord[];
+  initialSnapshot?: ChessGameSnapshot | null;
+  initialEngineProfiles?: ChessEngineProfile[];
+  initialSettings?: ChessSettings;
+}
+
+function gameHref(routeFamily: ChessRouteFamily, gameId: string | null): string {
+  const base = routeFamily === 'timeline' ? '/apps/timeline/chess' : '/apps/chess';
+  return gameId ? `${base}/${gameId}` : base;
 }
 
 /**
  * Compose the chess experience for standalone and Timeline-embedded routes.
  *
- * @param props - Server-authenticated initial user and route presentation variant.
+ * @param props - Server-authenticated initial user, route state, and presentation variant.
  * @returns Chess product shell.
  */
-export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGameShellProps) {
+export function ChessGameShell({
+  initialUser,
+  variant = 'standalone',
+  routeFamily = variant === 'timeline-embedded' ? 'timeline' : 'standalone',
+  routeGameId = null,
+  initialGames = [],
+  initialSnapshot = null,
+  initialEngineProfiles = [],
+  initialSettings = DEFAULT_CHESS_SETTINGS,
+}: ChessGameShellProps) {
+  const router = useRouter();
   const { user, isAuthenticated, _hydrated, setUser } = useAuthStore();
   const games = useChessStore((state) => state.games);
   const selectedGameId = useChessStore((state) => state.selectedGameId);
@@ -55,7 +80,8 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   const [isCreating, setIsCreating] = useState(false);
   const [primaryPanelMode, setPrimaryPanelMode] = useState<PrimaryPanelMode>('open');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<ChessSettings>(DEFAULT_CHESS_SETTINGS);
+  const [settings, setSettings] = useState<ChessSettings>(() => getSettingsWithDefaults(initialSettings));
+  const [engineProfiles, setEngineProfiles] = useState<ChessEngineProfile[]>(initialEngineProfiles);
   const [viewedPlyByGameId, setViewedPlyByGameId] = useState<Record<string, number>>({});
   const [isMovePlaybackRunning, setIsMovePlaybackRunning] = useState(false);
   const controlsGame = useChessGame(selectedGameId);
@@ -106,20 +132,15 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   }, [initialUser, setUser, user]);
 
   useEffect(() => {
-    const rawSettings = window.localStorage.getItem(CHESS_SETTINGS_STORAGE_KEY);
-    if (!rawSettings) return;
-
-    try {
-      setSettings(getSettingsWithDefaults(JSON.parse(rawSettings)));
-    } catch {
-      setSettings(DEFAULT_CHESS_SETTINGS);
-    }
-  }, []);
+    setGames(initialGames);
+    selectGame(routeGameId);
+    if (initialSnapshot) upsertSnapshot(initialSnapshot);
+  }, [initialGames, initialSnapshot, routeGameId, selectGame, setGames, upsertSnapshot]);
 
   function saveSettings(nextSettings: ChessSettings) {
     const settingsWithDefaults = getSettingsWithDefaults(nextSettings);
     setSettings(settingsWithDefaults);
-    window.localStorage.setItem(CHESS_SETTINGS_STORAGE_KEY, JSON.stringify(settingsWithDefaults));
+    document.cookie = `${CHESS_SETTINGS_COOKIE_KEY}=${serializeChessSettingsCookie(settingsWithDefaults)}; Path=/; Max-Age=${CHESS_SETTINGS_MAX_AGE_SECONDS}; SameSite=Lax`;
   }
 
   const selectedMoveCount = snapshot?.moves.length ?? 0;
@@ -167,11 +188,25 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
   useEffect(() => {
     if (!effectiveAuth) return;
     let cancelled = false;
+    fetchChessEngineProfiles()
+      .then((nextProfiles) => {
+        if (!cancelled) setEngineProfiles(nextProfiles);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load chess engines');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveAuth, setError]);
+
+  useEffect(() => {
+    if (!effectiveAuth) return;
+    let cancelled = false;
     fetchChessGames()
       .then((nextGames) => {
         if (cancelled) return;
         setGames(nextGames);
-        if (!selectedGameId && nextGames[0]) selectGame(nextGames[0].id);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load chess games');
@@ -179,17 +214,18 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
     return () => {
       cancelled = true;
     };
-  }, [effectiveAuth, selectGame, selectedGameId, setError, setGames]);
+  }, [effectiveAuth, setError, setGames]);
 
   if (!effectiveAuth || !effectiveUser) return <AuthGate />;
 
-  async function handleCreateGame({ humanColor, skillLevel }: { humanColor: ChessColor; skillLevel: number }) {
+  async function handleCreateGame({ humanColor, engineProfileId, skillLevel }: { humanColor: ChessColor; engineProfileId: string; skillLevel: number }) {
     setIsCreating(true);
     setError(null);
     try {
       const nextSnapshot = await createChessGame({
         mode: 'human_vs_engine',
         humanColor,
+        engineProfileId,
         engineConfig: {
           enabled: true,
           skillLevel,
@@ -199,6 +235,7 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
         autoStart: true,
       });
       upsertSnapshot(nextSnapshot);
+      router.push(gameHref(routeFamily, nextSnapshot.game.id));
       selectGame(nextSnapshot.game.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create game');
@@ -239,6 +276,7 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
               games={games}
               selectedGameId={selectedGameId}
               snapshot={snapshot}
+              engineProfiles={engineProfiles}
               connectionState={selectedGameId ? controlsGame.connectionState : 'idle'}
               engineThinking={controlsGame.engineThinking}
               pieceNotation={settings.pieceNotation}
@@ -246,7 +284,10 @@ export function ChessGameShell({ initialUser, variant = 'standalone' }: ChessGam
               isMovePlaybackRunning={isMovePlaybackRunning}
               layout={layout}
               onCreateGame={handleCreateGame}
-              onSelectGame={selectGame}
+              onSelectGame={(gameId) => {
+                router.push(gameHref(routeFamily, gameId));
+                selectGame(gameId);
+              }}
               onFirstMove={() => {
                 setIsMovePlaybackRunning(false);
                 setSelectedViewedPly(0);
