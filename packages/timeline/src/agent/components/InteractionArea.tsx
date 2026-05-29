@@ -242,6 +242,8 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     // empty, expand to 50% when active. No status-driven width branching: the
     // input is always available regardless of whether agents are working.
     const morphRef = useRef<HTMLDivElement>(null);
+    const morphTweenRef = useRef<gsap.core.Tween | null>(null);
+    const morphAnimationIdRef = useRef(0);
     const [isAnimating, setIsAnimating] = useState(false);
     const ANIM_DURATION = 0.4;
 
@@ -252,29 +254,41 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
 
     useGSAP(() => {
       if (!morphRef.current) return;
+      const animationId = morphAnimationIdRef.current + 1;
+      morphAnimationIdRef.current = animationId;
+      morphTweenRef.current?.kill();
       setIsAnimating(true);
 
-      gsap.to(morphRef.current, {
+      morphTweenRef.current = gsap.to(morphRef.current, {
         width: isCollapsed ? '142px' : '50%',
         minWidth: isCollapsed ? '0px' : '320px',
         marginRight: isCollapsed ? '6rem' : '25%',
         duration: ANIM_DURATION,
         ease: 'power2.inOut',
         onComplete: () => {
+          if (morphAnimationIdRef.current !== animationId) return;
+          morphTweenRef.current = null;
           setIsAnimating(false);
         },
       });
+
+      return () => {
+        if (morphAnimationIdRef.current === animationId) {
+          morphTweenRef.current?.kill();
+          morphTweenRef.current = null;
+        }
+      };
     }, { dependencies: [isCollapsed] });
 
     return (
-      <div className="w-full min-h-[72px] overflow-hidden flex items-center">
+      <div className="w-full min-h-[72px] overflow-visible flex items-center">
         {/* Spacer fills available space left of the input */}
         <div className="flex-1 min-w-0" />
 
         {/* Morphing container: GSAP-driven width + marginRight animation */}
         <div
           ref={morphRef}
-          className="pointer-events-auto flex-shrink-0"
+          className="pointer-events-auto flex-shrink-0 relative"
         >
           <MessageInput
             ref={ref}

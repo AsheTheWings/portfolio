@@ -351,63 +351,64 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
             onNavigate={setActiveViewIndex}
             branches={branches}
             parentBranch={parentBranch}
-            heightMode={heightMode}
             onLoadSession={loadSession}
             onSetPreserveScroll={setPreserveScrollOnSessionChange}
             isStreaming={isStreaming ?? false}
             viewTitle={isShowingDebug ? 'Agent Session Events' : undefined}
           >
             {isShowingDebug ? (
+              <div className="px-4 pt-8 pb-4 h-[240px] overflow-auto scrollbar-inner">
                 <DebugView sessionEvents={sessionEvents} />
+              </div>
             ) : (
-            <>
-              {/* Text content */}
-              {(content?.trim() || isEditMode) && <div>{contentRenderer}</div>}
+              <div className="px-4 py-8">
+                {/* Text content */}
+                {(content?.trim() || isEditMode) && <div>{contentRenderer}</div>}
 
-              {/* Encoded images */}
-              {hasImages && (
-                <div className={`flex flex-wrap gap-1.5 ${content?.trim() ? 'mt-2' : ''}`}>
-                  {encodedImages!.slice(0, 20).map((img, index) => (
-                    <a
-                      key={index}
-                      href={`data:${img.mimeType};base64,${img.data}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block overflow-hidden rounded-md hover:opacity-90 transition-opacity"
-                    >
-                      <img
-                        src={`data:${img.mimeType};base64,${img.data}`}
-                        alt={`Attached image ${index + 1}`}
-                        className="h-16 w-16 object-cover"
-                      />
-                    </a>
-                  ))}
-                  {encodedImages!.length > 20 && (
-                    <div className="flex items-center justify-center h-16 px-3 text-sm text-muted-foreground">
-                      +{encodedImages!.length - 20} more
-                    </div>
-                  )}
-                </div>
-              )}
+                {/* Encoded images */}
+                {hasImages && (
+                  <div className={`flex flex-wrap gap-1.5 ${content?.trim() ? 'mt-2' : ''}`}>
+                    {encodedImages!.slice(0, 20).map((img, index) => (
+                      <a
+                        key={index}
+                        href={`data:${img.mimeType};base64,${img.data}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-md hover:opacity-90 transition-opacity"
+                      >
+                        <img
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt={`Attached image ${index + 1}`}
+                          className="h-16 w-16 object-cover"
+                        />
+                      </a>
+                    ))}
+                    {encodedImages!.length > 20 && (
+                      <div className="flex items-center justify-center h-16 px-3 text-sm text-muted-foreground">
+                        +{encodedImages!.length - 20} more
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Library items */}
-              {hasLibraryItems && (
-                <div ref={gridContainerRef} className="mt-6">
-                  <LightAssetGrid
-                    items={libraryItems}
-                    isLoading={libraryLoading}
-                    expectedCount={expectedItemCount}
-                    error={libraryError}
-                    maxVisible={17}
-                    focusedPath={focusedPath}
-                    onItemClick={handleItemClick}
-                    onViewInLibrary={handleViewInLibrary}
-                    onClearFocus={handleClearFocus}
-                    isUserMessage
-                  />
-                </div>
-              )}
-            </>
+                {/* Library items */}
+                {hasLibraryItems && (
+                  <div ref={gridContainerRef} className="mt-6">
+                    <LightAssetGrid
+                      items={libraryItems}
+                      isLoading={libraryLoading}
+                      expectedCount={expectedItemCount}
+                      error={libraryError}
+                      maxVisible={17}
+                      focusedPath={focusedPath}
+                      onItemClick={handleItemClick}
+                      onViewInLibrary={handleViewInLibrary}
+                      onClearFocus={handleClearFocus}
+                      isUserMessage
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </ComponentShell>
         </div>

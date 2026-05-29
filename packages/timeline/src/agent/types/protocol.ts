@@ -166,17 +166,6 @@ export interface WsAgentErrorPayload {
   retryable: boolean;
 }
 
-/** Workflow run lifecycle status pushed alongside the canonical event stream.
- *  The `session_event` log is the source of truth; this message is a
- *  convenience signal for the FE store. */
-export interface WsWorkflowStatusMessage {
-  type: 'workflow_status';
-  sessionId: string;
-  status: 'completed' | 'aborted' | 'paused' | 'error' | 'resuming';
-  error?: WsAgentErrorPayload;
-  deletedEventIds?: string[];
-}
-
 /** Immediate ack on run start — carries the runId so the FE can bind
  *  delegated tool requests / track the active run. */
 export interface WsWorkflowStartedAckMessage {
@@ -205,6 +194,7 @@ export interface WsCancelDelegatedToolMessage {
 
 export interface WsErrorMessage {
   type: 'error';
+  sessionId?: string;
   error: string;
 }
 
@@ -217,7 +207,6 @@ export interface WsSessionBranchedMessage {
 export type WsServerMessage =
   | WsSessionEventMessage
   | WsSessionCreatedMessage
-  | WsWorkflowStatusMessage
   | WsWorkflowStartedAckMessage
   | WsExecuteDelegatedToolMessage
   | WsCancelDelegatedToolMessage

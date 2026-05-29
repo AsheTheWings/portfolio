@@ -23,6 +23,7 @@ export interface ModelDraft {
   contextLength: string;
   maxCompletionTokens: string;
   supportsImageInput: boolean;
+  replayedReasoningField: 'none' | 'reasoning' | 'reasoning_content';
 }
 
 export interface ProviderDraft {
@@ -41,6 +42,7 @@ const EMPTY_MODEL: ModelDraft = {
   contextLength: '',
   maxCompletionTokens: '',
   supportsImageInput: true,
+  replayedReasoningField: 'none',
 };
 
 const EMPTY_PROVIDER: ProviderDraft = {
@@ -78,6 +80,7 @@ function modelInputFromDraft(draft: ModelDraft): CustomProviderModelInput {
     contextLength: parseOptionalPositiveInteger(draft.contextLength),
     maxCompletionTokens: parseOptionalPositiveInteger(draft.maxCompletionTokens),
     inputModalities: draft.supportsImageInput ? ['text', 'image'] : ['text'],
+    replayedReasoningField: draft.replayedReasoningField === 'none' ? null : draft.replayedReasoningField,
   };
 }
 
@@ -88,6 +91,7 @@ function modelDraftFromSpec(spec: ModelSpec): ModelDraft {
     contextLength: spec.contextLength != null ? String(spec.contextLength) : '',
     maxCompletionTokens: spec.maxCompletionTokens != null ? String(spec.maxCompletionTokens) : '',
     supportsImageInput: modelSupportsVision(spec),
+    replayedReasoningField: spec.replayedReasoningField ?? 'none',
   };
 }
 
@@ -325,6 +329,7 @@ export function useCustomModelProviders() {
         contextLength: m.contextLength.trim(),
         maxCompletionTokens: m.maxCompletionTokens.trim(),
         supportsImageInput: m.supportsImageInput,
+        replayedReasoningField: m.replayedReasoningField,
       }));
     const originalModels = editingProvider.models.map((m) => ({
       id: m.id,
@@ -332,6 +337,7 @@ export function useCustomModelProviders() {
       contextLength: m.contextLength != null ? String(m.contextLength) : '',
       maxCompletionTokens: m.maxCompletionTokens != null ? String(m.maxCompletionTokens) : '',
       supportsImageInput: modelSupportsVision(m),
+      replayedReasoningField: m.replayedReasoningField ?? 'none',
     }));
     if (currentModels.length !== originalModels.length) return true;
     for (let i = 0; i < currentModels.length; i++) {

@@ -36,6 +36,7 @@ export interface ModelSpec {
   maxCompletionTokens: number | null;
   supportedParameters: string[];
   inputModalities: string[];
+  replayedReasoningField?: 'reasoning' | 'reasoning_content' | null;
 }
 
 /**
@@ -61,6 +62,7 @@ export interface CustomProviderModelInput {
   contextLength?: number | null;
   maxCompletionTokens?: number | null;
   inputModalities?: string[];
+  replayedReasoningField?: 'reasoning' | 'reasoning_content' | null;
 }
 
 /** Custom provider settings as exposed by `/settings/model-providers`. */

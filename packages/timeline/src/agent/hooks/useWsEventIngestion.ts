@@ -6,12 +6,9 @@
  * Listens to all server→client WS messages and routes them:
  * - session_event       → store.appendEvent (handles catch-up + live events
  *                         uniformly; lifecycle events transition WorkflowStatus
- *                         and bulk-update agentStatuses inside the store).
+ *                         and bulk-update agentStatuses inside the store;
+ *                         workflow_failed also surfaces provider errors).
  * - session_created     → store.setCurrentSessionId + URL update.
- * - workflow_status     → optimistic WorkflowStatus nudge + side-effects that
- *                         aren't carried by lifecycle events (close streaming
- *                         composites on abort, drain deletedEventIds on
- *                         resume, surface a user-facing error toast).
  * - session_branched    → navigation to new branch session.
  * - error               → store.setError.
  *
@@ -30,13 +27,11 @@ import type { SessionEvent } from '../types';
 import type {
   WsSessionEventMessage,
   WsSessionCreatedMessage,
-  WsWorkflowStatusMessage,
   WsSessionBranchedMessage,
   WsErrorMessage,
   WireSessionEvent,
   WsAgentErrorPayload,
 } from '../types/protocol';
-import type { WorkflowStatus } from '../utils/status';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
@@ -75,6 +70,36 @@ function formatAgentExecutionError(error: WsAgentErrorPayload | undefined): stri
         : 'The model provider rejected this request. Check the selected model and provider settings.';
     case 'AGENT_RUNTIME_ERROR':
       return 'The agent failed while processing this request. Please try again.';
+  }
+}
+
+function getWorkflowFailedError(event: SessionEvent): WsAgentErrorPayload | undefined {
+  if (event.type !== 'workflow_failed') return undefined;
+  return (event.data as { error?: WsAgentErrorPayload }).error;
+}
+
+function ingestSessionEvent(event: SessionEvent): void {
+  const store = useAgentStore.getState();
+
+  if (event.type === 'user-input-committed') {
+    window.dispatchEvent(new Event('agent:collapseAll'));
+  }
+
+  store.appendEvent(event);
+
+  if (event.type === 'workflow_aborted') {
+    // agent-turn-completed isn't emitted on abort, so streaming composites
+    // would otherwise stay marked as streaming forever.
+    store.setSessionComponents(
+      (components) => components.map((c) => (c.isStreaming ? { ...c, isStreaming: false } : c)),
+    );
+    return;
+  }
+
+  if (event.type === 'workflow_failed') {
+    const errorMessage = formatAgentExecutionError(getWorkflowFailedError(event));
+    store.setError(errorMessage);
+    toastError(errorMessage);
   }
 }
 
@@ -167,12 +192,8 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const collapsed = collapseBuffer(eventBuffer.current);
       eventBuffer.current = [];
 
-      const store = useAgentStore.getState();
       for (const event of collapsed) {
-        if (event.type === 'user-input-committed') {
-          window.dispatchEvent(new Event('agent:collapseAll'));
-        }
-        store.appendEvent(event);
+        ingestSessionEvent(event);
       }
     };
 
@@ -189,11 +210,7 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
         return;
       }
 
-      // Dispatch collapse before ingesting new user turn
-      if (event.type === 'user-input-committed') {
-        window.dispatchEvent(new Event('agent:collapseAll'));
-      }
-      useAgentStore.getState().appendEvent(event);
+      ingestSessionEvent(event);
     });
 
     const unsubCreated = client.on('session_created', (msg: WsSessionCreatedMessage) => {
@@ -202,47 +219,9 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       onSessionCreatedRef.current?.(msg.sessionId);
     });
 
-    const unsubStatus = client.on('workflow_status', (msg: WsWorkflowStatusMessage) => {
-      const currentSessionId = useAgentStore.getState().currentSessionId;
-      if (msg.sessionId !== currentSessionId) return;
-
-      const store = useAgentStore.getState();
-
-      // Optimistic WorkflowStatus nudge — the canonical transition still
-      // arrives via the matching workflow_* lifecycle event; this just
-      // collapses the round-trip latency for snappy UI.
-      const wfMap: Record<WsWorkflowStatusMessage['status'], WorkflowStatus | null> = {
-        completed: 'completed',
-        aborted: 'aborted',
-        paused: 'paused',
-        error: 'failed',
-        resuming: null, // Interim state — don't transition.
-      };
-      const next = wfMap[msg.status];
-      if (next) store.setWorkflowStatus(next);
-
-      // Side-effects not carried by lifecycle events:
-      if (msg.status === 'aborted') {
-        // agent-turn-completed isn't emitted on abort, so streaming composites
-        // would otherwise stay marked as streaming forever.
-        store.setSessionComponents(
-          (components) => components.map((c) => (c.isStreaming ? { ...c, isStreaming: false } : c)),
-        );
-      } else if (msg.status === 'resuming' && msg.deletedEventIds?.length) {
-        // Backend cleaned orphaned chunks before resuming — reconcile.
-        const remaining = store.sessionEvents.filter(
-          (e) => !msg.deletedEventIds!.includes(e.eventId),
-        );
-        store.hydrateFromEvents(remaining);
-      } else if (msg.status === 'error') {
-        const errorMessage = formatAgentExecutionError(msg.error);
-        store.setError(errorMessage);
-        toastError(errorMessage);
-      }
-    });
-
     const unsubError = client.on('error', (msg: WsErrorMessage) => {
       useAgentStore.getState().setError(msg.error);
+      toastError(msg.error);
     });
 
     const unsubBranched = client.on('session_branched', (msg: WsSessionBranchedMessage) => {
@@ -253,16 +232,14 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       document.removeEventListener('visibilitychange', handleVisibility);
       unsubSession();
       unsubCreated();
-      unsubStatus();
       unsubError();
       unsubBranched();
       // Flush any remaining buffered events on cleanup
       if (eventBuffer.current.length > 0) {
         const collapsed = collapseBuffer(eventBuffer.current);
         eventBuffer.current = [];
-        const cleanupStore = useAgentStore.getState();
         for (const event of collapsed) {
-          cleanupStore.appendEvent(event);
+          ingestSessionEvent(event);
         }
       }
     };

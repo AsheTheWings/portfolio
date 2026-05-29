@@ -9,7 +9,7 @@
 
 import { useAgentStore } from '../stores/useAgentStore';
 import { MarkdownContent } from './MarkdownContent';
-import { Avatar, AvatarImage, AvatarFallback } from '@portfolio/ui/components/shadcn';
+import { AgentAvatar } from './AgentAvatar';
 import type { SessionComponent } from '../types';
 
 export function FlatAgentResponse({ component }: { component: SessionComponent }) {
@@ -24,12 +24,12 @@ export function FlatAgentResponse({ component }: { component: SessionComponent }
   return (
     <div className="flex items-start gap-2.5">
       {/* Agent avatar */}
-      <Avatar className="ring-2 ring-background mt-1 flex-shrink-0">
-        {avatarImage && <AvatarImage src={avatarImage} alt={agentName} />}
-        <AvatarFallback color={agentColor} className="text-xs font-bold">
-          {agentName.charAt(0).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
+      <AgentAvatar
+        avatarImage={avatarImage}
+        agentName={agentName}
+        agentColor={agentColor}
+        className="ring-2 ring-background mt-1 flex-shrink-0"
+      />
 
       {/* Card — matches AgentMessage styling */}
       <div

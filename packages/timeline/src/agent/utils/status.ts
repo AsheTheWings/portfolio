@@ -11,9 +11,8 @@
  *   2. Cold: on session load, `deriveWorkflowStatus` /
  *      `deriveAgentStatuses` reconstruct from the persisted log.
  *
- * The convenience WS message `workflow_status` (server-sent) is treated as
- * a hint, not the source of truth — the canonical state lives in the
- * `workflow_*` system events on the session_event stream.
+ * The canonical state lives in the `workflow_*` system events on the
+ * session_event stream.
  */
 
 import type { SessionEvent, Agent } from '../types';

@@ -201,7 +201,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           aria-hidden={collapsed}
         />
 
-        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           {/* Primary action: abort active workflow run with empty input, otherwise submit/open. */}
           {/* Insert button — developer mode only, before staging */}
           {showInsert && (
@@ -211,7 +211,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               variant="outline"
               onClick={handleInsert}
               disabled={!hasTextContent}
-              className="rounded-full text-xs px-3 h-8 border-cyan-400/70 text-cyan-600 hover:text-cyan-500 hover:bg-cyan-500/10 dark:text-cyan-300 dark:hover:text-cyan-200"
+              className="rounded-full text-xs px-3 h-8 border-cyan-200/80 bg-transparent text-cyan-500 hover:border-cyan-300 hover:bg-cyan-100/80 hover:text-cyan-600 dark:border-cyan-300/30 dark:text-cyan-200 dark:hover:bg-cyan-300/15 dark:hover:text-cyan-100"
               title="Stage as developer text"
             >
               Insert

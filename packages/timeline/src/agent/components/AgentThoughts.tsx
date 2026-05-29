@@ -41,7 +41,9 @@ export function AgentThoughts({ thoughts, isStreaming }: AgentThoughtsProps) {
   return (
     <div
       ref={scrollRef}
-      className="py-2 pr-2 overflow-y-auto text-xs text-muted-foreground font-mono leading-relaxed scrollbar-hide scrollbar-inner"
+      className={`h-full py-2 pr-2 text-xs text-muted-foreground font-mono leading-relaxed scrollbar-hide scrollbar-inner ${
+        isStreaming ? 'overflow-y-hidden' : 'overflow-y-auto'
+      }`}
     >
       {isStreaming ? (
         <div className="whitespace-pre-wrap">{thoughts}</div>

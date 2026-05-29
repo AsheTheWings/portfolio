@@ -67,21 +67,6 @@ export function resolveComponent(
       return <UserMessage component={component} />;
 
     case 'agent-message': {
-      // Streaming guard: in user mode suppress the composite until the agent
-      // turn completes (isStreaming flips to false).
-      if (isUserMode && component.isStreaming) return null;
-
-      // SKIP filter: mailbox workflow only — hide responses whose sole
-      // message content is the literal word "SKIP". Developer mode always
-      // shows them for inspection.
-      if (isUserMode && selectedWorkflowId === 'mailbox') {
-        const messageItems = component.data.items?.filter((c) => c.type === 'message') ?? [];
-        const isAllSkip =
-          messageItems.length > 0 &&
-          messageItems.every((c) => (c.data.message ?? '').trim() === 'SKIP');
-        if (isAllSkip) return null;
-      }
-
       return <AgentMessage component={component} />;
     }
 

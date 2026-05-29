@@ -89,7 +89,10 @@ export async function fetchSessionEventsSSR(
 
     if (!res.ok) return null;
 
-    const data = await res.json();
+    const text = await res.text();
+    if (!text.trim()) return null;
+
+    const data = JSON.parse(text);
     return (data.events ?? []) as WireSessionEvent[];
   } catch (err) {
     console.error('[agent/server-data] Failed to fetch session events:', err instanceof Error ? err.message : String(err));

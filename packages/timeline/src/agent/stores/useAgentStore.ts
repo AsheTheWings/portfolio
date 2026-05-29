@@ -137,12 +137,29 @@ function enforceConfigInvariants(
     modelId: config.modelId,
   };
   const selectedModel = resolveValidModel(modelsPool, requestedSelection, defaultModelId);
+  const resolvedSelection: ModelSelection = {
+    modelId: selectedModel?.id ?? config.modelId,
+    providerId: selectedModel?.providerId ?? requestedSelection.providerId,
+  };
+  const currentSelection = currentConfig
+    ? {
+        providerId: currentConfig.providerId ?? DEFAULT_PROVIDER_ID,
+        modelId: currentConfig.modelId,
+      }
+    : null;
+  const hasModelChanged = Boolean(
+    currentSelection &&
+    (currentSelection.providerId !== resolvedSelection.providerId ||
+      currentSelection.modelId !== resolvedSelection.modelId),
+  );
 
   const finalConfig: AgentConfig = {
     ...config,
-    modelId: selectedModel?.id ?? config.modelId,
-    providerId: selectedModel?.providerId ?? requestedSelection.providerId,
-    providerParameters: { ...(config.providerParameters ?? {}) },
+    modelId: resolvedSelection.modelId,
+    providerId: resolvedSelection.providerId,
+    // Model parameters are tuned per-model; carrying overlapping keys across a
+    // model switch silently applies stale settings to a different request shape.
+    providerParameters: hasModelChanged ? {} : { ...(config.providerParameters ?? {}) },
   };
 
   if (selectedModel) {

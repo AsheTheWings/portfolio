@@ -15,11 +15,10 @@ import {
   Label,
   Input,
   Separator,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
   AvatarGroup,
 } from '@portfolio/ui/components/shadcn';
+
+import { AgentAvatar } from './AgentAvatar';
 
 import { CopyButton } from '@portfolio/ui/components/shadcn/copy-button';
 import { useAgent } from '../hooks/useAgent';
@@ -300,14 +299,12 @@ function AgentAvatarStack({ agents }: { agents: AgentAvatarInfo[] }) {
   return (
     <AvatarGroup className="flex-shrink-0">
       {agents.map((info, i) => (
-        <Avatar key={i}>
-          {info.avatarImage && (
-            <AvatarImage src={info.avatarImage} alt={info.name} />
-          )}
-          <AvatarFallback color={info.color}>
-            {info.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <AgentAvatar
+          key={i}
+          avatarImage={info.avatarImage}
+          agentName={info.name}
+          agentColor={info.color}
+        />
       ))}
     </AvatarGroup>
   );

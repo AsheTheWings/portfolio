@@ -22,7 +22,6 @@ import type {
   WsServerMessage,
   WsSessionEventMessage,
   WsSessionCreatedMessage,
-  WsWorkflowStatusMessage,
   WsWorkflowStartedAckMessage,
   WsExecuteDelegatedToolMessage,
   WsCancelDelegatedToolMessage,
@@ -40,7 +39,6 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'err
 interface ServerMessageMap {
   session_event: WsSessionEventMessage;
   session_created: WsSessionCreatedMessage;
-  workflow_status: WsWorkflowStatusMessage;
   workflow_started_ack: WsWorkflowStartedAckMessage;
   execute_delegated_tool: WsExecuteDelegatedToolMessage;
   cancel_delegated_tool: WsCancelDelegatedToolMessage;

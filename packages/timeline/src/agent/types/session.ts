@@ -601,8 +601,8 @@ export interface AgentState {
   setAgentStatus: (agentId: string, status: AgentStatus) => void;
   resetAllAgentStatuses: (status?: AgentStatus) => void;
 
-  // Workflow status action (used by the workflow_status WS hint to nudge
-  // the materialised view without waiting for the next session_event).
+  // Workflow status action for optimistic local transitions before the
+  // canonical workflow_* session event arrives.
   setWorkflowStatus: (status: WorkflowStatus) => void;
 
   // State actions

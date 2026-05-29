@@ -18,10 +18,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Edit2, Loader2, RotateCcw, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Loader2, RotateCcw, Send, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import IconBranch from '@portfolio/ui/icons/IconBranch';
 import { TranslateButton } from './TranslateButton';
 import { BranchTreeView } from './BranchTreeView';
+import { AgentAvatar } from './AgentAvatar';
 import { useChatClickAway } from '../hooks/useChatClickAway';
 import type { SessionComponentControls, EditingData } from '../types';
 
@@ -82,8 +83,6 @@ export interface ComponentShellProps {
   branches?: BranchInfo[];
   /** Parent session info (if this is a branch) */
   parentBranch?: ParentBranchInfo;
-  /** Height mode — 'fixed' (320px, scrollable viewport) | 'auto' (growable) */
-  heightMode?: 'fixed' | 'auto';
   /** Callbacks for branch navigation */
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
@@ -95,6 +94,18 @@ export interface ComponentShellProps {
   viewTitle?: React.ReactNode;
   /** Status label shown centered in top bar while streaming (e.g. 'Thinking') */
   streamingStatus?: string;
+  /** Whether the shell is rendered in expanded full screen mode */
+  isExpanded?: boolean;
+  /** Expand state toggle callback */
+  onToggleExpand?: () => void;
+  /** Controls if the expand button should render */
+  showExpandButton?: boolean;
+  /** Avatar image URL for the expanded agent view */
+  avatarImage?: string | null;
+  /** Agent display name for the expanded header */
+  agentName?: string;
+  /** Accent color of the agent */
+  agentColor?: string;
   /** Main content (active view or custom) */
   children: React.ReactNode;
 }
@@ -102,8 +113,6 @@ export interface ComponentShellProps {
 // ────────────────────────────────────────────────────────────
 // Constants
 // ────────────────────────────────────────────────────────────
-
-const FIXED_HEIGHT = 360; // px hard height for non-message views (thoughts/tool-call/debug/feedback)
 
 const HOVER_BUTTON_CLASS = `
   p-1 rounded-md
@@ -126,13 +135,18 @@ export function ComponentShell({
   onNavigate,
   branches = [],
   parentBranch,
-  heightMode = 'auto',
   onLoadSession,
   onSetPreserveScroll,
   isStreaming = false,
   topBarLabel,
   viewTitle,
   streamingStatus,
+  isExpanded = false,
+  onToggleExpand,
+  showExpandButton = false,
+  avatarImage,
+  agentName,
+  agentColor,
   children,
 }: ComponentShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -150,6 +164,55 @@ export function ComponentShell({
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [controlBar.isEditMode]);
+
+  // ── Escape to close expand mode (similar to AgentsHub) ──
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onToggleExpand?.();
+      }
+    };
+    window.addEventListener('keydown', handleKey, { capture: true });
+    return () => window.removeEventListener('keydown', handleKey, { capture: true });
+  }, [isExpanded, onToggleExpand]);
+
+  // ── Left/Right Arrow keys for carousel navigation in expand mode ──
+  useEffect(() => {
+    if (!isExpanded || viewCount <= 1) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent carousel slides if focusing an input/editable field
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+         target.tagName === 'TEXTAREA' ||
+         target.isContentEditable ||
+         target.hasAttribute('contenteditable'))
+      ) {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIdx = activeViewIndex - 1;
+        if (prevIdx >= 0) {
+          onNavigate(prevIdx);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nextIdx = activeViewIndex + 1;
+        if (nextIdx < viewCount) {
+          onNavigate(nextIdx);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [isExpanded, viewCount, activeViewIndex, onNavigate]);
 
   // ── Click-away to cancel edit ───────────────────────────
   useChatClickAway(contentRef, {
@@ -174,6 +237,87 @@ export function ComponentShell({
     hasControls || !!parentBranch || branches.length > 0 || viewCount > 1 || controlBar.isEditMode || !!topBarLabel
   );
 
+  // ── Expanded view viewport ──────────────────────────────
+  if (isExpanded) {
+    return (
+      <div
+        ref={contentRef}
+        className="fixed inset-0 z-40 bg-background flex flex-col"
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+      >
+        {/* Top bar */}
+        <div className="relative flex items-center justify-between px-6 py-2 border-b select-none border-border-subtle">
+          <div className="flex items-center">
+            {onToggleExpand && (
+              <button
+                onClick={onToggleExpand}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                title="Back (Esc)"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back</span>
+              </button>
+            )}
+            {(avatarImage || agentName) && (
+              <>
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+                <div className="flex items-center gap-2">
+                  <AgentAvatar
+                    avatarImage={avatarImage}
+                    agentName={agentName}
+                    agentColor={agentColor}
+                    size="default"
+                    className="h-8 w-8"
+                  />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {agentName}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Absolute Centered viewTitle */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center z-10">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {viewTitle || streamingStatus || ""}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <ShellControlBar
+              {...controlBar}
+              branches={branches}
+              parentBranch={parentBranch}
+              onLoadSession={onLoadSession}
+              onSetPreserveScroll={onSetPreserveScroll}
+              onShowBranches={() => setShowBranchList(true)}
+              isExpanded={isExpanded}
+              onToggleExpand={onToggleExpand}
+              showExpandButton={showExpandButton}
+            />
+            {viewCount > 1 && (
+              <ViewNavigation
+                viewCount={viewCount}
+                activeViewIndex={activeViewIndex}
+                onNavigate={onNavigate}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-inner px-18 py-6">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Standard view card ──────────────────────────────────
   return (
     <div
       ref={contentRef}
@@ -196,6 +340,17 @@ export function ComponentShell({
       {/* ── Top bar: controls + navigation ──────────────── */}
       {hasTopBar && (
         <div data-controls className={`absolute top-0 ${role === 'user' ? 'right-0 pr-4' : 'left-0 pl-6'} z-10 flex items-center h-8 gap-1 ${role === 'user' ? 'flex-row-reverse' : ''}`}>
+          <ShellControlBar
+            {...controlBar}
+            branches={branches}
+            parentBranch={parentBranch}
+            onLoadSession={onLoadSession}
+            onSetPreserveScroll={onSetPreserveScroll}
+            onShowBranches={() => setShowBranchList(true)}
+            isExpanded={isExpanded}
+            onToggleExpand={onToggleExpand}
+            showExpandButton={showExpandButton}
+          />
           {viewCount > 1 && (
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0">
               <ViewNavigation
@@ -205,14 +360,6 @@ export function ComponentShell({
               />
             </div>
           )}
-          <ShellControlBar
-            {...controlBar}
-            branches={branches}
-            parentBranch={parentBranch}
-            onLoadSession={onLoadSession}
-            onSetPreserveScroll={onSetPreserveScroll}
-            onShowBranches={() => setShowBranchList(true)}
-          />
           {topBarLabel && (
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0">
               {topBarLabel}
@@ -231,18 +378,8 @@ export function ComponentShell({
           }}
           onClose={() => setShowBranchList(false)}
         />
-      ) : heightMode === 'fixed' ? (
-        <div className="px-4 pt-8 pb-4" style={{ height: FIXED_HEIGHT }}>
-          <div className="h-full overflow-auto scrollbar-inner">
-            {children}
-          </div>
-        </div>
       ) : (
-        <div
-          className="px-4 py-8"
-        >
-          {children}
-        </div>
+        children
       )}
     </div>
   );
@@ -258,6 +395,9 @@ interface ShellControlBarProps extends ControlBarConfig {
   onLoadSession?: (sessionId: string) => void;
   onSetPreserveScroll?: (preserve: boolean) => void;
   onShowBranches: () => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  showExpandButton?: boolean;
 }
 
 function ShellControlBar({
@@ -276,6 +416,9 @@ function ShellControlBar({
   onLoadSession,
   onSetPreserveScroll,
   onShowBranches,
+  isExpanded = false,
+  onToggleExpand,
+  showExpandButton = false,
 }: ShellControlBarProps) {
   const canShowBranches = controls?.branch && branches.length > 0;
   const canShowEdit = controls?.edit;
@@ -341,8 +484,12 @@ function ShellControlBar({
         </button>
       )}
 
-      {/* Action buttons — always visible when selected, hover-only otherwise */}
-      <div className={`flex items-center gap-1 ${reverseClass} opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0`}>
+      {/* Action buttons — always visible when expanded, hover-only otherwise */}
+      <div className={`flex items-center gap-1 ${reverseClass} ${
+        isExpanded 
+          ? 'opacity-100' 
+          : 'opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-300 group-hover:delay-0'
+      }`}>
         {canShowEdit && onStartEdit && (
           <button
             data-edit-allowed
@@ -369,6 +516,16 @@ function ShellControlBar({
             componentId={componentId}
             originalText={translationText}
           />
+        )}
+
+        {showExpandButton && onToggleExpand && (
+          <button
+            onClick={onToggleExpand}
+            className={HOVER_BUTTON_CLASS}
+            title={isExpanded ? "Collapse View" : "Expand View"}
+          >
+            {isExpanded ? <Minimize2 size="12" /> : <Maximize2 size="12" />}
+          </button>
         )}
       </div>
     </div>

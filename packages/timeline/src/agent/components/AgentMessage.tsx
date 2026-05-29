@@ -15,12 +15,12 @@ import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@portfolio/ui/icons/ThreeDotsScaleMiddleIcon';
 import { ComponentShell } from './ComponentShell';
 import type { BranchInfo, ParentBranchInfo } from './ComponentShell';
+import { AgentAvatar } from './AgentAvatar';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useSessionBranching } from '../hooks/useSessionBranching';
 import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
 import { useWorkflow } from '../hooks/useWorkflow';
 import type { SessionComponent, SessionEvent, EditingData, FeedbackAction } from '../types';
-import { Avatar, AvatarImage, AvatarFallback } from '@portfolio/ui/components/shadcn';
 import { getAgentStatus, statusLabel } from '../utils/status';
 
 // ────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [data.sessionEvents, items]);
 
   // ── Build view slots ────────────────────────────────────
-  // Slot order: [debug?] then for each item: the item (filtered for user mode)
+  // Slot order: [debug?] then for each item: the item.
   // followed by a synthesized feedback slot when the item is a tool-call with
   // pending userActions (toolEffects.userActions present and no matching
   // user-feedback-result event yet).
@@ -112,11 +112,9 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
         !resolvedFeedbackIds.has(it.id)
           ? it.data.toolEffects.userActions
           : undefined;
-      // Filter for user mode — keep only message items, plus feedback views
-      // (tool-calls themselves are hidden but their feedback surface remains).
-      if (!isUserMode || it.type === 'message') {
-        slots.push({ kind: 'item', item: it });
-      }
+      
+      slots.push({ kind: 'item', item: it });
+      
       if (pending) {
         slots.push({
           kind: 'feedback',
@@ -127,7 +125,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       }
     }
     return slots;
-  }, [items, isUserMode, hasDebugView, allSessionEvents]);
+  }, [items, hasDebugView, allSessionEvents]);
 
   const totalViews = viewSlots.length;
 
@@ -141,6 +139,8 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const isShowingDebug = activeSlot?.kind === 'debug';
   const activeItem = activeSlot?.kind === 'item' ? activeSlot.item : undefined;
   const activeFeedback = activeSlot?.kind === 'feedback' ? activeSlot : undefined;
+
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // ── Determine if active item is being edited ────────────
   const isEditMode = !!activeItem && editingEventId === activeItem.id;
@@ -162,12 +162,22 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       setActiveViewIndex(pendingIdx);
       return;
     }
-    // 2. Streaming → advance to the last item slot.
+    // 2. Streaming → advance automatically.
     if (isStreaming) {
-      const lastItemIdx = viewSlots.findLastIndex((s) => s.kind === 'item');
-      if (lastItemIdx !== -1) setActiveViewIndex(lastItemIdx);
+      const messageIdx = viewSlots.findIndex((s) => s.kind === 'item' && s.item.type === 'message');
+      const messageItem = items.find((it) => it.type === 'message');
+      const hasMessageContent = !!messageItem && (messageItem.data.message || messageItem.isStreaming);
+
+      if (hasMessageContent && messageIdx !== -1) {
+        setActiveViewIndex(messageIdx);
+      } else {
+        const lastOverlayIdx = viewSlots.findLastIndex((s) => s.kind === 'item' && s.item.type !== 'message');
+        if (lastOverlayIdx !== -1) {
+          setActiveViewIndex(lastOverlayIdx);
+        }
+      }
     }
-  }, [viewSlots, isStreaming]);
+  }, [viewSlots, isStreaming, items]);
 
   useEffect(() => {
     const previousViewMode = previousViewModeRef.current;
@@ -216,10 +226,12 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [allSessionEvents]);
 
   // ── Height mode per active view type ────────────────────
-  // Only the message view is content-sized; everything else (debug,
-  // thoughts, tool-call, feedback) is fixed-height per ComponentShell.
-  const heightMode =
-    activeSlot?.kind === 'item' && activeSlot.item.type === 'message' ? 'auto' : 'fixed';
+  // As soon as the final message content exists, the AgentMessage height
+  // becomes 'auto', letting it size dynamically to the message. Otherwise,
+  // it locks to 'fixed' during intermediate thought/tool streams.
+  const messageItem = items.find((it) => it.type === 'message');
+  const hasMessageContent = !!messageItem && (messageItem.data.message || messageItem.isStreaming);
+  const heightMode = hasMessageContent ? 'auto' : 'fixed';
 
   // ── View title (centered in top bar, last view/messages get none) ──
   const viewTitle = useMemo(() => {
@@ -342,6 +354,47 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
     );
   };
 
+  const renderContent = () => {
+    if (isExpanded) {
+      return renderActiveView();
+    }
+
+    const activeSlotIsMessage = activeSlot?.kind === 'item' && activeSlot.item.type === 'message';
+
+    if (!hasMessageContent) {
+      return renderActiveView();
+    }
+
+    return (
+      <div className="relative w-full h-full">
+        {/* Underlying message drives height */}
+        <div className={activeSlotIsMessage ? 'block animate-fade-in' : 'invisible pointer-events-none'}>
+          {messageItem && (
+            <SubViewRenderer
+              item={messageItem}
+              isEditMode={isEditMode}
+              editingData={editingData}
+              updateEditingData={updateEditingData}
+              onSubmitEdit={handleSubmitEdit}
+              cancelEdit={cancelEdit}
+              onValidationChange={setIsValidForSubmit}
+              translationContent={translationText}
+            />
+          )}
+        </div>
+
+        {/* Overlay matches the container's height */}
+        {!activeSlotIsMessage && (
+          <div className={`absolute inset-0 z-20 scrollbar-inner pr-2 ${
+            isStreaming ? 'overflow-y-hidden' : 'overflow-y-auto'
+          }`}>
+            {renderActiveView()}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="w-[80%] relative">
       <div
@@ -349,12 +402,13 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
         style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: agentColor }}
       >
         {/* Agent avatar — on top of bubble */}
-        <Avatar size="lg" className="absolute -left-5 -top-1 z-[10]">
-          {avatarImage && <AvatarImage src={avatarImage} alt={agentName} />}
-          <AvatarFallback color={agentColor} className="text-xs font-bold">
-            {agentName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <AgentAvatar
+          avatarImage={avatarImage}
+          agentName={agentName}
+          agentColor={agentColor}
+          size="lg"
+          className="absolute -left-5 -top-1 z-[10]"
+        />
 
         <ComponentShell
           role="agent"
@@ -364,14 +418,31 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
           onNavigate={setActiveViewIndex}
           branches={branches}
           parentBranch={parentBranch}
-          heightMode={heightMode}
           onLoadSession={loadSession}
           onSetPreserveScroll={setPreserveScrollOnSessionChange}
           isStreaming={isStreaming ?? false}
           viewTitle={viewTitle}
           streamingStatus={streamingStatus}
+          isExpanded={isExpanded}
+          onToggleExpand={() => setIsExpanded(f => !f)}
+          showExpandButton={true}
+          avatarImage={avatarImage}
+          agentName={agentName}
+          agentColor={agentColor}
         >
-          {renderActiveView()}
+          {isExpanded ? (
+            renderContent()
+          ) : heightMode === 'fixed' ? (
+            <div className="px-4 pt-8 pb-4" style={{ height: 240 }}>
+              <div className={`h-full scrollbar-inner ${isStreaming ? 'overflow-hidden' : 'overflow-auto'}`}>
+                {renderContent()}
+              </div>
+            </div>
+          ) : (
+            <div className="px-4 py-8">
+              {renderContent()}
+            </div>
+          )}
         </ComponentShell>
       </div>
     </div>

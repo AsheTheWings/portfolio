@@ -18,8 +18,8 @@ export function ResumeWorkflow() {
   const { resumeWorkflow } = useWorkflow();
 
   return (
-    <div className="flex w-full justify-center">
-      <div className="session-component rounded-2xl bg-white dark:bg-surface-1 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+    <div className="flex w-full h-[200px] justify-center items-center">
+      <div className="session-component">
         <FeedbackPanel
           prompt="Workflow was aborted"
           actions={RESUME_WORKFLOW_ACTIONS}
