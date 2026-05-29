@@ -258,7 +258,7 @@ export function ToolCall({
             ) : (
               <div>
                 {isExecuting && (
-                  <div className="flex items-center justify-center min-h-[100px] w-full">
+                  <div className="flex items-center border-2 border-red-500 justify-center h-full w-full">
                     <ThreeDotsScaleMiddleIcon size={26} className="text-cyan-500" />
                   </div>
                 )}

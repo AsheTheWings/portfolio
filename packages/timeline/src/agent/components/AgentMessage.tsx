@@ -310,7 +310,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
       translate: controls?.translate && activeItem?.type === 'message',
     },
     eventId: activeItem?.id,
-    componentId: id,
+    componentId: activeItem?.id || id,
     role: 'agent' as const,
     translationText: activeItem?.type === 'message' ? (activeItem.data.message || '') : undefined,
     isEditMode,
@@ -433,7 +433,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
           {isExpanded ? (
             renderContent()
           ) : heightMode === 'fixed' ? (
-            <div className="px-4 pt-8 pb-4" style={{ height: 240 }}>
+            <div className="px-4 pt-8 pb-4" style={{ height: 200 }}>
               <div className={`h-full scrollbar-inner ${isStreaming ? 'overflow-hidden' : 'overflow-auto'}`}>
                 {renderContent()}
               </div>

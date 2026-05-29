@@ -44,6 +44,10 @@ export function AgentThoughts({ thoughts, isStreaming }: AgentThoughtsProps) {
       className={`h-full py-2 pr-2 text-xs text-muted-foreground font-mono leading-relaxed scrollbar-hide scrollbar-inner ${
         isStreaming ? 'overflow-y-hidden' : 'overflow-y-auto'
       }`}
+      style={isStreaming ? {
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20px)',
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 20px)',
+      } : undefined}
     >
       {isStreaming ? (
         <div className="whitespace-pre-wrap">{thoughts}</div>
