@@ -26,7 +26,10 @@ import {
   AvatarImage,
   AvatarFallback,
   InputWithStackedButtons,
+  Input,
 } from '@portfolio/ui/components/shadcn';
+import { createAgent } from '../lib/agent-api';
+import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { AgentConfig, Agent } from '../types/session';
 import type { Tool, McpHostStatus } from '../types/tools';
 import { useAgentStore, selectModel } from '../stores/useAgentStore';
@@ -52,6 +55,7 @@ export function AgentsConfigPanel() {
   const [showMcpConfig, setShowMcpConfig] = useState(false);
   const [showSystemInstructions, setShowSystemInstructions] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [showExportForm, setShowExportForm] = useState(false);
 
   // BYOK: check whether user has an OpenRouter key configured
   const { configuredProviders } = useConfiguredProviders();
@@ -139,7 +143,7 @@ export function AgentsConfigPanel() {
       <CardContent className={`h-full lg:overflow-y-auto lg:[scrollbar-gutter:stable] scrollbar-inner`}>
         {/* Additional Content */}
         {/* MCP Config Editor */}
-        {(showMcpConfig || showSystemInstructions || showModelPicker) ? (
+        {(showMcpConfig || showSystemInstructions || showModelPicker || showExportForm) ? (
           <div className="h-full">
             {showMcpConfig ? (
                 <McpConfigCardContent onClose={() => setShowMcpConfig(false)} />
@@ -156,6 +160,8 @@ export function AgentsConfigPanel() {
                     upsertSystemPanel('settings-panel', 'settings-panel');
                   }}
                 />
+              ) : showExportForm ? (
+                <ExportAgentForm onBack={() => setShowExportForm(false)} />
               ) :
               showSystemInstructions && (
               /* System Instructions Editor */
@@ -191,7 +197,15 @@ export function AgentsConfigPanel() {
             <div className="flex flex-col">
               {/* Agent Selection */}
               <div className="mb-6 flex flex-col gap-3">
-                <Label>Agent</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Agent</Label>
+                  <button
+                    onClick={() => setShowExportForm(true)}
+                    className="text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Export as Agent
+                  </button>
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -498,5 +512,134 @@ export function AgentsConfigPanel() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================
+// Export Agent Form — replaces entire config view
+// ============================================================
+
+interface ExportAgentFormProps {
+  onBack: () => void;
+}
+
+function ExportAgentForm({ onBack }: ExportAgentFormProps) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const agentConfig = useAgentStore((s) => s.agents[0]?.config ?? null);
+
+  const handleSave = async () => {
+    if (!name.trim() || !agentConfig) return;
+    setSaving(true);
+    try {
+      const created = await createAgent({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        agentConfig,
+        isPublic,
+      });
+
+      // Seed the acquired-agents map optimistically so the popover/config panel
+      // can resolve the new agent's name/avatar immediately, then revalidate
+      // against the server for the canonical record (e.g. once the avatar is ready).
+      const store = useAgentStore.getState();
+      const merged = [...Object.values(store.acquiredAgents), created];
+      store.setAcquiredAgents(merged);
+
+      // Add to the active session list and bring to front (auto-select).
+      store.addAgent(created.id, created.agentConfig);
+      store.setFrontAgent(created.id);
+
+      revalidateAcquiredAgents();
+
+      setSaved(true);
+      setTimeout(() => onBack(), 1500);
+    } catch (err) {
+      console.error('[ExportAgent] Failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (saved) {
+    return (
+      <div className="h-full flex flex-col justify-center items-center text-xs text-primary py-8 text-center">
+        <span className="font-semibold text-sm">Agent created!</span>
+        <span className="text-muted-foreground mt-1">Avatar is generating...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <h4 className="text-sm font-semibold">Export as Agent</h4>
+        <p className="text-xs text-muted-foreground">
+          Export the current configuration as a reusable agent.
+        </p>
+      </div>
+
+      <div className="flex-1 flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="export-agent-name" className="text-xs">Agent Name</Label>
+          <Input
+            id="export-agent-name"
+            placeholder="Agent name (required)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-8 text-xs"
+            maxLength={50}
+            autoFocus
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="export-agent-desc" className="text-xs">Description</Label>
+          <Input
+            id="export-agent-desc"
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="h-8 text-xs"
+            maxLength={200}
+          />
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <MuiCheckbox
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              size="small"
+              disableRipple
+              sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
+            />
+            Public Agent
+          </label>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors p-1"
+          aria-label="Back to config"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back</span>
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!name.trim() || saving}
+          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 
+                   rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ml-auto"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
   );
 }

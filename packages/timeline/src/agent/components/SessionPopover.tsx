@@ -24,8 +24,6 @@ import { CopyButton } from '@portfolio/ui/components/shadcn/copy-button';
 import { useAgent } from '../hooks/useAgent';
 import { useSessionMetadata } from '../hooks/useSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
-import { createAgent } from '../lib/agent-api';
-import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { SavedAgent as _SavedAgent } from '../types';
 
 interface SessionPopoverProps {
@@ -46,7 +44,6 @@ export function SessionPopover({
   const [localTitle, setLocalTitle] = useState('');
   const [localAgentName, setLocalAgentName] = useState('');
   const [localTitleLocked, setLocalTitleLocked] = useState(false);
-  const [showExportForm, setShowExportForm] = useState(false);
   
   useEffect(() => {
     if (metadata) {
@@ -86,7 +83,7 @@ export function SessionPopover({
   }
 
   return (
-    <Popover modal onOpenChange={(open) => { if (!open) setShowExportForm(false); }}>
+    <Popover modal>
       <PopoverTrigger asChild>
         <button className="flex items-center gap-2.5 w-full text-left hover:opacity-80 transition-opacity cursor-pointer">
           {(() => {
@@ -145,138 +142,125 @@ export function SessionPopover({
         align="start"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {showExportForm ? (
-          <ExportAgentForm onBack={() => setShowExportForm(false)} />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {/* Header */}
+        <div className="flex flex-col gap-4">
+          {/* Header */}
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-semibold">Session Configuration</h4>
+            <p className="text-xs text-muted-foreground">
+              View and edit session metadata
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {/* Session ID with copy */}
             <div className="flex flex-col gap-2">
-              <h4 className="text-sm font-semibold">Session Configuration</h4>
-              <p className="text-xs text-muted-foreground">
-                View and edit session metadata
-              </p>
+              <Label className="text-xs text-muted-foreground">Session ID</Label>
+              <div className="flex items-center gap-1">
+                <code className="text-xs bg-muted px-2 py-1 rounded break-all font-mono flex-1">
+                  {sessionId}
+                </code>
+                <CopyButton
+                  content={sessionId}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 flex-shrink-0"
+                />
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              {/* Session ID with copy */}
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs text-muted-foreground">Session ID</Label>
-                <div className="flex items-center gap-1">
-                  <code className="text-xs bg-muted px-2 py-1 rounded break-all font-mono flex-1">
-                    {sessionId}
-                  </code>
-                  <CopyButton
-                    content={sessionId}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 flex-shrink-0"
+            {/* Session Title */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="sessionTitle" className="text-xs">Session Title</Label>
+              <Input
+                id="sessionTitle"
+                value={localTitle}
+                onChange={handleTitleChange}
+                placeholder="My session"
+                maxLength={40}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            {/* Agent Name */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="agentName" className="text-xs">Agent Name</Label>
+              <Input
+                id="agentName"
+                value={localAgentName}
+                onChange={handleAgentNameChange}
+                placeholder="assistant"
+                className="h-8 text-xs"
+              />
+            </div>
+
+            {/* Counts */}
+            {propPersistSession && (
+              <div className="flex gap-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">Turns</Label>
+                  <span className="text-sm font-medium">{metadata?.turnCount ?? 0}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">Events</Label>
+                  <span className="text-sm font-medium">{metadata?.eventCount ?? 0}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Session Flags */}
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs">Session Flags</Label>
+              
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center">
+                  <MuiCheckbox
+                    id="persistSession"
+                    checked={propPersistSession}
+                    onChange={(e) => setPersistSession(e.target.checked)}
+                    size="small"
+                    disableRipple
+                    sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
                   />
+                  <Label htmlFor="persistSession" className="text-xs font-normal cursor-pointer">Persistent</Label>
                 </div>
+                <p className="text-xs text-muted-foreground pl-7">Save session history to database</p>
               </div>
 
-              {/* Session Title */}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="sessionTitle" className="text-xs">Session Title</Label>
-                <Input
-                  id="sessionTitle"
-                  value={localTitle}
-                  onChange={handleTitleChange}
-                  placeholder="My session"
-                  maxLength={40}
-                  className="h-8 text-xs"
-                />
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center">
+                  <MuiCheckbox
+                    id="ephemeral"
+                    checked={propEphemeral}
+                    onChange={(e) => setEphemeral(e.target.checked)}
+                    size="small"
+                    disableRipple
+                    sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
+                  />
+                  <Label htmlFor="ephemeral" className="text-xs font-normal cursor-pointer">Ephemeral</Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-7">No context - each message starts fresh</p>
               </div>
 
-              {/* Agent Name */}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="agentName" className="text-xs">Agent Name</Label>
-                <Input
-                  id="agentName"
-                  value={localAgentName}
-                  onChange={handleAgentNameChange}
-                  placeholder="assistant"
-                  className="h-8 text-xs"
-                />
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center">
+                  <MuiCheckbox
+                    id="titleLocked"
+                    checked={localTitleLocked}
+                    onChange={(e) => {
+                      setLocalTitleLocked(e.target.checked);
+                      updateTitleLocked(e.target.checked);
+                    }}
+                    size="small"
+                    disableRipple
+                    sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
+                  />
+                  <Label htmlFor="titleLocked" className="text-xs font-normal cursor-pointer">Lock Title</Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-7">Prevent auto-generation of session title</p>
               </div>
-
-              {/* Counts */}
-              {propPersistSession && (
-                <div className="flex gap-4">
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">Turns</Label>
-                    <span className="text-sm font-medium">{metadata?.turnCount ?? 0}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">Events</Label>
-                    <span className="text-sm font-medium">{metadata?.eventCount ?? 0}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Session Flags */}
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs">Session Flags</Label>
-                
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center">
-                    <MuiCheckbox
-                      id="persistSession"
-                      checked={propPersistSession}
-                      onChange={(e) => setPersistSession(e.target.checked)}
-                      size="small"
-                      disableRipple
-                      sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
-                    />
-                    <Label htmlFor="persistSession" className="text-xs font-normal cursor-pointer">Persistent</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-7">Save session history to database</p>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center">
-                    <MuiCheckbox
-                      id="ephemeral"
-                      checked={propEphemeral}
-                      onChange={(e) => setEphemeral(e.target.checked)}
-                      size="small"
-                      disableRipple
-                      sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
-                    />
-                    <Label htmlFor="ephemeral" className="text-xs font-normal cursor-pointer">Ephemeral</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-7">No context - each message starts fresh</p>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center">
-                    <MuiCheckbox
-                      id="titleLocked"
-                      checked={localTitleLocked}
-                      onChange={(e) => {
-                        setLocalTitleLocked(e.target.checked);
-                        updateTitleLocked(e.target.checked);
-                      }}
-                      size="small"
-                      disableRipple
-                      sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
-                    />
-                    <Label htmlFor="titleLocked" className="text-xs font-normal cursor-pointer">Lock Title</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-7">Prevent auto-generation of session title</p>
-                </div>
-              </div>
-
-              {/* Export as Agent */}
-              <Separator className="my-1" />
-              <button
-                onClick={() => setShowExportForm(true)}
-                className="w-full text-xs text-primary hover:text-primary/80 transition-colors py-1 text-left"
-              >
-                Export as Agent
-              </button>
             </div>
           </div>
-        )}
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -307,111 +291,5 @@ function AgentAvatarStack({ agents }: { agents: AgentAvatarInfo[] }) {
         />
       ))}
     </AvatarGroup>
-  );
-}
-
-// ============================================================
-// Export Agent Form — replaces entire popover content
-// ============================================================
-
-function ExportAgentForm({ onBack }: { onBack: () => void }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const agentConfig = useAgentStore((s) => s.agents[0]?.config ?? null);
-
-  const handleSave = async () => {
-    if (!name.trim() || !agentConfig) return;
-    setSaving(true);
-    try {
-      const created = await createAgent({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        agentConfig,
-        isPublic,
-      });
-
-      // Seed the acquired-agents map optimistically so the popover/config panel
-      // can resolve the new agent's name/avatar immediately, then revalidate
-      // against the server for the canonical record (e.g. once the avatar is ready).
-      const store = useAgentStore.getState();
-      const merged = [...Object.values(store.acquiredAgents), created];
-      store.setAcquiredAgents(merged);
-
-      // Add to the active session list and bring to front (auto-select).
-      store.addAgent(created.id, created.agentConfig);
-      store.setFrontAgent(created.id);
-
-      revalidateAcquiredAgents();
-
-      setSaved(true);
-      setTimeout(() => onBack(), 1500);
-    } catch (err) {
-      console.error('[ExportAgent] Failed:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (saved) {
-    return (
-      <div className="text-xs text-primary py-4 text-center">
-        Agent created! Avatar is generating...
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Header */}
-      <h4 className="text-sm font-semibold">Export as Agent</h4>
-
-      <Input
-        placeholder="Agent name (required)"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="h-7 text-xs"
-        maxLength={50}
-        autoFocus
-      />
-      <Input
-        placeholder="Description (optional)"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="h-7 text-xs"
-        maxLength={200}
-      />
-
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-1 text-xs cursor-pointer">
-          <MuiCheckbox
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            size="small"
-            disableRipple
-            sx={{ padding: '2px', color: 'var(--color-border)', '&.Mui-checked': { color: 'var(--color-primary)' } }}
-          />
-          Public
-        </label>
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <button
-          onClick={onBack}
-          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={!name.trim() || saving}
-          className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded disabled:opacity-50 transition-colors hover:bg-primary/90"
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </div>
-    </div>
   );
 }
