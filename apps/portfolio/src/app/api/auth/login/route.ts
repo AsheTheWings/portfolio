@@ -9,14 +9,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { setTokenCookie } from '@portfolio/auth/lib/cookies';
 
 const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:3001';
+const APP_SLUG = process.env.APP_SLUG ?? 'timeline';
+const APP_KEY = process.env.APP_KEY;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Timeline-App-Slug': APP_SLUG,
+    };
+    if (APP_KEY) headers['Timeline-App-Key'] = APP_KEY;
+
     const res = await fetch(`${BACKEND_URL}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
 
