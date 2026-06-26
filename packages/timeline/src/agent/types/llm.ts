@@ -8,7 +8,10 @@
  */
 
 export type ModelParameterType = 'number' | 'integer' | 'boolean' | 'string' | 'string[]' | 'enum' | 'object';
-export type ModelParameterApiSurface = 'openai-chat-completions' | 'openrouter-chat-completions';
+export type ModelParameterApiSurface = 'openai-chat-completions' | 'openrouter-chat-completions' | 'openai-responses';
+
+/** Wire protocol a custom provider speaks. */
+export type LlmApiSurface = 'chat_completions' | 'responses';
 
 export interface ModelParameterSchema {
   key: string;
@@ -37,6 +40,7 @@ export interface ModelSpec {
   supportedParameters: string[];
   inputModalities: string[];
   replayedReasoningField?: 'reasoning' | 'reasoning_content' | null;
+  apiSurface?: LlmApiSurface;
 }
 
 /**
@@ -73,6 +77,7 @@ export interface UserModelProviderSettings {
   headers: Record<string, string>;
   enabled: boolean;
   hasApiKey: boolean;
+  apiSurface: LlmApiSurface;
   models: ModelSpec[];
   createdAt: string;
   updatedAt: string;

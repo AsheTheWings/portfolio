@@ -11,6 +11,7 @@ import { fetchModels } from '../lib/agent-api';
 import { useAgentStore } from '../stores/useAgentStore';
 import type {
   CustomProviderModelInput,
+  LlmApiSurface,
   LlmRegistrySnapshot,
   ModelSpec,
   UserModelProviderSettings,
@@ -30,6 +31,7 @@ export interface ProviderDraft {
   id?: string;
   provider: string;
   baseURL: string;
+  apiSurface: LlmApiSurface;
   apiKey: string;
   removeApiKey: boolean;
   headersJson: string;
@@ -48,6 +50,7 @@ const EMPTY_MODEL: ModelDraft = {
 const EMPTY_PROVIDER: ProviderDraft = {
   provider: '',
   baseURL: '',
+  apiSurface: 'chat_completions',
   apiKey: '',
   removeApiKey: false,
   headersJson: '{}',
@@ -100,6 +103,7 @@ function providerDraftFromSettings(provider: UserModelProviderSettings): Provide
     id: provider.id,
     provider: provider.provider,
     baseURL: provider.baseURL,
+    apiSurface: provider.apiSurface ?? 'chat_completions',
     apiKey: '',
     removeApiKey: false,
     headersJson: JSON.stringify(provider.headers ?? {}, null, 2),
@@ -118,6 +122,7 @@ function toPayload(draft: ProviderDraft, isUpdate: boolean): Record<string, unkn
   const payload: Record<string, unknown> = {
     provider: draft.provider.trim(),
     baseURL: draft.baseURL.trim(),
+    apiSurface: draft.apiSurface,
     headers,
     models,
   };
@@ -317,6 +322,7 @@ export function useCustomModelProviders() {
     if (!draft.id || !editingProvider) return true;
     if (draft.provider.trim() !== editingProvider.provider) return true;
     if (draft.baseURL.trim() !== editingProvider.baseURL) return true;
+    if (draft.apiSurface !== (editingProvider.apiSurface ?? 'chat_completions')) return true;
     if (draft.apiKey.trim() !== '') return true;
     if (draft.removeApiKey) return true;
     const originalHeaders = JSON.stringify(editingProvider.headers ?? {}, null, 2);

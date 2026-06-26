@@ -210,6 +210,24 @@ export function CustomModelProvidersSection() {
                   />
                 </div>
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
+                  <Label className="font-normal text-xs">API Type <RequiredAsterisk /></Label>
+                  <Select
+                    value={draft.apiSurface}
+                    onValueChange={(val) => patchDraft({ apiSurface: val as 'chat_completions' | 'responses' })}
+                  >
+                    <SelectTrigger className="h-8 text-xs" size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="chat_completions">Chat Completions (/v1/chat/completions)</SelectItem>
+                      <SelectItem value="responses">Responses (/v1/responses)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The OpenAI-compatible endpoint this provider serves. Use Responses for providers like tera.
+                  </p>
+                </div>
+                <div className="sm:col-span-2 flex flex-col gap-1.5">
                   <Label className="font-normal text-xs">API Key {editingProvider?.hasApiKey ? '(configured)' : ''}</Label>
                   <Input
                     type="password"
