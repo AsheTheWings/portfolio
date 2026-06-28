@@ -344,26 +344,6 @@ export function CustomModelProvidersSection() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between rounded-md border border-border p-2">
-                      <div>
-                        <div className="text-xs font-medium">Replay Reasoning Field</div>
-                        <div className="text-xs text-muted-foreground">Message property used to replay thinking context.</div>
-                      </div>
-                      <Select
-                        value={model.replayedReasoningField}
-                        onValueChange={(val) => updateModel(index, { replayedReasoningField: val as 'none' | 'reasoning' | 'reasoning_content' })}
-                      >
-                        <SelectTrigger className="h-8 text-xs min-w-[140px]" size="sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None (Disabled)</SelectItem>
-                          <SelectItem value="reasoning">reasoning</SelectItem>
-                          <SelectItem value="reasoning_content">reasoning_content</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     <div className="flex justify-end">
                       <button
                         type="button"

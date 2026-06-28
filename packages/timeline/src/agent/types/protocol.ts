@@ -19,6 +19,7 @@ export type SessionEventType =
   | 'model-message-completed'
   | 'model-thought-chunk'
   | 'model-thought-completed'
+  | 'model-call-completed'
   | 'tool-call'
   | 'tool-result'
   | 'tool-effects'
