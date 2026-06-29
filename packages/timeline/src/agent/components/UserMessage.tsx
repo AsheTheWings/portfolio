@@ -26,49 +26,8 @@ import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
 import { parseLibraryPaths } from '@portfolio/ui/utils/libraryMentionParser';
 import { LightAssetGrid, useLibraryItemsByPaths, type LightAssetItem } from '@portfolio/timeline/library';
 import { DebugView } from './DebugView';
+import { parseTaggedContent } from '../utils/user-tags';
 import type { SessionComponent, SessionEvent } from '../types';
-
-// ────────────────────────────────────────────────────────────
-// Tagged content parsing
-// ────────────────────────────────────────────────────────────
-
-/**
- * Split a persisted user-turn message into its developer-voice and
- * client-voice parts. The backend agreement is that everything in the
- * persisted message is wrapped in either `<developer_user>…` or
- * `<client_user>…` blocks (see backend `instructions.ts`).
- *
- * Returns:
- *   - `developerText`: concatenation of all `<developer_user>` blocks (or null)
- *   - `userText`     : concatenation of all `<client_user>` blocks (or null)
- *
- * Untagged residue (legacy messages or unwrapped fragments) is treated
- * as developer text so nothing is silently dropped from the developer
- * view.
- */
-function parseTaggedContent(
-  message: string,
-): { developerText: string | null; userText: string | null } {
-  const userBlocks: string[] = [];
-  const developerBlocks: string[] = [];
-
-  const userRe = /<client_user>([\s\S]*?)<\/client_user>/g;
-  const devRe = /<developer_user>([\s\S]*?)<\/developer_user>/g;
-
-  for (const m of message.matchAll(userRe)) userBlocks.push((m[1] ?? '').trim());
-  for (const m of message.matchAll(devRe)) developerBlocks.push((m[1] ?? '').trim());
-
-  const residue = message
-    .replace(userRe, '')
-    .replace(devRe, '')
-    .trim();
-  if (residue) developerBlocks.push(residue);
-
-  return {
-    developerText: developerBlocks.length ? developerBlocks.join('\n\n') : null,
-    userText: userBlocks.length ? userBlocks.join('\n\n') : null,
-  };
-}
 
 // ────────────────────────────────────────────────────────────
 // Props
