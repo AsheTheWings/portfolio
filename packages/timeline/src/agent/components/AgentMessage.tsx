@@ -50,9 +50,9 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   const agentId = data.agentId as string | undefined;
 
   // ── View mode ───────────────────────────────────────────
-  const viewMode = useAgentStore((s) => s.viewMode);
-  const isUserMode = viewMode === 'user';
-  const hasDebugView = isUserMode ? false : !!controls?.debug;
+  const userMode = useAgentStore((s) => s.userMode);
+  const isClientMode = userMode === 'client';
+  const hasDebugView = isClientMode ? false : !!controls?.debug;
 
   // ── Store selectors ─────────────────────────────────────
   const editingEventId = useAgentStore((s) => s.editingEventId);
@@ -131,7 +131,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
 
   // ── View state ──────────────────────────────────────────
   const [activeViewIndex, setActiveViewIndex] = useState(() => defaultSlotIndex(viewSlots));
-  const previousViewModeRef = useRef(viewMode);
+  const previousUserModeRef = useRef(userMode);
 
   // ── Active slot ─────────────────────────────────────────
   const clampedIndex = Math.min(activeViewIndex, Math.max(totalViews - 1, 0));
@@ -180,12 +180,12 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   }, [viewSlots, isStreaming, items]);
 
   useEffect(() => {
-    const previousViewMode = previousViewModeRef.current;
-    previousViewModeRef.current = viewMode;
-    if (previousViewMode !== 'developer' && viewMode === 'developer') {
+    const previousUserMode = previousUserModeRef.current;
+    previousUserModeRef.current = userMode;
+    if (previousUserMode !== 'developer' && userMode === 'developer') {
       setActiveViewIndex(Math.max(viewSlots.length - 1, 0));
     }
-  }, [viewMode, viewSlots]);
+  }, [userMode, viewSlots]);
 
   // ── Collapse listener (agent:collapseAll) ───────────────
   useEffect(() => {

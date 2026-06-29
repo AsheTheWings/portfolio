@@ -1,0 +1,62 @@
+/*
+ * SVG glass tube ring + orbiting light beam, wrapping a transparent-centered
+ * placeholder avatar. The ring and beam are drawn in the inline SVG (see
+ * page.tsx); this module handles layout, sizing, and the beam animation.
+ *
+ * The beam is a short dashed arc on a circle with pathLength=360, so animating
+ * stroke-dashoffset by -360 sweeps it exactly once around the tube.
+ */
+
+@keyframes spin {
+  to {
+    stroke-dashoffset: -360;
+  }
+}
+
+.stage {
+  --size: min(40vmin, 380px);
+  --speed: 4s;
+
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
+}
+
+/* Both beam layers share the same sweep so the glow and core stay aligned. */
+.beamGlow,
+.beam {
+  animation: spin var(--speed) linear infinite;
+}
+
+/* Center area holding the placeholder avatar. No background: the page color
+   shows through the transparent tube hole. */
+.avatar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa0a8;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beamGlow,
+  .beam {
+    animation: none;
+  }
+}

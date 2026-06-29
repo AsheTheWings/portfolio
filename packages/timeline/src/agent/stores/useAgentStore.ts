@@ -221,7 +221,7 @@ const initialState = {
   _hasShownInitialConfig: false,
   
   // Timeline workflow composition state
-  viewMode: 'user' as 'developer' | 'user',
+  userMode: 'client' as 'developer' | 'client',
   stagedDeveloperMessage: null as string | null,
 
   // UI
@@ -647,8 +647,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
   
   // View mode actions (timeline workflow)
-  setViewMode: (mode) => {
-    set({ viewMode: mode });
+  setUserMode: (mode) => {
+    set({ userMode: mode });
     // Switching away from 'developer' compose mode invalidates any staged
     // developer-text bubble (the Insert button is hidden in client mode,
     // so the user could no longer reach the staged content). Delegate to

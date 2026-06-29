@@ -12,7 +12,7 @@
  *   - Encoded images flex layout
  *   - Library items grid (LightAssetGrid)
  *   - Inline contentEditable editing
- *   - Mailbox: client/developer view mode rendering for <user_message> and <developer_message> tagged content
+ *   - Mailbox: client/developer view mode rendering for <client_user> and <developer_user> tagged content
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
@@ -34,13 +34,13 @@ import type { SessionComponent, SessionEvent } from '../types';
 
 /**
  * Split a persisted user-turn message into its developer-voice and
- * user-voice parts. The backend agreement is that everything in the
- * persisted message is wrapped in either `<developer_message>…` or
- * `<user_message>…` blocks (see backend `instructions-registry.ts`).
+ * client-voice parts. The backend agreement is that everything in the
+ * persisted message is wrapped in either `<developer_user>…` or
+ * `<client_user>…` blocks (see backend `instructions.ts`).
  *
  * Returns:
- *   - `developerText`: concatenation of all `<developer_message>` blocks (or null)
- *   - `userText`     : concatenation of all `<user_message>` blocks (or null)
+ *   - `developerText`: concatenation of all `<developer_user>` blocks (or null)
+ *   - `userText`     : concatenation of all `<client_user>` blocks (or null)
  *
  * Untagged residue (legacy messages or unwrapped fragments) is treated
  * as developer text so nothing is silently dropped from the developer
@@ -52,8 +52,8 @@ function parseTaggedContent(
   const userBlocks: string[] = [];
   const developerBlocks: string[] = [];
 
-  const userRe = /<user_message>([\s\S]*?)<\/user_message>/g;
-  const devRe = /<developer_message>([\s\S]*?)<\/developer_message>/g;
+  const userRe = /<client_user>([\s\S]*?)<\/client_user>/g;
+  const devRe = /<developer_user>([\s\S]*?)<\/developer_user>/g;
 
   for (const m of message.matchAll(userRe)) userBlocks.push((m[1] ?? '').trim());
   for (const m of message.matchAll(devRe)) developerBlocks.push((m[1] ?? '').trim());
@@ -80,11 +80,11 @@ interface UserMessageProps {
 
 /**
  * Mailbox composition styling:
- *   - In `developer` viewMode the outer bubble flips to cyan (developer
- *     authored the turn) and the embedded `<user_message>` section inverts to
+ *   - In `developer` userMode the outer bubble flips to cyan (developer
+ *     authored the turn) and the embedded `<client_user>` section inverts to
  *     a neutral slate look so the contrast still reads.
- *   - In `user` viewMode the bubble keeps the regular slate gradient
- *     and only the user-message content is rendered.
+ *   - In `client` userMode the bubble keeps the regular slate gradient
+ *     and only the client-message content is rendered.
  * Derived from the store — no prop drilling.
  */
 
@@ -104,7 +104,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   const updateEditingData = useAgentStore((s) => s.updateEditingData);
   const cancelEdit = useAgentStore((s) => s.cancelEdit);
   const setPreserveScrollOnSessionChange = useAgentStore((s) => s.setPreserveScrollOnSessionChange);
-  const viewMode = useAgentStore((s) => s.viewMode);
+  const userMode = useAgentStore((s) => s.userMode);
 
   // ── Branching ───────────────────────────────────────────
   const { submitEdit, revertToComponent } = useSessionBranching();
@@ -143,15 +143,15 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
   const { developerText, userText } = useMemo(() => parseTaggedContent(rawContent), [rawContent]);
   const isUserOnlyTaggedMessage = userText !== null && developerText === null;
 
-  // In client view mode, only show <user_message> content if present.
-  // In developer view mode, user-only tagged messages render identically to
-  // client mode; composite messages still render with developer/user sections.
-  const content = (userText !== null && (viewMode === 'user' || isUserOnlyTaggedMessage))
+  // In client view mode, only show <client_user> content if present.
+  // In developer view mode, client-only tagged messages render identically to
+  // client mode; composite messages still render with developer/client sections.
+  const content = (userText !== null && (userMode === 'client' || isUserOnlyTaggedMessage))
     ? userText
     : rawContent;
 
-  // Skip rendering entirely if in user mode and there's no user-tagged content
-  const isClientOnlyMessage = viewMode === 'user' && userText === null && !isEditMode;
+  // Skip rendering entirely if in client mode and there's no client-tagged content
+  const isClientOnlyMessage = userMode === 'client' && userText === null && !isEditMode;
 
   const editingMessage = editingData?.message || '';
   const editingElRef = useRef<HTMLDivElement | null>(null);
@@ -260,7 +260,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
 
   // ── Build control bar config ────────────────────────────
   // Computed before the early-return guard below: hook count must stay stable
-  // across renders (the `isClientOnlyMessage` branch flips on viewMode toggle).
+  // across renders (the `isClientOnlyMessage` branch flips on userMode toggle).
   const controlBarConfig = useMemo(() => ({
     controls,
     eventId: id,
@@ -306,7 +306,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       data-placeholder="Edit message..."
       ref={editingElRef}
     />
-  ) : viewMode === 'developer' && userText !== null && developerText !== null ? (
+  ) : userMode === 'developer' && userText !== null && developerText !== null ? (
     // Developer view mode for composite turns: developer text on top,
     // highlighted user section below. User-only turns intentionally fall
     // through to the normal user bubble renderer.
@@ -334,7 +334,7 @@ export const UserMessage = React.memo(function UserMessage({ component }: UserMe
       {hasContent && (
         <div
           className={`session-component rounded-2xl relative min-w-[160px] max-w-[56%] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] rounded-tr-md ${
-            viewMode === 'developer' && !isUserOnlyTaggedMessage
+            userMode === 'developer' && !isUserOnlyTaggedMessage
               ? 'bg-gradient-to-br from-cyan-600 to-cyan-700 dark:from-cyan-600 dark:to-cyan-800'
               : 'bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700'
           }`}

@@ -56,10 +56,10 @@ export function resolveSystemPanel(
 export function resolveComponent(
   component: SessionComponent,
 ): React.ReactNode {
-  // Read view mode once — used by multiple cases below.
+  // Read user mode once — used by multiple cases below.
   // useAgentStore.getState() is synchronous and safe to call outside hooks.
-  const { viewMode, selectedWorkflowId } = useAgentStore.getState();
-  const isUserMode = viewMode === 'user';
+  const { userMode, selectedWorkflowId } = useAgentStore.getState();
+  const isClientMode = userMode === 'client';
 
   switch (component.type) {
     // Chat-mode composites
@@ -78,19 +78,19 @@ export function resolveComponent(
 
     // Flat-mode standalone types (not reached in chat mode)
     case 'agent-thoughts':
-      // In user mode: suppress thoughts entirely.
-      if (isUserMode) return null;
+      // In client mode: suppress thoughts entirely.
+      if (isClientMode) return null;
       return <AgentThoughts thoughts={component.data.thoughts} isStreaming={component.isStreaming} />;
 
     case 'tool-call':
-      // In user mode: suppress tool-call cards entirely.
-      if (isUserMode) return null;
+      // In client mode: suppress tool-call cards entirely.
+      if (isClientMode) return null;
       return <ToolCall data={component.data} />;
 
     case 'message':
       if (component.role !== 'agent') return null;
-      // In user mode: suppress while streaming (flat interface parallel to chat guard).
-      if (isUserMode && component.isStreaming) return null;
+      // In client mode: suppress while streaming (flat interface parallel to chat guard).
+      if (isClientMode && component.isStreaming) return null;
       return <FlatAgentResponse component={component} />;
 
     // System components

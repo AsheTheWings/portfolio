@@ -30,8 +30,8 @@ export function QuickAccessHeader() {
   } = useAgent();
 
   // Developer/client view mode toggle
-  const viewMode = useAgentStore((s) => s.viewMode);
-  const setViewMode = useAgentStore((s) => s.setViewMode);
+  const userMode = useAgentStore((s) => s.userMode);
+  const setUserMode = useAgentStore((s) => s.setUserMode);
 
   // Workflow cycling (next id, wrap-around). Disabled when only one option.
   const { cycle: cycleWorkflow } = useWorkflowSwitcher();
@@ -90,8 +90,8 @@ export function QuickAccessHeader() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-foreground font-light">Developer</span>
           <Switch
-            checked={viewMode === 'developer'}
-            onCheckedChange={(checked) => setViewMode(checked ? 'developer' : 'user')}
+            checked={userMode === 'developer'}
+            onCheckedChange={(checked) => setUserMode(checked ? 'developer' : 'client')}
             aria-label="Toggle developer composition mode"
           />
         </div>

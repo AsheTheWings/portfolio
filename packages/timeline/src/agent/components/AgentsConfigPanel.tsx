@@ -169,8 +169,8 @@ export function AgentsConfigPanel() {
                 <Label htmlFor="systemInstructions-editor">System Instructions</Label>
                 <Textarea
                   id="systemInstructions-editor"
-                  value={config.systemInstructions || ''}
-                  onChange={(e) => updateConfig({ systemInstructions: e.target.value || undefined })}
+                  value={config.clientInstructions || ''}
+                  onChange={(e) => updateConfig({ clientInstructions: e.target.value || undefined })}
                   placeholder="You are a helpful assistant..."
                   className="flex-1 my-2 resize-none h-full"
                 />
@@ -288,13 +288,13 @@ export function AgentsConfigPanel() {
               {/* System Instructions */}
               <div className="mb-6 flex flex-col gap-3">
                 <Label>System Instructions</Label>
-                {config.systemInstructions ? (
+                {config.clientInstructions ? (
                   <button
                     onClick={() => setShowSystemInstructions(true)}
                     className="flex items-center justify-between gap-2 p-3 text-left border border-input rounded-md hover:bg-secondary transition-colors group"
                   >
                     <span className="text-sm text-muted-foreground truncate">
-                      {config.systemInstructions.slice(0, 100)}{config.systemInstructions.length > 100 ? '...' : ''}
+                      {config.clientInstructions.slice(0, 100)}{config.clientInstructions.length > 100 ? '...' : ''}
                     </span>
                     <Pen className="w-4 h-4 text-muted-foreground group-hover:text-foreground flex-shrink-0" />
                   </button>

@@ -37,7 +37,7 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
     const [hasInputContent, setHasInputContent] = useState(false);
 
     // Use consolidated user input handler
-    const { submitUserInput, insertDeveloperMessage, viewMode, stagedDeveloperMessage } = useUserInput();
+    const { submitUserInput, insertDeveloperMessage, userMode, stagedDeveloperMessage } = useUserInput();
     const hasStagedDeveloperMessage = stagedDeveloperMessage !== null;
     const isCollapsed = !hasInputContent && !hasStagedDeveloperMessage && !isOpenWithoutContent;
 
@@ -296,12 +296,12 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
             onInsert={insertDeveloperMessage}
             isWorkflowRunning={isWorkflowRunning}
             onAbort={abortWorkflow}
-            placeholder={viewMode === 'user' ? 'Type your message...' : 'Type a message...'}
+            placeholder={userMode === 'client' ? 'Type your message...' : 'Type a message...'}
             onMentionOpenChange={setIsMentionOpen}
             collapsed={isCollapsed}
             onExpand={expandInput}
             isAnimating={isAnimating}
-            viewMode={viewMode}
+            userMode={userMode}
             hasStagedMessage={hasStagedDeveloperMessage}
             onContentChange={setHasInputContent}
           />

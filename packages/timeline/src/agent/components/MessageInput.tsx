@@ -28,7 +28,7 @@ interface MessageInputProps {
   collapsed?: boolean;
   onExpand?: () => void;
   isAnimating?: boolean;
-  viewMode?: 'developer' | 'user';   // Timeline: controls developer-only Insert visibility
+  userMode?: 'developer' | 'client';   // Timeline: controls developer-only Insert visibility
   hasStagedMessage?: boolean;          // Timeline: staged developer text is pending
   onContentChange?: (hasContent: boolean) => void;
 }
@@ -41,7 +41,7 @@ export interface MessageInputRef {
 }
 
 export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
-  ({ onSend, onInsert, isWorkflowRunning, onAbort, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, viewMode, hasStagedMessage, onContentChange }, ref) => {
+  ({ onSend, onInsert, isWorkflowRunning, onAbort, placeholder = 'Type your message...', onMentionOpenChange, collapsed, onExpand, isAnimating, userMode, hasStagedMessage, onContentChange }, ref) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -98,7 +98,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
   }, [canSubmit, onContentChange]);
 
   // Show Insert button when: developer mode, not collapsed, no staged text, onInsert provided
-  const showInsert = !collapsed && !isAnimating && viewMode === 'developer' && !hasStagedMessage && !!onInsert;
+  const showInsert = !collapsed && !isAnimating && userMode === 'developer' && !hasStagedMessage && !!onInsert;
 
   // Handle Insert action: stage current text, clear input, keep focus
   const handleInsert = () => {

@@ -5,9 +5,9 @@
  *
  * Consolidates user input handling:
  * - Sends user_message via WS
- * - Submit always wraps current composer text in <user_message>
- * - Insert, available in developer viewMode, stages <developer_message> content;
- *   the next submit sends the staged developer block plus optional user content
+ * - Submit always wraps current composer text in <client_user>
+ * - Insert, available in developer userMode, stages <developer_user> content;
+ *   the next submit sends the staged developer block plus optional client content
  *
  * Note: tool-triggered feedback is rendered as a sub-view inside
  * `AgentMessage` and dispatched directly via `useWorkflow().submitFeedback`.
@@ -18,19 +18,19 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useWorkflow } from './useWorkflow';
 
-const wrapUser = (text: string) => `<user_message>\n${text}\n</user_message>`;
-const wrapDeveloper = (text: string) => `<developer_message>\n${text}\n</developer_message>`;
+const wrapUser = (text: string) => `<client_user>\n${text}\n</client_user>`;
+const wrapDeveloper = (text: string) => `<developer_user>\n${text}\n</developer_user>`;
 
 export function useUserInput() {
-  const viewMode = useAgentStore((s) => s.viewMode);
+  const userMode = useAgentStore((s) => s.userMode);
   const stagedDeveloperMessage = useAgentStore((s) => s.stagedDeveloperMessage);
   const { submitMessage } = useWorkflow();
 
   /**
-   * Submit composer content. The typed message is always the app user's voice
-   * and therefore always wrapped as `<user_message>…</user_message>`.
+   * Submit composer content. The typed message is always the app client's voice
+   * and therefore always wrapped as `<client_user>…</client_user>`.
    * Developer-authored content can only enter the outgoing turn through Insert,
-   * which stages a `<developer_message>…</developer_message>` block.
+   * which stages a `<developer_user>…</developer_user>` block.
    */
   const submitUserInput = useCallback(async (message: string, libraryItemIds?: string[]) => {
     const trimmed = message.trim();
@@ -61,7 +61,7 @@ export function useUserInput() {
   return {
     submitUserInput,
     insertDeveloperMessage,
-    viewMode,
+    userMode,
     stagedDeveloperMessage,
   };
 }

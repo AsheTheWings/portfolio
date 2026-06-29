@@ -24,7 +24,7 @@ import { updateSession } from '../lib/agent-api';
 
 export function useWorkflowSwitcher() {
   const setSelectedWorkflowId = useAgentStore((s) => s.setSelectedWorkflowId);
-  const setViewMode = useAgentStore((s) => s.setViewMode);
+  const setUserMode = useAgentStore((s) => s.setUserMode);
 
   const switchTo = useCallback(async (workflowId: string): Promise<void> => {
     const state = useAgentStore.getState();
@@ -41,7 +41,7 @@ export function useWorkflowSwitcher() {
     setSelectedWorkflowId(workflowId);
     saveSelectedWorkflowId(workflowId);
   
-    setViewMode('user');
+    setUserMode('client');
 
     // If a session is live, sync server-side metadata so the next turn
     // dispatches against the new workflow.
@@ -53,7 +53,7 @@ export function useWorkflowSwitcher() {
         console.error('[useWorkflowSwitcher] Failed to update session workflow:', err);
       }
     }
-  }, [setSelectedWorkflowId, setViewMode]);
+  }, [setSelectedWorkflowId, setUserMode]);
 
   /**
    * Cycle to the next workflow in `workflowsPool`. Wraps around at the end.

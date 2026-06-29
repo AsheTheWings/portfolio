@@ -32,7 +32,8 @@ export interface Agent {
 export interface AgentConfig {
   modelId: string;
   providerId?: string;
-  systemInstructions?: string;
+  // Client-authored operating directives (UI label: "System Instructions").
+  clientInstructions?: string;
   stream: boolean;
   maxModelCalls: number;
 
@@ -492,8 +493,8 @@ export interface AgentState {
   // Hydration state
   _hydrated: boolean;
 
-  // View mode for message composition (timeline workflow)
-  viewMode: 'developer' | 'user';
+  // User mode for message composition (timeline workflow)
+  userMode: 'developer' | 'client';
   // Staged developer-authored message (Insert action — pending submit)
   stagedDeveloperMessage: string | null;
 
@@ -588,8 +589,8 @@ export interface AgentState {
   setPersistSession: (persist: boolean) => void;
   setEphemeral: (ephemeral: boolean) => void;
 
-  // View mode actions (timeline workflow)
-  setViewMode: (mode: 'developer' | 'user') => void;
+  // User mode actions (timeline workflow)
+  setUserMode: (mode: 'developer' | 'client') => void;
   setStagedDeveloperMessage: (message: string | null) => void;
 
   // User messages history actions
