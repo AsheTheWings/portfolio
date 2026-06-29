@@ -104,3 +104,10 @@ pnpm-debug.log*
 scrape_results
 docs/**
 uv.lock
+
+# JS/TS test artifacts
+coverage/
+playwright-report/
+test-results/
+.playwright/
+

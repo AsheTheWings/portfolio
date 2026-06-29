@@ -14,7 +14,10 @@
     "start": "bun --filter @portfolio/app start",
     "lint": "bun --filter @portfolio/app lint",
     "typecheck": "bun --filter @portfolio/app typecheck",
-    "test": "bun --filter @portfolio/app test"
+    "test": "bun --filter @portfolio/app test",
+    "test:watch": "bun --filter @portfolio/app test:watch",
+    "test:coverage": "bun --filter @portfolio/app test:coverage",
+    "test:browser": "bun --filter @portfolio/app test:browser"
   },
   "devDependencies": {
     "stylis": "^4.3.6"

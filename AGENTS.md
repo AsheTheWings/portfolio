@@ -48,7 +48,7 @@ drift as they change.
 ```sh
 bun run typecheck   # tsc --noEmit
 bun run lint        # next lint
-bun test            # test suite
+bun run test        # test suite (Jest; `bun test` runs Bun's own runner)
 bun run build       # production build — the strongest pre-merge check
 ```
 
