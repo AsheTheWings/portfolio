@@ -35,6 +35,12 @@ const PROVIDERS: ProviderDef[] = [
     helpUrl: 'https://openrouter.ai/keys',
   },
   {
+    id: 'tera',
+    label: 'Tera',
+    placeholder: 'sk-tera-...',
+    helpUrl: 'https://tera.asheservices.online',
+  },
+  {
     id: 'fal',
     label: 'Fal.ai',
     placeholder: 'fal-key-...',
@@ -47,7 +53,7 @@ const API_KEY_SECTIONS = [
     id: 'llm',
     title: 'LLM',
     description: 'Language model inference providers used by chat and agent runs.',
-    providerIds: ['openrouter'],
+    providerIds: ['openrouter', 'tera'],
   },
   {
     id: 'media-generation',

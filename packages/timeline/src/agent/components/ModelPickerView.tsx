@@ -35,8 +35,8 @@ export interface ModelPickerViewProps {
   selectedProviderId?: string;
   onSelect: (selection: { providerId: string; modelId: string }) => void;
   onClose: () => void;
-  /** Whether the user has configured an OpenRouter API key */
-  hasApiKey: boolean;
+  /** Set of configured provider IDs (e.g. 'openrouter', 'tera', etc.) */
+  configuredProviders: Set<string>;
   /** Called when the user clicks to add an API key from the warning banner */
   onOpenSettings: () => void;
 }
@@ -62,7 +62,7 @@ export function ModelPickerView({
   selectedProviderId = 'openrouter',
   onSelect,
   onClose,
-  hasApiKey,
+  configuredProviders,
   onOpenSettings,
 }: ModelPickerViewProps) {
   const [query, setQuery] = useState('');
@@ -73,13 +73,17 @@ export function ModelPickerView({
     searchRef.current?.focus();
   }, []);
 
-  // Hide OpenRouter models when the user hasn't configured an API key.
+  // Hide built-in models when the user hasn't configured their respective API key.
   const displayModels = useMemo(
-    () => (hasApiKey ? models : models.filter((m) => m.providerId !== 'openrouter')),
-    [models, hasApiKey]
+    () => models.filter((m) => {
+      if (m.providerId === 'openrouter' && !configuredProviders.has('openrouter')) return false;
+      if (m.providerId === 'tera' && !configuredProviders.has('tera')) return false;
+      return true;
+    }),
+    [models, configuredProviders]
   );
 
-  // Distinct provider display names — custom providers first, then OpenRouter.
+  // Distinct provider display names — custom providers first, then built-in.
   const providerNames = useMemo(() => {
     const seen = new Set<string>();
     const custom: string[] = [];
@@ -88,7 +92,7 @@ export function ModelPickerView({
       const name = getModelProviderName(m);
       if (seen.has(name)) continue;
       seen.add(name);
-      if (m.providerId === 'openrouter') {
+      if (m.providerId === 'openrouter' || m.providerId === 'tera') {
         builtin.push(name);
       } else {
         custom.push(name);
@@ -186,13 +190,13 @@ export function ModelPickerView({
         )}
         {Array.from(grouped.entries())
           .sort(([, a], [, b]) => {
-            const aIsOpenRouter = a[0]?.providerId === 'openrouter';
-            const bIsOpenRouter = b[0]?.providerId === 'openrouter';
-            if (aIsOpenRouter === bIsOpenRouter) return 0;
-            return aIsOpenRouter ? 1 : -1;
+            const aIsBuiltin = a[0]?.providerId === 'openrouter' || a[0]?.providerId === 'tera';
+            const bIsBuiltin = b[0]?.providerId === 'openrouter' || b[0]?.providerId === 'tera';
+            if (aIsBuiltin === bIsBuiltin) return 0;
+            return aIsBuiltin ? 1 : -1;
           })
           .map(([providerName, providerModels]) => {
-          const isOpenRouter = providerModels[0]?.providerId === 'openrouter';
+          const isBuiltin = providerModels[0]?.providerId === 'openrouter' || providerModels[0]?.providerId === 'tera';
 
           return (
             <div key={providerName}>
@@ -201,7 +205,7 @@ export function ModelPickerView({
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">
                   {providerName}
                 </span>
-                <span className="text-[10px] text-muted-foreground">{isOpenRouter ? 'built-in' : 'custom'}</span>
+                <span className="text-[10px] text-muted-foreground">{isBuiltin ? 'built-in' : 'custom'}</span>
               </div>
 
               {/* Model rows */}

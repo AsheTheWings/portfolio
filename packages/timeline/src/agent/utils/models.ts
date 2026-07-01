@@ -12,7 +12,7 @@ export function getModelDisplayName(model: ModelSpec | undefined): string {
   return model?.name ?? '';
 }
 
-/** Opaque routing identifier. `openrouter` for built-in, UUID for custom. */
+/** Opaque routing identifier. 'openrouter' or 'tera' for built-in, UUID for custom. */
 export function getModelProvider(model: ModelSpec): string {
   return model.providerId;
 }

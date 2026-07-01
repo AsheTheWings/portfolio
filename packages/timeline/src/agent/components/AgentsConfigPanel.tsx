@@ -57,9 +57,10 @@ export function AgentsConfigPanel() {
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showExportForm, setShowExportForm] = useState(false);
 
-  // BYOK: check whether user has an OpenRouter key configured
+  // BYOK: check whether user has OpenRouter / Tera keys configured
   const { configuredProviders } = useConfiguredProviders();
   const hasOpenRouterKey = configuredProviders.has('openrouter');
+  const hasTeraKey = configuredProviders.has('tera');
 
   // Front agent + config (single source of truth)
   const frontAgent: Agent | undefined = agents[0];
@@ -154,7 +155,7 @@ export function AgentsConfigPanel() {
                   selectedProviderId={config.providerId ?? 'openrouter'}
                   onSelect={handleModelChange}
                   onClose={() => setShowModelPicker(false)}
-                  hasApiKey={hasOpenRouterKey}
+                  configuredProviders={configuredProviders}
                   onOpenSettings={() => {
                     setShowModelPicker(false);
                     upsertSystemPanel('settings-panel', 'settings-panel');
@@ -256,7 +257,7 @@ export function AgentsConfigPanel() {
               {/* Model Selection */}
               <div className="mb-6 flex flex-col gap-3" >
                 <Label>Model</Label>
-                {!hasOpenRouterKey && modelsPool.filter((m) => m.providerId !== 'openrouter').length === 0 ? (
+                {!hasOpenRouterKey && !hasTeraKey && modelsPool.filter((m) => m.providerId !== 'openrouter' && m.providerId !== 'tera').length === 0 ? (
                   <button
                     type="button"
                     onClick={() => upsertSystemPanel('settings-panel', 'settings-panel')}
@@ -266,7 +267,7 @@ export function AgentsConfigPanel() {
                       <path d="M8 1L1 14h14L8 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
                       <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                     </svg>
-                    <span className="flex-1 text-left truncate">Add your OpenRouter API key</span>
+                    <span className="flex-1 text-left truncate">Add an LLM API key to get started</span>
                   </button>
                 ) : (
                   <button
