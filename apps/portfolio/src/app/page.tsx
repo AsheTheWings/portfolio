@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Crown } from 'lucide-react';
+import { Crown, Cpu } from 'lucide-react';
 import IconAiLab02 from '@portfolio/ui/icons/IconAiLab';
 
 const apps = [
@@ -14,6 +14,12 @@ const apps = [
     title: 'Chess',
     description: 'Full-screen chess board and Stockfish-backed analysis surface.',
     icon: <Crown size="28" />,
+  },
+  {
+    href: '/apps/n8n',
+    title: 'n8n Automation',
+    description: 'Automate tasks, connect external triggers, and run workflows on Timeline sessions.',
+    icon: <Cpu size="28" />,
   },
 ];
 
