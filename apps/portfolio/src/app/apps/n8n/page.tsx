@@ -1,6 +1,7 @@
 import { verifyToken } from "@portfolio/auth/lib/cookies";
 import { redirect } from "next/navigation";
 import N8nClientPage from "./N8nClientPage";
+import { getN8nConnection } from "./actions";
 
 /**
  * Server-side Page component for /apps/n8n.
@@ -11,6 +12,13 @@ export default async function N8nPage() {
 	if (!user) {
 		redirect("/signin?redirect=/apps/n8n");
 	}
+	const connection = await getN8nConnection().catch(() => ({
+		connected: false,
+		provisioned: false,
+		last4: null,
+		credentialId: null,
+		updatedAt: null,
+	}));
 
-	return <N8nClientPage user={user} />;
+	return <N8nClientPage user={user} initialConnection={connection} />;
 }

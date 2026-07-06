@@ -31,6 +31,10 @@ const nextConfig: NextConfig = {
         source: "/api/chess/:path*",
         destination: `${BACKEND_URL}/chess/:path*`,
       },
+      {
+        source: "/api/n8n/:path*",
+        destination: `${BACKEND_URL}/n8n/:path*`,
+      },
     ];
   },
 };

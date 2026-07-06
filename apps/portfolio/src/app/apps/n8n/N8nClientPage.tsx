@@ -1,188 +1,183 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Cpu, Copy, Check, ExternalLink, Lock, ArrowLeft, ShieldCheck } from "lucide-react";
-import { getN8nSsoHtml, generateN8nPat } from "./actions";
+import { ArrowLeft, CheckCircle2, Cpu, ExternalLink, RefreshCw, ShieldCheck, TriangleAlert, Workflow } from "lucide-react";
+import { connectN8n, getN8nSsoHtml, type N8nConnectionStatus } from "./actions";
 
 interface N8nClientPageProps {
 	user: {
 		userId: string;
 		username: string;
 	};
+	initialConnection: N8nConnectionStatus;
 }
 
-export default function N8nClientPage({ user }: N8nClientPageProps) {
-	const [ssoLoading, setSsoLoading] = useState(false);
-	const [patLoading, setPatLoading] = useState(false);
-	const [patToken, setPatToken] = useState<string | null>(null);
-	const [copied, setCopied] = useState(false);
+export default function N8nClientPage({ user, initialConnection }: N8nClientPageProps) {
+	const [connection, setConnection] = useState(initialConnection);
+	const [connectionLoading, setConnectionLoading] = useState(false);
+	const [launchLoading, setLaunchLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const handleLaunchN8n = async () => {
-		setSsoLoading(true);
+	const isReady = connection.connected && connection.provisioned;
+	const needsProvisioning = connection.connected && !connection.provisioned;
+
+	const handleConnect = async () => {
+		setConnectionLoading(true);
 		setError(null);
 		try {
-			const formHtml = await getN8nSsoHtml();
+			const nextConnection = await connectN8n();
+			setConnection(nextConnection);
+			if (!nextConnection.provisioned && nextConnection.reason === "n8n_api_not_configured") {
+				setError("The Timeline bridge is prepared, but n8n credential provisioning is not configured on the backend yet.");
+			}
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to prepare the n8n connection");
+		} finally {
+			setConnectionLoading(false);
+		}
+	};
 
-			// Inject and submit form dynamically in a temporary div
+	const handleLaunchN8n = async () => {
+		setLaunchLoading(true);
+		setError(null);
+		try {
+			if (!isReady) {
+				const nextConnection = await connectN8n();
+				setConnection(nextConnection);
+				if (!nextConnection.provisioned) {
+					throw new Error("n8n bridge provisioning is not complete. Use Repair connection after backend n8n API credentials are configured.");
+				}
+			}
+
+			const formHtml = await getN8nSsoHtml();
 			const div = document.createElement("div");
+			div.hidden = true;
 			div.innerHTML = formHtml;
 			document.body.appendChild(div);
 
 			const form = div.querySelector("form");
-			if (form) {
-				form.target = "_blank"; // Open workspace in a new tab
-				form.submit();
-			} else {
-				throw new Error("Handshake form not found in SSO response.");
-			}
-
-			// Clean up the temporary container
-			setTimeout(() => {
-				document.body.removeChild(div);
-			}, 1000);
+			if (!form) throw new Error("Handshake form not found in SSO response.");
+			form.target = "_blank";
+			form.submit();
+			setTimeout(() => div.remove(), 1000);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to launch n8n workspace");
 		} finally {
-			setSsoLoading(false);
+			setLaunchLoading(false);
 		}
-	};
-
-	const handleGeneratePat = async () => {
-		setPatLoading(true);
-		setError(null);
-		try {
-			const { token } = await generateN8nPat();
-			setPatToken(token);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to generate personal access token");
-		} finally {
-			setPatLoading(false);
-		}
-	};
-
-	const handleCopyToken = () => {
-		if (!patToken) return;
-		navigator.clipboard.writeText(patToken);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
 	};
 
 	return (
-		<main className="min-h-dvh bg-background text-foreground p-6 lg:p-10 flex flex-col justify-center">
-			<div className="mx-auto w-full max-w-4xl">
-				{/* Navigation Back Link */}
-				<div className="mb-8">
-					<Link
-						href="/"
-						className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-					>
-						<ArrowLeft size="16" className="transition-transform group-hover:-translate-x-1" />
-						Back to App Choice Board
-					</Link>
-				</div>
+		<main className="min-h-dvh overflow-auto bg-background p-6 text-foreground lg:p-10">
+			<div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-5xl flex-col justify-center">
+				<Link href="/" className="mb-8 inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+					<ArrowLeft size="16" />
+					Back to app launcher
+				</Link>
 
-				{/* Header Section */}
 				<div className="mb-10 max-w-3xl">
-					<p className="mb-3 text-sm font-medium uppercase tracking-[0.3em] text-muted-foreground">App Integration</p>
-					<h1 className="text-4xl font-semibold tracking-tight lg:text-6xl flex items-center gap-4">
-						n8n Automation
-					</h1>
-					<p className="mt-4 text-lg text-muted-foreground">
-						Connect external services, schedule routines, and run automated tasks using your active Timeline sessions.
+					<p className="mb-3 text-sm font-medium uppercase tracking-[0.3em] text-muted-foreground">Managed Automation</p>
+					<h1 className="text-4xl font-semibold tracking-tight lg:text-6xl">n8n Automation</h1>
+					<p className="mt-4 text-lg leading-8 text-muted-foreground">
+						Launch a private n8n workspace and let workflows read or append Timeline session context through a managed bridge credential.
 					</p>
 				</div>
 
-				{/* Global Error Banner */}
 				{error && (
-					<div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-						{error}
+					<div className="mb-6 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+						<TriangleAlert className="mt-0.5 shrink-0" size="18" />
+						<span>{error}</span>
 					</div>
 				)}
 
-				<div className="grid gap-6 md:grid-cols-2">
-					{/* Launch Card */}
-					<div className="rounded-3xl border border-border-subtle bg-surface-1 p-8 shadow-depth-sm flex flex-col justify-between">
-						<div>
-							<div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2 text-foreground">
+				<div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+					<section className="rounded-3xl border border-border-subtle bg-surface-1 p-8 shadow-depth-sm">
+						<div className="mb-8 flex items-start justify-between gap-4">
+							<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2">
 								<Cpu size="28" />
 							</div>
-							<h2 className="text-2xl font-semibold mb-3">n8n Workspace</h2>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-6">
-								Open your visual workflow canvas in a new tab. You will be authenticated automatically via secure SSO under your Timeline identity (<strong>{user.username}</strong>).
-							</p>
+							<ConnectionBadge ready={isReady} needsProvisioning={needsProvisioning} />
 						</div>
+						<h2 className="text-2xl font-semibold">Launch workspace</h2>
+						<p className="mt-3 text-sm leading-6 text-muted-foreground">
+							You will enter n8n as <strong className="text-foreground">{user.username}</strong> through SSO. Timeline bridge credentials are created server-side and never shown in the browser.
+						</p>
 
-						<button
-							onClick={handleLaunchN8n}
-							disabled={ssoLoading}
-							className="w-full inline-flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-medium bg-foreground text-background hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer text-sm"
-						>
-							{ssoLoading ? "Authenticating..." : "Launch n8n Workspace"}
-							<ExternalLink size="16" />
-						</button>
-					</div>
-
-					{/* Token Card */}
-					<div className="rounded-3xl border border-border-subtle bg-surface-1 p-8 shadow-depth-sm flex flex-col justify-between">
-						<div>
-							<div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2 text-foreground">
-								<Lock size="28" />
-							</div>
-							<h2 className="text-2xl font-semibold mb-3">Timeline Connection Token</h2>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-6">
-								To call Timeline session endpoints securely from n8n workflows, generate a scoped Personal Access Token. This token acts as a Bearer credential inside n8n.
-							</p>
-						</div>
-
-						{!patToken ? (
+						<div className="mt-8 flex flex-col gap-3 sm:flex-row">
 							<button
-								onClick={handleGeneratePat}
-								disabled={patLoading}
-								className="w-full inline-flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-medium border border-border bg-surface-2 text-foreground hover:bg-surface-3 transition-colors cursor-pointer text-sm"
+								type="button"
+								onClick={handleLaunchN8n}
+								disabled={launchLoading || connectionLoading}
+								className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-foreground px-6 py-4 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
 							>
-								{patLoading ? "Generating..." : "Generate Connection Token"}
+								{launchLoading ? "Preparing workspace..." : "Launch n8n Workspace"}
+								<ExternalLink size="16" />
 							</button>
-						) : (
-							<div className="w-full">
-								<div className="relative mb-3">
-									<input
-										type="text"
-										readOnly
-										value={patToken}
-										className="w-full pr-12 pl-4 py-3 rounded-xl border border-border bg-surface-2 text-xs font-mono select-all overflow-ellipsis focus:outline-none"
-									/>
-									<button
-										onClick={handleCopyToken}
-										className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-surface-3 text-muted-foreground hover:text-foreground transition-colors"
-										title="Copy to Clipboard"
-									>
-										{copied ? <Check size="16" className="text-green-500" /> : <Copy size="16" />}
-									</button>
-								</div>
-								<p className="text-xs text-green-500 flex items-center gap-1">
-									<ShieldCheck size="14" />
-									Token generated! Copy and use as standard Bearer header.
-								</p>
+							<button
+								type="button"
+								onClick={handleConnect}
+								disabled={launchLoading || connectionLoading}
+								className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-2 px-6 py-4 text-sm font-medium transition-colors hover:bg-surface-3 disabled:opacity-50"
+							>
+								<RefreshCw size="16" className={connectionLoading ? "animate-spin" : ""} />
+								{connection.connected ? "Repair connection" : "Connect n8n"}
+							</button>
+						</div>
+					</section>
+
+					<section className="rounded-3xl border border-border-subtle bg-surface-1 p-8 shadow-depth-sm">
+						<div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2">
+							<ShieldCheck size="28" />
+						</div>
+						<h2 className="text-2xl font-semibold">Timeline Bridge</h2>
+						<p className="mt-3 text-sm leading-6 text-muted-foreground">
+							Workflows use a managed Header Auth credential named <strong className="text-foreground">Timeline Bridge</strong>. Users do not copy tokens or configure Authorization headers manually.
+						</p>
+						<div className="mt-6 rounded-2xl border border-border bg-surface-2 p-4 text-sm">
+							<div className="flex items-center justify-between gap-3">
+								<span className="text-muted-foreground">Credential</span>
+								<span className="font-medium">{connection.credentialId ? `#${connection.credentialId}` : "Not provisioned"}</span>
 							</div>
-						)}
-					</div>
+							<div className="mt-3 flex items-center justify-between gap-3">
+								<span className="text-muted-foreground">Secret</span>
+								<span className="font-mono">{connection.last4 ? `•••• ${connection.last4}` : "Managed"}</span>
+							</div>
+						</div>
+					</section>
 				</div>
 
-				{/* Technical Instructions Footer */}
-				{patToken && (
-					<div className="mt-8 p-6 rounded-2xl border border-border bg-surface-1 shadow-depth-sm">
-						<h3 className="text-sm font-semibold mb-3">How to use this token in n8n:</h3>
-						<ol className="list-decimal list-inside text-xs text-muted-foreground space-y-2">
-							<li>Open n8n and go to <strong className="text-foreground">Credentials</strong> → <strong className="text-foreground">Add Credential</strong>.</li>
-							<li>Select <strong className="text-foreground">Header Auth</strong> as the credential type.</li>
-							<li>Set Name as <strong className="text-foreground">Authorization</strong> and Value as <strong className="text-foreground">Bearer &lt;your_copied_token&gt;</strong>.</li>
-							<li>In your workflows, use the <strong className="text-foreground">HTTP Request</strong> node to query Timeline session API routes securely.</li>
-						</ol>
+				<div className="mt-5 rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-depth-sm">
+					<div className="flex items-start gap-4">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2">
+							<Workflow size="22" />
+						</div>
+						<div>
+							<h3 className="font-semibold">Available bridge endpoints</h3>
+							<p className="mt-2 text-sm leading-6 text-muted-foreground">
+								Inside n8n, HTTP Request nodes using the managed credential can call <code className="text-foreground">/n8n/sessions</code>, <code className="text-foreground">/n8n/sessions/:id/context</code>, and <code className="text-foreground">/n8n/sessions/:id/append</code>.
+							</p>
+						</div>
 					</div>
-				)}
+				</div>
 			</div>
 		</main>
+	);
+}
+
+function ConnectionBadge({ ready, needsProvisioning }: { ready: boolean; needsProvisioning: boolean }) {
+	if (ready) {
+		return (
+			<span className="inline-flex items-center gap-2 rounded-full border border-green-500/25 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400">
+				<CheckCircle2 size="14" />
+				Connected
+			</span>
+		);
+	}
+	return (
+		<span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+			<TriangleAlert size="14" />
+			{needsProvisioning ? "Provisioning needed" : "Not connected"}
+		</span>
 	);
 }
