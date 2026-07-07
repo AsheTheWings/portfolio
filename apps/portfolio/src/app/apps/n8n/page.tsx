@@ -10,7 +10,7 @@ import N8nAutoRedirect from "./N8nAutoRedirect";
 export default async function N8nPage() {
 	const user = await verifyToken();
 	if (!user) {
-		redirect("/signin?redirect=/apps/n8n");
+		redirect("/apps/timeline?redirect=/apps/n8n");
 	}
 
 	const ssoHtml = await getN8nSsoHtml();
