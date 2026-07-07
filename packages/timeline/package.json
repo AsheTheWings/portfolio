@@ -15,6 +15,7 @@
   "dependencies": {
     "@portfolio/api-client": "workspace:*",
     "@portfolio/auth": "workspace:*",
-    "@portfolio/ui": "workspace:*"
+    "@portfolio/ui": "workspace:*",
+    "mermaid": "^11.16.0"
   }
 }
