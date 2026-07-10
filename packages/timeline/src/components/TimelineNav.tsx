@@ -44,7 +44,7 @@ export function TimelineNav() {
       console.error('[TimelineNav] Logout API failed:', err);
     }
     logout();
-    router.push('/');
+    window.location.href = '/';
   }, [logout, router]);
 
   if (!isAuthenticated) return null;

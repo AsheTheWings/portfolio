@@ -47,9 +47,24 @@ export function AuthGate() {
       }
 
       setUser(data.user as UserPublic);
+
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectUrl = searchParams.get('redirect');
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        }
+      }
     } catch {
       setError('Network error — is the server running?');
     } finally {
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get('redirect')) {
+          // If we are redirecting, keep loading state to prevent flash of playground
+          return;
+        }
+      }
       setLoading(false);
     }
   };

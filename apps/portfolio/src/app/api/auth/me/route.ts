@@ -20,11 +20,22 @@ export async function GET() {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  const data = await res.json();
+  let data: any;
+  try {
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { error: text || `HTTP error ${res.status}` };
+    }
+  } catch (e) {
+    data = { error: `Failed to parse response: ${e instanceof Error ? e.message : String(e)}` };
+  }
 
   if (!res.ok) {
     return NextResponse.json(
-      { error: data.error ?? 'Failed to get user' },
+      { error: data?.error ?? 'Failed to get user' },
       { status: res.status },
     );
   }
