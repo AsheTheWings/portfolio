@@ -52,7 +52,7 @@ export function useSessionBranching() {
       sessionId,
       breakpointEventId: editingEventId,
       updatedData,
-      configOverride: frontConfig as unknown as Record<string, unknown> | undefined,
+      configOverride: frontConfig as any,
     });
   }, [send]);
 

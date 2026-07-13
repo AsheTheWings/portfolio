@@ -16,21 +16,8 @@ export function getDefaultMcpConfig(): McpConfig {
     enabled: false,
     port: 8765,
     servers: [
-      {
-        name: 'image-analysis',
-        command: '.venv\\Scripts\\python',
-        args: ['-m', 'mcp_servers.image_analysis'],
-        env: {
-          PYTHONPATH: 'e:\\code\\id_11\\timeline\\dev\\mcp_host',
-          WEB_API_URL: 'http://localhost:3000/api/agent/call-model',
-        },
-      },
-      {
-        name: 'context7',
-        command: 'npx',
-        args: ['-y', '@upstash/context7-mcp@latest'],
-        env: {},
-      },
+      { name: 'image-analysis' },
+      { name: 'context7' },
     ],
   };
 }
@@ -61,7 +48,14 @@ export function loadMcpConfig(): McpConfig {
  */
 export function saveMcpConfig(config: McpConfig): void {
   try {
-    localStorage.setItem(MCP_CONFIG_KEY, JSON.stringify(config));
+    const safeServers = (config.servers || []).map((s: any) => ({ name: s.name }));
+    const safeConfig = {
+      enabled: config.enabled,
+      port: config.port,
+      servers: safeServers,
+      pairingToken: config.pairingToken,
+    };
+    localStorage.setItem(MCP_CONFIG_KEY, JSON.stringify(safeConfig));
   } catch (err) {
     console.error('Failed to save MCP config:', err);
   }

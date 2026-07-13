@@ -12,6 +12,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, 
 import { useAgent } from '../hooks/useAgent';
 import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
+import { useAgentConnection } from '../hooks/useAgentConnection';
+import { useAgentStore } from '../stores/useAgentStore';
 import { httpClient } from '@portfolio/api-client';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { CustomModelProvidersSection } from './CustomModelProvidersSection';
@@ -227,10 +229,18 @@ function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProp
 
 export function SettingsPanel() {
   const { removeComponent, uiInterface, setUiInterface } = useAgent();
-  // MCP is Phase 3 — stub as no-ops / not connected
-  const connectMcp = useCallback(async (_config: unknown) => { /* Phase 3 */ }, []);
-  const disconnectMcp = useCallback(async () => { /* Phase 3 */ }, []);
-  const mcpHostStatus = 'notConnected' as McpHostStatus;
+  const { client } = useAgentConnection();
+  const mcpHostStatus = useAgentStore(state => state.mcpHostStatus);
+
+  const connectMcp = useCallback(async (config: any) => {
+    await client.updateMcpConfig(config);
+  }, [client]);
+
+  const disconnectMcp = useCallback(async () => {
+    const config = loadMcpConfig();
+    await client.updateMcpConfig({ ...config, enabled: false });
+  }, [client]);
+
   const [mcpEnabled, setMcpEnabled] = useState(() => loadMcpConfig().enabled);
   const [mcpPort, setMcpPort] = useState(() => loadMcpConfig().port);
   const prevMcpPort = useRef(mcpPort);

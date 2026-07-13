@@ -5,7 +5,9 @@
  * Pure UI state container — session lifecycle managed by WS + REST hooks
  */
 
-import { create } from 'zustand';
+import { create, useStore, type StoreApi } from 'zustand';
+import { createStore } from 'zustand';
+import React, { createContext, useContext, useRef } from 'react';
 import type {
   AgentState,
   SessionComponent,
@@ -272,9 +274,16 @@ const initialState = {
   
   // Pending library items (asset or folder IDs) for message attachment
   pendingLibraryItemIds: [] as string[],
+
+  rejectedTools: [] as { server: string; tool: string; code: string }[],
+  mcpHostStatus: 'notConnected' as 'notConnected' | 'connected' | 'error',
+  mcpClientStatus: 'notConnected' as 'notConnected' | 'connecting' | 'connected',
 };
 
-export const useAgentStore = create<AgentState>((set, get) => ({
+export const getStoreDefinition = (
+  set: StoreApi<AgentState>['setState'],
+  get: StoreApi<AgentState>['getState']
+): AgentState => ({
   ...initialState,
   
   setAgentStatus: (agentId: string, status: AgentStatus) => {
@@ -796,7 +805,48 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   setWorkflowStatus: (status: WorkflowStatus) => set({ workflowStatus: status }),
-}));
+
+  setMcpStatus: (hostStatus: any, clientStatus: any) => set({ mcpHostStatus: hostStatus, mcpClientStatus: clientStatus }),
+  setRejectedTools: (rejectedTools: any) => set({ rejectedTools }),
+});
+
+export const createAgentStore = () => createStore<AgentState>((set, get) => getStoreDefinition(set, get));
+
+const useAgentStoreSingleton = create<AgentState>((set, get) => getStoreDefinition(set, get) as any);
+
+export const AgentStoreContext = createContext<ReturnType<typeof createAgentStore> | null>(null);
+
+export function AgentStoreProvider({ children }: { children: React.ReactNode }) {
+  const storeRef = useRef<ReturnType<typeof createAgentStore> | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createAgentStore();
+  }
+  return React.createElement(AgentStoreContext.Provider, { value: storeRef.current }, children);
+}
+
+interface UseAgentStore {
+  (): AgentState;
+  <T>(selector: (state: AgentState) => T): T;
+  getState: () => AgentState;
+  setState: (val: any) => void;
+  subscribe: (listener: any) => () => void;
+}
+
+export const useAgentStore: UseAgentStore = Object.assign(
+  function useAgentStore<T>(selector?: (state: AgentState) => T) {
+    const store = useContext(AgentStoreContext);
+    const sel = selector || ((s: AgentState) => s as any);
+    if (!store) {
+      return useAgentStoreSingleton(sel);
+    }
+    return useStore(store, sel);
+  },
+  {
+    getState: () => useAgentStoreSingleton.getState(),
+    setState: (val: any) => useAgentStoreSingleton.setState(val),
+    subscribe: (listener: any) => useAgentStoreSingleton.subscribe(listener),
+  }
+) as any;
 
 // Export SessionComponent type for convenience
 export type { SessionComponent } from '../types/session';

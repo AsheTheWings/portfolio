@@ -4,7 +4,7 @@
 
 import type { AgentStatus, WorkflowStatus } from '../utils/status';
 import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec } from './llm';
-import type { Tool } from './tools';
+import type { Tool, McpHostStatus, McpClientStatus } from './tools';
 import type { Workflow } from './workflow';
 
 // Saved agent record as returned by the REST API
@@ -517,6 +517,12 @@ export interface AgentState {
   modelsPool: ModelSpec[];
   modelParameters: ModelParameterSchema[];
   defaultModelId: string | null;
+
+  rejectedTools: { server: string; tool: string; code: string }[];
+  mcpHostStatus: McpHostStatus;
+  mcpClientStatus: McpClientStatus;
+  setMcpStatus: (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void;
+  setRejectedTools: (rejectedTools: { server: string; tool: string; code: string }[]) => void;
 
   // Active session workflow selection (persisted in localStorage)
   selectedWorkflowId: string;

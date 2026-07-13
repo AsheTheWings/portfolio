@@ -46,9 +46,9 @@ export interface McpServerInfo {
 // MCP server configuration
 export interface McpServerConfig {
   name: string;
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
+  command?: never;
+  args?: never;
+  env?: never;
 }
 
 // MCP client configuration
@@ -56,4 +56,5 @@ export interface McpConfig {
   enabled: boolean;
   port: number;
   servers: McpServerConfig[];
+  pairingToken?: string;
 }

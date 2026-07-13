@@ -17,6 +17,8 @@ hljs.registerLanguage('json', json);
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import type { McpConfig, McpClientStatus } from '../types';
 import { Label } from '@portfolio/ui/components/shadcn';
+import { useAgentConnection } from '../hooks/useAgentConnection';
+import { useAgentStore } from '../stores/useAgentStore';
 
 // MCP server info type for type-safe access
 interface McpServerInfo {
@@ -30,11 +32,19 @@ interface McpConfigCardContentProps {
 }
 
 export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
-  // MCP connection management is Phase 3 — stub as no-ops / not connected
-  const connectMcp = async (_config: McpConfig) => { /* Phase 3 */ };
-  const disconnectMcp = async () => { /* Phase 3 */ };
+  const { client } = useAgentConnection();
+  const mcpClientStatus = useAgentStore(state => state.mcpClientStatus);
+  const mcpHostStatus = useAgentStore(state => state.mcpHostStatus);
+  
+  const connectMcp = async (cfg: McpConfig) => {
+    await client.updateMcpConfig(cfg);
+  };
+  const disconnectMcp = async () => {
+    const cfg = loadMcpConfig();
+    await client.updateMcpConfig({ ...cfg, enabled: false });
+  };
+
   const mcpServerStatus: Record<string, { status: string }> = {};
-  const mcpClientStatus = 'notConnected' as McpClientStatus;
   const mcpError: string | null = null;
   const [config, setConfig] = useState<McpConfig>(() => loadMcpConfig());
   const [jsonString, setJsonString] = useState(() => JSON.stringify(loadMcpConfig(), null, 2));

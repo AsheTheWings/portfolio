@@ -19,6 +19,8 @@ import {
 } from 'react';
 import { AgentWsClient, type ConnectionState } from '../lib/ws-client';
 import type { WsClientMessage, WsServerMessage } from '../types/protocol';
+import { useAgentStore } from '../stores/useAgentStore';
+import type { LocalMcpHttpToolProvider } from '../lib/mcp-client';
 
 // ============================================================
 // Context
@@ -56,8 +58,41 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
     const unsub = wsClient.onStateChange(setConnectionState);
     wsClient.connect();
 
+    // Listen to delegated_tool_catalog_ack to update selectable tools and rejected tools (R61 & R62)
+    const unsubAck = wsClient.on('delegated_tool_catalog_ack', (msg: any) => {
+      const baseTools = useAgentStore.getState().toolsPool.filter(t => t.source !== 'delegated');
+      const delegatedToolsInRegistry = wsClient.getClientInstance().registry.getMergedCatalog();
+      
+      const acceptedTools = msg.accepted.map((acc: any) => {
+        const found = delegatedToolsInRegistry.find(t => t.server === acc.server && t.tool === acc.tool);
+        return {
+          server: acc.server,
+          tool: acc.tool,
+          description: found?.description || "",
+          inputSchema: found?.inputSchema || {},
+          source: 'delegated' as const
+        };
+      });
+
+      useAgentStore.getState().setToolsPool([...baseTools, ...acceptedTools]);
+      useAgentStore.getState().setRejectedTools(msg.rejected || []);
+    });
+
+    // Listen to MCP provider status changes to update Zustand store
+    const updateMcpStatus = () => {
+      const mcpProvider = wsClient.getClientInstance().registry.getProviders().find(p => p.id === 'local-mcp') as LocalMcpHttpToolProvider | undefined;
+      if (mcpProvider) {
+        useAgentStore.getState().setMcpStatus(mcpProvider.getHostStatus(), mcpProvider.getClientStatus());
+      }
+    };
+    
+    // Periodically update status or set it on state change
+    const statusInterval = setInterval(updateMcpStatus, 1000);
+
     return () => {
       unsub();
+      unsubAck();
+      clearInterval(statusInterval);
       // Use disconnect() instead of destroy() to survive React Strict Mode
       // double-invoke (mount → cleanup → remount). The client stays alive
       // so the next mount's connect() can reuse it.

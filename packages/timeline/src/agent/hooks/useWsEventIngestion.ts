@@ -70,6 +70,8 @@ function formatAgentExecutionError(error: WsAgentErrorPayload | undefined): stri
         : 'The model provider rejected this request. Check the selected model and provider settings.';
     case 'AGENT_RUNTIME_ERROR':
       return 'The agent failed while processing this request. Please try again.';
+    default:
+      return 'An unexpected error occurred during execution.';
   }
 }
 

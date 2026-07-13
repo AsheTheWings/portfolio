@@ -16,6 +16,8 @@
     "@portfolio/api-client": "workspace:*",
     "@portfolio/auth": "workspace:*",
     "@portfolio/ui": "workspace:*",
-    "mermaid": "^11.16.0"
+    "mermaid": "^11.16.0",
+    "@agentime/client": "workspace:*",
+    "@agentime/protocol": "workspace:*"
   }
 }

@@ -7,3 +7,4 @@ export * from './protocol';
 export * from './session';
 export * from './tools';
 export * from './workflow';
+export type { AgentConfig } from './protocol';

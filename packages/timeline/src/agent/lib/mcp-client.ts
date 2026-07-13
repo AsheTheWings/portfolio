@@ -1,276 +1,312 @@
 /**
- * McpClient - MCP Host Connection Manager
- * Manages connection to local MCP host service
- * Handles tool discovery and execution routing
+ * LocalMcpHttpToolProvider - localhost MCP integration as a ClientToolProvider adapter
  */
 
-import type { Tool, McpConfig, McpHostStatus, McpClientStatus, McpServerInfo } from '../types';
+import type { ClientToolProvider } from '@agentime/client/tools';
+import type { ClientToolDescriptor } from '@agentime/protocol';
+import type { McpHostStatus, McpClientStatus } from '../types/tools';
 
-type StatusChangeCallback = (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void;
-
-export class McpClient {
-  private config: McpConfig;
+export class LocalMcpHttpToolProvider implements ClientToolProvider {
+  readonly id = 'local-mcp';
+  private tools: ClientToolDescriptor[] = [];
+  private listeners = new Set<(tools: readonly ClientToolDescriptor[]) => void>();
   private hostStatus: McpHostStatus = 'notConnected';
   private clientStatus: McpClientStatus = 'notConnected';
-  private healthCheckInterval: NodeJS.Timeout | null = null;
-  private tools: Tool[] = [];
-  private serverInfo: Record<string, McpServerInfo> = {};
-  private baseUrl: string;
-  private onStatusChange?: StatusChangeCallback;
+  private healthCheckInterval: any = null;
 
-  constructor(config: McpConfig, onStatusChange?: StatusChangeCallback) {
-    this.config = config;
-    this.baseUrl = `http://localhost:${config.port}`;
-    this.onStatusChange = onStatusChange;
+  constructor(
+    private config: {
+      enabled: boolean;
+      port: number;
+      servers: { name: string }[];
+      pairingToken?: string;
+    },
+    private onStatusChange?: (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void
+  ) {}
+
+  getTools(): readonly ClientToolDescriptor[] {
+    return this.tools;
   }
 
-  /**
-   * Connect to MCP host and discover tools
-   */
   async connect(): Promise<void> {
+    if (!this.config.enabled) return;
+    
+    // R67: fail closed without pairing
+    if (!this.config.pairingToken) {
+      this.setHostStatus('error');
+      this.setClientStatus('notConnected');
+      throw new Error('MCP pairing token is required');
+    }
+
     try {
-      // Health check
-      const healthResponse = await fetch(`${this.baseUrl}/health`, {
+      this.setClientStatus('connecting');
+      
+      const baseUrl = `http://localhost:${this.config.port}`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.pairingToken}`,
+      };
+
+      // 1. Health check
+      const healthRes = await fetch(`${baseUrl}/health`, {
         method: 'GET',
+        headers,
         signal: AbortSignal.timeout(1000),
       });
 
-      if (!healthResponse.ok) {
+      if (!healthRes.ok) {
         throw new Error('MCP host health check failed');
       }
 
-      // HTTP reachability confirmed - set host status to connected
       this.setHostStatus('connected');
 
-      // Connect and initialize servers
-      this.setClientStatus('connecting');
-      const connectResponse = await fetch(`${this.baseUrl}/mcp/connect`, {
+      // 2. Connect servers - R69: do not send command, args, or env definitions! Only send server names.
+      const connectRes = await fetch(`${baseUrl}/mcp/connect`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servers: this.config.servers }),
-        signal: AbortSignal.timeout(60000),
+        headers,
+        body: JSON.stringify({
+          servers: this.config.servers.map(s => ({ name: s.name }))
+        }),
+        signal: AbortSignal.timeout(10000),
       });
 
-      if (!connectResponse.ok) {
-        const error = await connectResponse.json().catch(() => ({ error: 'Connection failed' }));
-        throw new Error(error.error || 'Failed to connect to MCP host');
+      if (!connectRes.ok) {
+        throw new Error('Failed to connect servers');
       }
 
-      // Fetch available tools (non-blocking)
-      // Tool retrieval failure doesn't affect connection status
-      try {
-        await this.refreshTools();
-      } catch (_toolErr: unknown) {
-        this.tools = [];
-      }
+      // 3. Discover tools
+      await this.refreshToolsInternal();
 
-      // Set client status to connected AFTER tools are fetched
       this.setClientStatus('connected');
-    } catch (err: unknown) {
+    } catch (err) {
       this.setHostStatus('error');
       this.setClientStatus('notConnected');
+      this.tools = [];
+      this.notifyListeners();
       throw err;
     } finally {
       this.startHealthCheck();
     }
   }
 
-  /**
-   * Disconnect from MCP host
-   */
   async disconnect(): Promise<void> {
     this.stopHealthCheck();
-
     try {
-      // Only attempt disconnect if host is reachable
-      if (this.hostStatus === 'connected') {
-        await fetch(`${this.baseUrl}/mcp/disconnect`, {
+      if (this.hostStatus === 'connected' && this.config.pairingToken) {
+        const baseUrl = `http://localhost:${this.config.port}`;
+        const headers = {
+          'Authorization': `Bearer ${this.config.pairingToken}`,
+        };
+        await fetch(`${baseUrl}/mcp/disconnect`, {
           method: 'POST',
-          signal: AbortSignal.timeout(5000),
-        })
+          headers,
+          signal: AbortSignal.timeout(2000),
+        }).catch(() => {});
       }
     } finally {
       this.setHostStatus('notConnected');
       this.setClientStatus('notConnected');
       this.tools = [];
-      this.serverInfo = {};
+      this.notifyListeners();
     }
   }
 
-  /**
-   * Refresh tool list from MCP host
-   * Parses new server-grouped structure and flattens to tools array
-   */
-  async refreshTools(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/mcp/tools`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(1000),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch tools from MCP host');
-    }
-
-    const data = await response.json();
-    this.serverInfo = data.servers || {};
-    
-    // Flatten server-grouped tools into tools array
-    this.tools = [];
-    for (const [serverName, serverData] of Object.entries(this.serverInfo)) {
-      for (const tool of serverData.tools) {
-        this.tools.push({
-          server: serverName,
-          tool: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-          source: 'delegated',
-        });
-      }
-    }
-  }
-
-  /**
-   * Execute tool via MCP host
-   */
-  async executeTool(
-    server: string,
-    tool: string,
-    args: Record<string, unknown>,
-    timeout: number = 60000
+  async execute(
+    call: { sessionId: string; runId: string; requestId: string; server: string; tool: string; arguments: Record<string, any> },
+    context: { signal: AbortSignal }
   ): Promise<unknown> {
-    const response = await fetch(`${this.baseUrl}/mcp/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ server, tool, arguments: args }),
-      signal: AbortSignal.timeout(timeout),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Tool execution failed' }));
-      throw new Error(error.error || `Tool execution failed: ${response.status}`);
+    if (!this.config.enabled || !this.config.pairingToken) {
+      throw new Error('Local MCP provider is disabled or not paired');
     }
 
-    const result = await response.json();
-    return result.result;
+    const baseUrl = `http://localhost:${this.config.port}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.config.pairingToken}`,
+    };
+
+    // Timeout signal for R70: local-host adapter must apply timeouts and response-size validation
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), 30000); // 30s timeout
+
+    const onAbort = () => timeoutController.abort();
+    context.signal.addEventListener('abort', onAbort);
+
+    try {
+      const response = await fetch(`${baseUrl}/mcp/execute`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          server: call.server,
+          tool: call.tool,
+          arguments: call.arguments,
+        }),
+        signal: timeoutController.signal, // propagates cancellation (R66)
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({ error: 'Unknown execution error' }));
+        throw new Error(errJson.error || `Execution failed with status ${response.status}`);
+      }
+
+      // R70: Response size validation
+      const limit = 5_000_000; // 5MB limit
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      let totalBytes = 0;
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        totalBytes += value.length;
+        if (totalBytes > limit) {
+          throw new Error('Response size limit exceeded');
+        }
+        chunks.push(value);
+      }
+
+      const totalBuffer = new Uint8Array(totalBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        totalBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const text = new TextDecoder().decode(totalBuffer);
+      const parsed = JSON.parse(text);
+      return parsed.result;
+    } finally {
+      clearTimeout(timeoutId);
+      context.signal.removeEventListener('abort', onAbort);
+    }
   }
 
-  /**
-   * Get current tools list
-   */
-  getTools(): Tool[] {
-    return [...this.tools];
+  subscribeCatalog(listener: (tools: readonly ClientToolDescriptor[]) => void): () => void {
+    this.listeners.add(listener);
+    // Call immediately
+    listener([...this.tools]);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
-  /**
-   * Get server info for all configured servers
-   */
-  getServerInfo(): Record<string, McpServerInfo> {
-    return { ...this.serverInfo };
-  }
-
-  /**
-   * Get host status
-   */
-  getHostStatus(): McpHostStatus {
+  getHostStatus() {
     return this.hostStatus;
   }
 
-  /**
-   * Get client status
-   */
-  getClientStatus(): McpClientStatus {
+  getClientStatus() {
     return this.clientStatus;
   }
 
-  /**
-   * Get configuration
-   */
-  getConfig(): McpConfig {
-    return { ...this.config };
+  private async refreshToolsInternal() {
+    const baseUrl = `http://localhost:${this.config.port}`;
+    const headers = {
+      'Authorization': `Bearer ${this.config.pairingToken}`,
+    };
+
+    const res = await fetch(`${baseUrl}/mcp/tools`, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(2000),
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to discover tools');
+    }
+
+    const data = await res.json();
+    const serverInfo = data.servers || {};
+    const discovered: ClientToolDescriptor[] = [];
+
+    for (const [serverName, serverData] of Object.entries(serverInfo) as any) {
+      for (const tool of serverData.tools || []) {
+        discovered.push({
+          server: serverName,
+          tool: tool.name,
+          description: tool.description || '',
+          inputSchema: tool.inputSchema || {},
+        });
+      }
+    }
+
+    this.tools = discovered;
+    this.notifyListeners();
   }
 
-  /**
-   * Update enabled flag (stops health check if disabled)
-   */
-  setEnabled(enabled: boolean): void {
-    this.config.enabled = enabled;
-    if (!enabled) {
-      this.stopHealthCheck();
+  private notifyListeners() {
+    for (const listener of this.listeners) {
+      try {
+        listener([...this.tools]);
+      } catch (e) {}
     }
   }
 
-  /**
-   * Start periodic health check
-   */
-  private startHealthCheck(): void {
-    this.stopHealthCheck(); // Clear any existing interval
-
+  private startHealthCheck() {
+    this.stopHealthCheck();
     this.healthCheckInterval = setInterval(async () => {
-      // Stop health check if MCP is disabled
-      if (!this.config.enabled) {
+      if (!this.config.enabled || !this.config.pairingToken) {
         this.stopHealthCheck();
         return;
       }
 
       try {
-        const response = await fetch(`${this.baseUrl}/health`, {
+        const baseUrl = `http://localhost:${this.config.port}`;
+        const headers = {
+          'Authorization': `Bearer ${this.config.pairingToken}`,
+        };
+
+        const res = await fetch(`${baseUrl}/health`, {
           method: 'GET',
-          signal: AbortSignal.timeout(500),
+          headers,
+          signal: AbortSignal.timeout(1000),
         });
 
-        if (!response.ok) {
-          throw new Error('Health check failed');
+        if (!res.ok) {
+          throw new Error('Unhealthy');
         }
 
-        // If host is available and we're disconnected, attempt reconnection
-        if (this.hostStatus === 'error' || this.hostStatus === 'notConnected') {
-          try {
-            await this.connect();
-          } catch (_reconnectErr: unknown) {
-            // Auto-reconnection failed, will retry on next health check
-          }
+        if (this.hostStatus !== 'connected') {
+          await this.connect();
         }
-      } catch (_err) {
+      } catch (e) {
         if (this.hostStatus === 'connected') {
-          // Clear state first
-          this.tools = [];
-          this.serverInfo = {};
-          
-          // Update client status before host status to ensure callback sees correct state
-          this.setClientStatus('notConnected');
           this.setHostStatus('error');
+          this.setClientStatus('notConnected');
+          this.tools = [];
+          this.notifyListeners();
         }
       }
     }, 6000);
   }
 
-  /**
-   * Stop health check polling
-   */
-  private stopHealthCheck(): void {
+  private stopHealthCheck() {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
   }
 
-  /**
-   * Update host status and notify callback
-   */
-  private setHostStatus(status: McpHostStatus): void {
+  private setHostStatus(status: McpHostStatus) {
     if (this.hostStatus !== status) {
       this.hostStatus = status;
       this.onStatusChange?.(this.hostStatus, this.clientStatus);
     }
   }
 
-  /**
-   * Update client status and notify callback
-   */
-  private setClientStatus(status: McpClientStatus): void {
+  private setClientStatus(status: McpClientStatus) {
     if (this.clientStatus !== status) {
       this.clientStatus = status;
       this.onStatusChange?.(this.hostStatus, this.clientStatus);
     }
+  }
+}
+
+// Keep McpClient class as a wrapper for backward compatibility if needed by the UI
+export class McpClient extends LocalMcpHttpToolProvider {
+  constructor(config: any, onStatusChange?: any) {
+    super(config, onStatusChange);
   }
 }
