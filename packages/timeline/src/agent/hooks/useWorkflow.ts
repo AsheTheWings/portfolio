@@ -53,16 +53,22 @@ export function useWorkflow() {
     store.setAgents(store.agents);
     const agents = useAgentStore.getState().agents;
 
-    send({
-      type: 'user_message',
-      sessionId: store.currentSessionId ?? undefined,
-      data: {
-        message,
-        agents: agents.map(a => ({ agentId: a.agentId, config: a.config })),
-        workflow: store.selectedWorkflowId || undefined,
-        libraryItemIds,
-      },
-    });
+    try {
+      send({
+        type: 'user_message',
+        sessionId: store.currentSessionId ?? undefined,
+        data: {
+          message,
+          agents: agents.map(a => ({ agentId: a.agentId, config: a.config })),
+          workflow: store.selectedWorkflowId || undefined,
+          libraryItemIds,
+        },
+      });
+    } catch (err) {
+      store.setWorkflowStatus('idle');
+      store.resetAllAgentStatuses('idle');
+      console.error("Failed to send user message:", err);
+    }
   }, [send]);
 
   /**

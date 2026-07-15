@@ -21,6 +21,7 @@ import { AgentWsClient, type ConnectionState } from '../lib/ws-client';
 import type { WsClientMessage, WsServerMessage } from '../types/protocol';
 import { useAgentStore } from '../stores/useAgentStore';
 import type { LocalMcpHttpToolProvider } from '../lib/mcp-client';
+import { toastError } from '@portfolio/ui/components/FeedbackMessage';
 
 // ============================================================
 // Context
@@ -118,7 +119,14 @@ export function useAgentConnection() {
   const { client, connectionState } = ctx;
 
   const send = useCallback(
-    (msg: WsClientMessage) => client.send(msg),
+    (msg: WsClientMessage) => {
+      try {
+        client.send(msg);
+      } catch (err: any) {
+        toastError(err.message || String(err));
+        throw err;
+      }
+    },
     [client],
   );
 
