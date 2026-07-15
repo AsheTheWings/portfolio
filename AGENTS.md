@@ -62,6 +62,14 @@ checks (clean tree, fast-forward-only, build-before-restart) always run.
 
 ## Verifying changes (in `dev/`)
 
+To run the development server:
+
+```sh
+bun run next dev -p 3010
+```
+
+Other verification checks:
+
 ```sh
 bun run typecheck   # tsc --noEmit
 bun run lint        # next lint
@@ -79,3 +87,9 @@ names, or exhaustive command lists. Point to the living source instead (the
 tree itself, the root `package.json` workspaces and scripts). If a line here
 would need editing every time a package or route is added, it belongs in that
 source, not in this file.
+
+## Testing Credentials (dev db)
+
+You can use the following credentials for local testing in the dev database:
+- **Username**: `Ashe`
+- **Password**: `dsT$C4KDuLA_4H`
