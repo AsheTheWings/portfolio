@@ -52,7 +52,7 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
         {/* Avatar + Name row */}
         <div className="flex items-center gap-3">
           <Avatar className="size-14">
-            {agent.avatarImage && <AvatarImage src={agent.avatarImage} alt={agent.name} />}
+            {agent.portraitRef && <AvatarImage src={agent.portraitRef} alt={agent.name} />}
             <AvatarFallback color={color} className="text-xl">
               {agent.name.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -62,7 +62,7 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
               {agent.name}
             </div>
             <div className={`text-xs truncate ${isSelected ? `${textClass} opacity-70` : 'text-muted-foreground'}`}>
-              {agent.agentConfig.modelId}
+              {agent.config.modelId}
             </div>
           </div>
         </div>
@@ -81,7 +81,7 @@ export function AgentCard({ agent, isOwner, isAcquired, isSelected, isSearchMode
               Owner
             </Badge>
           )}
-          {agent.isPublic && (
+          {agent.visibility === 'public' && (
             <Badge variant="outline" className={`text-xs px-1.5 py-0 flex items-center gap-0.5 ${isSelected ? `border-current/30 ${textClass} opacity-80` : 'text-muted-foreground'}`}>
               Public
             </Badge>

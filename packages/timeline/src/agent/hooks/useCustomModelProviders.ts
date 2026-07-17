@@ -6,15 +6,17 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { httpClient } from '@portfolio/api-client';
-import { fetchModels } from '../lib/agent-api';
+import type {
+  CreateCustomModelProviderInput,
+  CustomModelInput,
+  CustomModelProvider,
+} from '@agentime/protocol';
+import { agentimeHttp } from '../lib/agentime-client';
 import { useAgentStore } from '../stores/useAgentStore';
 import type {
-  CustomProviderModelInput,
   LlmApiSurface,
   LlmRegistrySnapshot,
   ModelSpec,
-  UserModelProviderSettings,
 } from '../types/llm';
 import { modelSupportsVision } from '../utils/models';
 
@@ -29,7 +31,7 @@ export interface ModelDraft {
 export interface ProviderDraft {
   id?: string;
   provider: string;
-  baseURL: string;
+  baseUrl: string;
   apiSurface: LlmApiSurface;
   apiKey: string;
   removeApiKey: boolean;
@@ -47,7 +49,7 @@ const EMPTY_MODEL: ModelDraft = {
 
 const EMPTY_PROVIDER: ProviderDraft = {
   provider: '',
-  baseURL: '',
+  baseUrl: '',
   apiSurface: 'chat_completions',
   apiKey: '',
   removeApiKey: false,
@@ -74,7 +76,7 @@ function parseOptionalPositiveInteger(raw: string): number | null {
   return parsed;
 }
 
-function modelInputFromDraft(draft: ModelDraft): CustomProviderModelInput {
+function modelInputFromDraft(draft: ModelDraft): CustomModelInput {
   return {
     id: draft.id.trim(),
     name: draft.name.trim() || undefined,
@@ -94,11 +96,11 @@ function modelDraftFromSpec(spec: ModelSpec): ModelDraft {
   };
 }
 
-function providerDraftFromSettings(provider: UserModelProviderSettings): ProviderDraft {
+function providerDraftFromSettings(provider: CustomModelProvider): ProviderDraft {
   return {
     id: provider.id,
     provider: provider.provider,
-    baseURL: provider.baseURL,
+    baseUrl: provider.baseUrl,
     apiSurface: provider.apiSurface ?? 'chat_completions',
     apiKey: '',
     removeApiKey: false,
@@ -109,58 +111,53 @@ function providerDraftFromSettings(provider: UserModelProviderSettings): Provide
   };
 }
 
-function toPayload(draft: ProviderDraft, isUpdate: boolean): Record<string, unknown> {
+function toPayload(draft: ProviderDraft, isUpdate: boolean): CreateCustomModelProviderInput {
   const headers = JSON.parse(draft.headersJson || '{}') as Record<string, string>;
   const models = draft.models
     .filter((model) => model.id.trim())
     .map(modelInputFromDraft);
 
-  const payload: Record<string, unknown> = {
+  const payload: CreateCustomModelProviderInput = {
     provider: draft.provider.trim(),
-    baseURL: draft.baseURL.trim(),
+    baseUrl: draft.baseUrl.trim(),
     apiSurface: draft.apiSurface,
     headers,
     models,
   };
 
   if (!isUpdate) payload.enabled = true;
-  if (draft.apiKey.trim()) payload.apiKey = draft.apiKey.trim();
-  if (isUpdate && draft.removeApiKey) payload.apiKey = null;
   return payload;
 }
 
-async function fetchModelProviders(): Promise<UserModelProviderSettings[]> {
-  const data = await httpClient.get<{ providers: UserModelProviderSettings[] }>('/settings/model-providers');
-  return data.providers;
+async function fetchModelProviders(): Promise<CustomModelProvider[]> {
+  return agentimeHttp.listCustomModelProviders();
 }
 
-async function createModelProvider(draft: ProviderDraft): Promise<UserModelProviderSettings | null> {
-  const data = await httpClient.post<{ provider: UserModelProviderSettings | null }>(
-    '/settings/model-providers',
-    toPayload(draft, false),
-  );
-  return data.provider;
+async function createModelProvider(draft: ProviderDraft): Promise<CustomModelProvider> {
+  const provider = await agentimeHttp.createCustomModelProvider(toPayload(draft, false));
+  if (draft.apiKey.trim()) {
+    await agentimeHttp.upsertCredential(`model-provider:${provider.id}`, draft.apiKey.trim());
+  }
+  return provider;
 }
 
-async function updateModelProvider(draft: ProviderDraft): Promise<UserModelProviderSettings | null> {
+async function updateModelProvider(draft: ProviderDraft): Promise<CustomModelProvider | null> {
   if (!draft.id) return null;
-  const data = await httpClient.patch<{ provider: UserModelProviderSettings | null }>(
-    `/settings/model-providers/${draft.id}`,
-    toPayload(draft, true),
-  );
-  return data.provider;
+  const provider = await agentimeHttp.updateCustomModelProvider(draft.id, toPayload(draft, true));
+  if (draft.apiKey.trim()) {
+    await agentimeHttp.upsertCredential(`model-provider:${draft.id}`, draft.apiKey.trim());
+  } else if (draft.removeApiKey) {
+    await agentimeHttp.deleteCredential(`model-provider:${draft.id}`);
+  }
+  return provider;
 }
 
-async function updateModelProviderEnabled(id: string, enabled: boolean): Promise<UserModelProviderSettings | null> {
-  const data = await httpClient.patch<{ provider: UserModelProviderSettings | null }>(
-    `/settings/model-providers/${id}`,
-    { enabled },
-  );
-  return data.provider;
+async function updateModelProviderEnabled(id: string, enabled: boolean): Promise<CustomModelProvider> {
+  return agentimeHttp.updateCustomModelProvider(id, { enabled });
 }
 
 async function deleteModelProvider(id: string): Promise<void> {
-  await httpClient.delete(`/settings/model-providers/${id}`);
+  await agentimeHttp.deleteCustomModelProvider(id);
 }
 
 function isValidModelRegistry(value: unknown): value is LlmRegistrySnapshot {
@@ -173,7 +170,7 @@ function isValidModelRegistry(value: unknown): value is LlmRegistrySnapshot {
 }
 
 async function refreshModelRegistry(): Promise<void> {
-  const registry = await fetchModels();
+  const registry = await agentimeHttp.getModelRegistry();
   if (!isValidModelRegistry(registry)) {
     throw new Error('Unsupported model registry response.');
   }
@@ -181,7 +178,7 @@ async function refreshModelRegistry(): Promise<void> {
 }
 
 export function useCustomModelProviders() {
-  const [providers, setProviders] = useState<UserModelProviderSettings[]>([]);
+  const [providers, setProviders] = useState<CustomModelProvider[]>([]);
   const [draft, setDraft] = useState<ProviderDraft>(() => emptyProviderDraft());
   const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -227,7 +224,7 @@ export function useCustomModelProviders() {
     setFormOpen(true);
   };
 
-  const openUpdateProviderForm = (provider: UserModelProviderSettings) => {
+  const openUpdateProviderForm = (provider: CustomModelProvider) => {
     setError(null);
     setDraft(providerDraftFromSettings(provider));
     setFormOpen(true);
@@ -285,7 +282,7 @@ export function useCustomModelProviders() {
     }
   };
 
-  const removeProvider = async (provider: UserModelProviderSettings) => {
+  const removeProvider = async (provider: CustomModelProvider) => {
     if (!window.confirm(`Delete ${provider.provider}?`)) return;
     setRemovingId(provider.id);
     setError(null);
@@ -300,7 +297,7 @@ export function useCustomModelProviders() {
     }
   };
 
-  const setProviderEnabled = async (provider: UserModelProviderSettings, enabled: boolean) => {
+  const setProviderEnabled = async (provider: CustomModelProvider, enabled: boolean) => {
     setUpdatingEnabledId(provider.id);
     setError(null);
     try {
@@ -317,7 +314,7 @@ export function useCustomModelProviders() {
   const hasChanges = useMemo(() => {
     if (!draft.id || !editingProvider) return true;
     if (draft.provider.trim() !== editingProvider.provider) return true;
-    if (draft.baseURL.trim() !== editingProvider.baseURL) return true;
+    if (draft.baseUrl.trim() !== editingProvider.baseUrl) return true;
     if (draft.apiSurface !== (editingProvider.apiSurface ?? 'chat_completions')) return true;
     if (draft.apiKey.trim() !== '') return true;
     if (draft.removeApiKey) return true;

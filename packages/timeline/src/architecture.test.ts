@@ -1,0 +1,75 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
+
+const timelineSource = resolve(__dirname);
+const portfolioRoot = resolve(timelineSource, '../../..');
+
+async function sourceFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) files.push(...await sourceFiles(path));
+    else if (entry.isFile() && /\.(?:ts|tsx)$/.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
+describe('Agentime frontend boundaries', () => {
+  it('never resolves or imports the private server package', async () => {
+    const violations: string[] = [];
+    for (const file of await sourceFiles(timelineSource)) {
+      const source = await readFile(file, 'utf8');
+      if (/from\s+["']@agentime\/server(?:\/[^"']*)?["']/.test(source)) {
+        violations.push(relative(portfolioRoot, file));
+      }
+    }
+    const packageManifest = await readFile(join(portfolioRoot, 'packages/timeline/package.json'), 'utf8');
+    if (packageManifest.includes('"@agentime/server"')) violations.push('packages/timeline/package.json');
+    expect(violations).toEqual([]);
+  });
+
+  it('uses exact public dependencies without an external workspace glob', async () => {
+    const rootManifest = JSON.parse(await readFile(join(portfolioRoot, 'package.json'), 'utf8')) as {
+      workspaces: string[];
+    };
+    expect(rootManifest.workspaces).toEqual(['apps/*', 'packages/*']);
+    const manifest = JSON.parse(await readFile(join(portfolioRoot, 'packages/timeline/package.json'), 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    for (const name of ['@agentime/client', '@agentime/protocol']) {
+      expect(manifest.dependencies[name]).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+    }
+  });
+
+  it('commits a registry-resolved lockfile with no deprecated or neighboring Agentime packages', async () => {
+    const lockfile = await readFile(join(portfolioRoot, 'bun.lock'), 'utf8');
+    expect(lockfile.includes('@agentime/agent')).toBe(false);
+    expect(lockfile.includes('timeline-backend/dev/packages')).toBe(false);
+    expect(/@agentime\/(?:client|protocol)@(?:workspace:|file:|git\+)/.test(lockfile)).toBe(false);
+  });
+
+  it('resolves Agentime tests through published package outputs only', async () => {
+    const jestConfig = await readFile(join(portfolioRoot, 'apps/portfolio/jest.config.js'), 'utf8');
+    expect(jestConfig).not.toContain('@agentime/server');
+    for (const mapping of ['@agentime/protocol', '@agentime/client']) {
+      expect(jestConfig).toContain(mapping);
+    }
+    expect(jestConfig).not.toMatch(/@agentime\/(?:protocol|client)[^'"\n]*\/src\//);
+    expect(jestConfig.match(/node_modules\/@agentime\/(?:protocol|client)\/dist\//g)?.length).toBe(3);
+  });
+
+  it('does not restore removed Agentime proxy or DTO implementations', async () => {
+    const violations: string[] = [];
+    for (const file of await sourceFiles(timelineSource)) {
+      if (file === resolve(__dirname, 'architecture.test.ts')) continue;
+      const source = await readFile(file, 'utf8');
+      if (source.includes('/api/library') || source.includes('/api/settings')) {
+        violations.push(relative(portfolioRoot, file));
+      }
+      if (/interface\s+(?:SavedAgent|LibraryAsset|LibraryFolder|WorkflowDescriptor|ToolDescriptor)\b/.test(source)) {
+        violations.push(relative(portfolioRoot, file));
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});

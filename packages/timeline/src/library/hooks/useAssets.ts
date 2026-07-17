@@ -9,11 +9,7 @@ import useSWR from 'swr';
 import { useEffect, useMemo } from 'react';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import type { Asset, ListAssetsParams } from '../types';
-
-interface AssetsResponse {
-  assets: Asset[];
-  total: number;
-}
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 /**
  * Build query string from params (no pagination params - client-side)
@@ -32,17 +28,6 @@ function buildQueryString(params: ListAssetsParams): string {
 /**
  * Fetcher function for SWR
  */
-async function fetcher(url: string): Promise<AssetsResponse> {
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'Failed to fetch assets');
-  }
-  
-  return response.json();
-}
-
 /**
  * Hook for fetching assets with SWR
  * Syncs data to Zustand store for global access
@@ -61,13 +46,17 @@ export function useAssets(params?: Partial<ListAssetsParams>) {
 
   // Build SWR key
   const swrKey = useMemo(() => {
-    return `/api/library/assets?${buildQueryString(queryParams)}`;
+    return `agentime:library:assets:${buildQueryString(queryParams)}`;
   }, [queryParams]);
 
   // SWR fetch
-  const { data, error, isLoading, isValidating, mutate } = useSWR<AssetsResponse>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Asset[]>(
     swrKey,
-    fetcher,
+    () => agentimeHttp.listLibraryAssets({
+      ...(queryParams.folderId ? { folderId: queryParams.folderId } : {}),
+      ...(queryParams.search ? { search: queryParams.search } : {}),
+      limit: 100,
+    }),
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -77,11 +66,17 @@ export function useAssets(params?: Partial<ListAssetsParams>) {
   );
 
   // Sync to Zustand store
+  const assets = useMemo(() => (data ?? []).filter((asset) =>
+    (!queryParams.fileType || asset.fileType === queryParams.fileType)
+    && (!queryParams.tag || asset.tags.includes(queryParams.tag))), [
+    data,
+    queryParams.fileType,
+    queryParams.tag,
+  ]);
+
   useEffect(() => {
-    if (data) {
-      setAssets(data.assets, data.total);
-    }
-  }, [data, setAssets]);
+    if (data) setAssets(assets, assets.length);
+  }, [assets, data, setAssets]);
 
   // Sync loading state
   useEffect(() => {
@@ -97,8 +92,8 @@ export function useAssets(params?: Partial<ListAssetsParams>) {
 
   return {
     // Data
-    assets: data?.assets ?? [],
-    total: data?.total ?? 0,
+    assets,
+    total: assets.length,
     
     // Status
     isLoading,

@@ -253,14 +253,14 @@ export function useLibraryItemHandlers({
     // Determine which assets to download
     const assetsToDownload: Asset[] =
       selectedIds.size > 1 && selectedIds.has(asset.id)
-        ? assets.filter(a => selectedIds.has(a.id) && a.url)
-        : asset.url ? [asset] : [];
+        ? assets.filter(a => selectedIds.has(a.id) && a.presentationUrl)
+        : asset.presentationUrl ? [asset] : [];
 
     if (assetsToDownload.length === 0) return;
 
     const downloadOne = async (a: Asset) => {
       try {
-        const response = await fetch(a.url!);
+        const response = await fetch(a.presentationUrl!);
         if (!response.ok) throw new Error('Download failed');
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
@@ -272,7 +272,7 @@ export function useLibraryItemHandlers({
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
       } catch {
-        window.open(a.url!, '_blank');
+        window.open(a.presentationUrl!, '_blank');
       }
     };
 

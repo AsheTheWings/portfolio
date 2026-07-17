@@ -16,6 +16,7 @@
  */
 
 import { useCallback } from 'react';
+import type { JsonValue } from '@agentime/protocol';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 
@@ -32,8 +33,6 @@ export function useWorkflow() {
     libraryItemIds?: string[]
   ) => {
     const store = useAgentStore.getState();
-
-    console.log(`[AgentCall] submitMessage — sessionId=${store.currentSessionId ?? '(none)'} message="${message.slice(0, 60)}..."`);
 
     // Clear system panels when user sends a new message
     store.clearSystemPanels();
@@ -91,7 +90,7 @@ export function useWorkflow() {
    */
   const submitFeedback = useCallback((
     toolCallEventId: string,
-    feedbackData: Record<string, unknown>
+    feedbackData: JsonValue
   ) => {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;

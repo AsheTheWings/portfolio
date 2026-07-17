@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Asset, Folder } from '../types';
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 interface UseLibrarySearchOptions {
   allFolders: Folder[];
@@ -56,11 +57,7 @@ export function useLibrarySearch({
     
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/library/search?q=${encodeURIComponent(searchQuery)}&limit=50`);
-        if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data.assets || []);
-        }
+        setSearchResults(await agentimeHttp.listLibraryAssets({ search: searchQuery, limit: 50 }));
       } catch (error) {
         console.error('Search failed:', error);
       } finally {

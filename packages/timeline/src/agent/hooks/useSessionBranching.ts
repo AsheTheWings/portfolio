@@ -9,6 +9,7 @@
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
+import { JsonValueSchema, type JsonValue } from '@agentime/protocol';
 
 export function useSessionBranching() {
   const { send } = useAgentConnection();
@@ -27,20 +28,20 @@ export function useSessionBranching() {
       return;
     }
 
-    const updatedData: Record<string, unknown> = {};
+    const updatedData: Record<string, JsonValue> = {};
 
     if (editingData.message !== undefined) {
-      updatedData.message = editingData.message;
+      updatedData.message = JsonValueSchema.parse(editingData.message);
     }
 
     if (editingData.arguments !== undefined) {
-      updatedData.arguments = typeof editingData.arguments === 'string'
+      updatedData.arguments = JsonValueSchema.parse(typeof editingData.arguments === 'string'
         ? JSON.parse(editingData.arguments)
-        : editingData.arguments;
+        : editingData.arguments);
     }
 
     if (editingData.result !== undefined) {
-      updatedData.result = editingData.result;
+      updatedData.result = JsonValueSchema.parse(editingData.result);
     }
 
     store.cancelEdit();
@@ -52,7 +53,7 @@ export function useSessionBranching() {
       sessionId,
       breakpointEventId: editingEventId,
       updatedData,
-      configOverride: frontConfig as any,
+      configOverride: frontConfig,
     });
   }, [send]);
 

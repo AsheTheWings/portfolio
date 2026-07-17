@@ -8,16 +8,11 @@
  */
 
 import useSWR from 'swr';
-import { httpClient } from '@portfolio/api-client';
+import { agentimeHttp } from '../lib/agentime-client';
 import { agentSWRKeys } from '../lib/swr-keys';
 
-interface ConfiguredProvidersResponse {
-  configured: string[];
-}
-
 async function fetchConfiguredProviders(): Promise<string[]> {
-  const data = await httpClient.get<ConfiguredProvidersResponse>(agentSWRKeys.configuredProviders);
-  return data.configured;
+  return (await agentimeHttp.listCredentials()).map((credential) => credential.provider);
 }
 
 export function useConfiguredProviders() {

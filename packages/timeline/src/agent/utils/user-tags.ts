@@ -25,8 +25,8 @@ const blockRe = (tag: UserTag) => new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 
  *   - `developerText`: concatenation of all `<developer_user>` blocks (or null)
  *   - `userText`     : concatenation of all `<client_user>` blocks (or null)
  *
- * Untagged residue (legacy messages or unwrapped fragments) is treated as
- * developer text so nothing is silently dropped from the developer view.
+ * Untagged residue is developer-authored content under the canonical display
+ * policy, so no operational fragment is silently dropped from the view.
  */
 export function parseTaggedContent(
   message: string,

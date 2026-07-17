@@ -13,63 +13,35 @@ describe("LocalMcpHttpToolProvider integration", () => {
       fetchCalls.push({ url, options });
       
       if (url.endsWith("/health")) {
-        return {
-          ok: true,
-          status: 200,
-        } as any;
+        return new Response(null, { status: 200 });
       }
       
       if (url.endsWith("/mcp/connect")) {
-        return {
-          ok: true,
-          status: 200,
-        } as any;
+        return new Response(null, { status: 200 });
       }
       
       if (url.endsWith("/mcp/tools")) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            servers: {
-              "mock-server": {
-                status: "connected",
-                tools: [
-                  {
-                    name: "mock-tool",
-                    description: "mock description",
-                    inputSchema: {}
-                  }
-                ]
-              }
+        return Response.json({
+          servers: {
+            "mock-server": {
+              status: "connected",
+              tools: [
+                {
+                  name: "mock-tool",
+                  description: "mock description",
+                  inputSchema: {}
+                }
+              ]
             }
-          })
-        } as any;
+          }
+        });
       }
 
       if (url.endsWith("/mcp/execute")) {
-        return {
-          ok: true,
-          status: 200,
-          body: {
-            getReader() {
-              let sent = false;
-              return {
-                async read() {
-                  if (sent) return { done: true, value: undefined };
-                  sent = true;
-                  return {
-                    done: false,
-                    value: new TextEncoder().encode(JSON.stringify({ result: "success" }))
-                  };
-                }
-              };
-            }
-          }
-        } as any;
+        return Response.json({ result: "success" });
       }
 
-      return { ok: false, status: 404 } as any;
+      return new Response(null, { status: 404 });
     }) as any;
 
     const provider = new LocalMcpHttpToolProvider({
@@ -94,6 +66,7 @@ describe("LocalMcpHttpToolProvider integration", () => {
       description: "mock description",
       inputSchema: {}
     });
+    expect(fetchCalls.every(({ url }) => String(url).startsWith('http://127.0.0.1:8765/'))).toBe(true);
 
     // Execute tool
     const result = await provider.execute({
@@ -110,5 +83,52 @@ describe("LocalMcpHttpToolProvider integration", () => {
     await provider.disconnect();
     expect(provider.getHostStatus()).toBe("notConnected");
     expect(provider.getClientStatus()).toBe("notConnected");
+  });
+
+  test("rejects unsafe configuration, pre-cancelled execution, and oversized responses", async () => {
+    expect(() => new LocalMcpHttpToolProvider({
+      enabled: true,
+      port: '8765@remote.example' as unknown as number,
+      servers: [],
+      pairingToken: 'token',
+    })).toThrow('port');
+    expect(() => new LocalMcpHttpToolProvider({
+      enabled: true,
+      port: 8765,
+      servers: [{ name: '../escape' }],
+      pairingToken: 'token',
+    })).toThrow('identifiers');
+
+    globalThis.fetch = (async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/mcp/execute')) {
+        if (options?.signal?.aborted) throw options.signal.reason;
+        return new Response('{}', { headers: { 'content-length': '5000001' } });
+      }
+      if (url.endsWith('/health') || url.endsWith('/mcp/connect')) {
+        return new Response(null, { status: 200 });
+      }
+      if (url.endsWith('/mcp/tools')) {
+        return Response.json({ servers: {} });
+      }
+      return new Response(null, { status: 404 });
+    }) as typeof fetch;
+
+    const provider = new LocalMcpHttpToolProvider({
+      enabled: true,
+      port: 8765,
+      servers: [],
+      pairingToken: 'token',
+    });
+    await provider.connect();
+    const call = {
+      sessionId: 'session', runId: 'run', requestId: 'request',
+      server: 'fixture', tool: 'tool', arguments: {},
+    };
+    const cancelled = new AbortController();
+    cancelled.abort(new DOMException('Cancelled', 'AbortError'));
+    await expect(provider.execute(call, { signal: cancelled.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(provider.execute(call, { signal: new AbortController().signal }))
+      .rejects.toThrow('size limit');
+    await provider.disconnect();
   });
 });

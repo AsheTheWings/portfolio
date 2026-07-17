@@ -28,9 +28,10 @@ import {
   InputWithStackedButtons,
   Input,
 } from '@portfolio/ui/components/shadcn';
-import { createAgent } from '../lib/agent-api';
+import { agentimeHttp } from '../lib/agentime-client';
 import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { AgentConfig, Agent } from '../types/session';
+import type { JsonValue } from '@agentime/protocol';
 import type { Tool, McpHostStatus } from '../types/tools';
 import { useAgentStore, selectModel } from '../stores/useAgentStore';
 import { createDefaultAgentConfig } from '../utils/agent-factory';
@@ -94,8 +95,8 @@ export function AgentsConfigPanel() {
     setAgentConfig({ ...config, ...updates });
   };
 
-  const updateProviderParameters = (updates: Record<string, unknown>) => {
-    const next = { ...(config.providerParameters ?? {}) };
+  const updateProviderParameters = (updates: Record<string, JsonValue | undefined>) => {
+    const next: Record<string, JsonValue> = { ...(config.providerParameters ?? {}) };
     for (const [key, value] of Object.entries(updates)) {
       if (value === undefined || value === null || value === '') {
         delete next[key];
@@ -214,8 +215,8 @@ export function AgentsConfigPanel() {
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background dark:bg-zinc-900 border border-input rounded-md text-foreground dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       <Avatar className="size-5">
-                        {acquiredAgent?.avatarImage && (
-                          <AvatarImage src={acquiredAgent.avatarImage} alt={acquiredAgent.name} />
+                        {acquiredAgent?.portraitRef && (
+                          <AvatarImage src={acquiredAgent.portraitRef} alt={acquiredAgent.name} />
                         )}
                         <AvatarFallback color={acquiredAgent?.color ?? '#E2E8F0'} className="text-[10px]">
                           {(acquiredAgent?.name ?? 'A').charAt(0).toUpperCase()}
@@ -230,7 +231,7 @@ export function AgentsConfigPanel() {
                       const saved = a.agentId !== 'none' ? acquiredAgentsMap[a.agentId] : undefined;
                       const name = saved?.name ?? 'Assistant';
                       const color = saved?.color ?? '#E2E8F0';
-                      const avatarImage = saved?.avatarImage;
+                      const avatarImage = saved?.portraitRef;
                       const isActive = a.agentId === frontAgent?.agentId;
 
                       return (
@@ -536,11 +537,12 @@ function ExportAgentForm({ onBack }: ExportAgentFormProps) {
     if (!name.trim() || !agentConfig) return;
     setSaving(true);
     try {
-      const created = await createAgent({
+      const created = await agentimeHttp.createAgent({
         name: name.trim(),
-        description: description.trim() || undefined,
-        agentConfig,
-        isPublic,
+        description: description.trim() || null,
+        config: agentConfig,
+        visibility: isPublic ? 'public' : 'private',
+        generatePortrait: true,
       });
 
       // Seed the acquired-agents map optimistically so the popover/config panel
@@ -551,7 +553,7 @@ function ExportAgentForm({ onBack }: ExportAgentFormProps) {
       store.setAcquiredAgents(merged);
 
       // Add to the active session list and bring to front (auto-select).
-      store.addAgent(created.id, created.agentConfig);
+      store.addAgent(created.id, created.config);
       store.setFrontAgent(created.id);
 
       revalidateAcquiredAgents();

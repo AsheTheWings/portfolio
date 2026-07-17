@@ -8,7 +8,7 @@
 export * from './types';
 export { useAgent } from './hooks/useAgent';
 export { useAcquiredAgentsQuery } from './hooks/useAcquiredAgentsQuery';
-export { McpClient } from './lib/mcp-client';
+export { LocalMcpHttpToolProvider } from './lib/mcp-client';
 
 // UI components (can be used standalone or inline)
 export { AgentPlayground } from './components/AgentPlayground';

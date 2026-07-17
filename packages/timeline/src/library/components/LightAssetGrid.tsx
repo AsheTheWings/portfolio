@@ -29,9 +29,8 @@ export interface LightAssetItem {
   name: string;
   path: string;
   type: 'asset' | 'folder';
-  thumbnailUrl?: string;
-  fileType?: 'image' | 'video' | 'document';
-  storageUrl?: string;
+  presentationUrl?: string;
+  fileType?: string;
   mimeType?: string;
 }
 
@@ -138,9 +137,9 @@ function LightAssetCard({
           `}
           title={item.name}
         >
-          {item.thumbnailUrl ? (
+          {item.presentationUrl && item.fileType === 'image' ? (
             <img
-              src={item.thumbnailUrl}
+              src={item.presentationUrl}
               alt={item.name}
               className="w-full h-full object-cover"
             />
@@ -177,19 +176,17 @@ function LightAssetCard({
 function itemToAsset(item: LightAssetItem): Asset {
   return {
     id: item.id,
-    userId: '',
     folderId: '',
     fileName: item.name,
-    storagePath: '',
-    url: item.storageUrl || item.thumbnailUrl || '',
     fileType: item.fileType || 'image',
-    mimeType: item.mimeType || null,
-    sizeKb: null,
+    mimeType: item.mimeType || 'application/octet-stream',
+    sizeBytes: 0,
     altText: null,
-    thumbnailUrl: item.thumbnailUrl || null,
     metadata: {},
-    createdAt: '',
-    updatedAt: '',
+    tags: [],
+    presentationUrl: item.presentationUrl ?? null,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
   };
 }
 

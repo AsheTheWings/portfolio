@@ -3,8 +3,45 @@
  */
 
 import type { ClientToolProvider } from '@agentime/client/tools';
-import type { ClientToolDescriptor } from '@agentime/protocol';
-import type { McpHostStatus, McpClientStatus } from '../types/tools';
+import {
+  ClientToolDescriptorSchema,
+  JsonValueSchema,
+  MAX_CLIENT_CATALOG_SIZE,
+  type ClientToolDescriptor,
+  type JsonValue,
+} from '@agentime/protocol';
+import type { McpConfig, McpHostStatus, McpClientStatus } from '../types/tools';
+import { normalizeMcpConfig } from '../utils/mcp-config';
+
+const MAX_ERROR_RESPONSE_BYTES = 64_000;
+const MAX_TOOL_CATALOG_RESPONSE_BYTES = 2_000_000;
+const MAX_EXECUTION_RESPONSE_BYTES = 5_000_000;
+
+async function readBoundedJson(response: Response, limit: number): Promise<unknown> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > limit) throw new Error('Local MCP response size limit exceeded');
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('Local MCP response has no body');
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error('Local MCP response size limit exceeded');
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
 
 export class LocalMcpHttpToolProvider implements ClientToolProvider {
   readonly id = 'local-mcp';
@@ -12,17 +49,20 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
   private listeners = new Set<(tools: readonly ClientToolDescriptor[]) => void>();
   private hostStatus: McpHostStatus = 'notConnected';
   private clientStatus: McpClientStatus = 'notConnected';
-  private healthCheckInterval: any = null;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private config: {
-      enabled: boolean;
-      port: number;
-      servers: { name: string }[];
-      pairingToken?: string;
-    },
+    config: McpConfig,
     private onStatusChange?: (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void
-  ) {}
+  ) {
+    this.config = normalizeMcpConfig(config);
+  }
+
+  private readonly config: McpConfig;
+
+  private baseUrl(): string {
+    return `http://127.0.0.1:${this.config.port}`;
+  }
 
   getTools(): readonly ClientToolDescriptor[] {
     return this.tools;
@@ -41,7 +81,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     try {
       this.setClientStatus('connecting');
       
-      const baseUrl = `http://localhost:${this.config.port}`;
+      const baseUrl = this.baseUrl();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.config.pairingToken}`,
@@ -93,7 +133,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     this.stopHealthCheck();
     try {
       if (this.hostStatus === 'connected' && this.config.pairingToken) {
-        const baseUrl = `http://localhost:${this.config.port}`;
+        const baseUrl = this.baseUrl();
         const headers = {
           'Authorization': `Bearer ${this.config.pairingToken}`,
         };
@@ -112,76 +152,48 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
   }
 
   async execute(
-    call: { sessionId: string; runId: string; requestId: string; server: string; tool: string; arguments: Record<string, any> },
+    call: { sessionId: string; runId: string; requestId: string; server: string; tool: string; arguments: Record<string, JsonValue> },
     context: { signal: AbortSignal }
-  ): Promise<unknown> {
+  ): Promise<JsonValue> {
     if (!this.config.enabled || !this.config.pairingToken) {
       throw new Error('Local MCP provider is disabled or not paired');
     }
 
-    const baseUrl = `http://localhost:${this.config.port}`;
+    const baseUrl = this.baseUrl();
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.config.pairingToken}`,
     };
 
     // Timeout signal for R70: local-host adapter must apply timeouts and response-size validation
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), 30000); // 30s timeout
+    const signal = AbortSignal.any([context.signal, AbortSignal.timeout(30_000)]);
 
-    const onAbort = () => timeoutController.abort();
-    context.signal.addEventListener('abort', onAbort);
+    const response = await fetch(`${baseUrl}/mcp/execute`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        server: call.server,
+        tool: call.tool,
+        arguments: call.arguments,
+      }),
+      signal,
+    });
 
-    try {
-      const response = await fetch(`${baseUrl}/mcp/execute`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          server: call.server,
-          tool: call.tool,
-          arguments: call.arguments,
-        }),
-        signal: timeoutController.signal, // propagates cancellation (R66)
-      });
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({ error: 'Unknown execution error' }));
-        throw new Error(errJson.error || `Execution failed with status ${response.status}`);
-      }
-
-      // R70: Response size validation
-      const limit = 5_000_000; // 5MB limit
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let totalBytes = 0;
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        totalBytes += value.length;
-        if (totalBytes > limit) {
-          throw new Error('Response size limit exceeded');
-        }
-        chunks.push(value);
-      }
-
-      const totalBuffer = new Uint8Array(totalBytes);
-      let offset = 0;
-      for (const chunk of chunks) {
-        totalBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      const text = new TextDecoder().decode(totalBuffer);
-      const parsed = JSON.parse(text);
-      return parsed.result;
-    } finally {
-      clearTimeout(timeoutId);
-      context.signal.removeEventListener('abort', onAbort);
+    if (!response.ok) {
+      const payload = await readBoundedJson(response, MAX_ERROR_RESPONSE_BYTES).catch(() => undefined);
+      const error = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>).error
+        : undefined;
+      throw new Error(typeof error === 'string' && error.length <= 1_000
+        ? error
+        : `Execution failed with status ${response.status}`);
     }
+
+    const parsed = await readBoundedJson(response, MAX_EXECUTION_RESPONSE_BYTES);
+    const result = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>).result
+      : undefined;
+    return JsonValueSchema.parse(result);
   }
 
   subscribeCatalog(listener: (tools: readonly ClientToolDescriptor[]) => void): () => void {
@@ -202,7 +214,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
   }
 
   private async refreshToolsInternal() {
-    const baseUrl = `http://localhost:${this.config.port}`;
+    const baseUrl = this.baseUrl();
     const headers = {
       'Authorization': `Bearer ${this.config.pairingToken}`,
     };
@@ -217,18 +229,36 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
       throw new Error('Failed to discover tools');
     }
 
-    const data = await res.json();
-    const serverInfo = data.servers || {};
+    const data = await readBoundedJson(res, MAX_TOOL_CATALOG_RESPONSE_BYTES);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Local MCP tool catalog response is invalid');
+    }
+    const serverInfo = (data as Record<string, unknown>).servers;
+    if (!serverInfo || typeof serverInfo !== 'object' || Array.isArray(serverInfo)) {
+      throw new Error('Local MCP tool catalog response is invalid');
+    }
     const discovered: ClientToolDescriptor[] = [];
 
-    for (const [serverName, serverData] of Object.entries(serverInfo) as any) {
-      for (const tool of serverData.tools || []) {
-        discovered.push({
+    for (const [serverName, rawServerData] of Object.entries(serverInfo)) {
+      if (!rawServerData || typeof rawServerData !== 'object' || Array.isArray(rawServerData)) {
+        throw new Error('Local MCP server catalog is invalid');
+      }
+      const rawTools = (rawServerData as Record<string, unknown>).tools ?? [];
+      if (!Array.isArray(rawTools)) throw new Error('Local MCP server tools are invalid');
+      for (const rawTool of rawTools) {
+        if (discovered.length >= MAX_CLIENT_CATALOG_SIZE) {
+          throw new Error('Local MCP tool catalog exceeds the configured limit');
+        }
+        if (!rawTool || typeof rawTool !== 'object' || Array.isArray(rawTool)) {
+          throw new Error('Local MCP tool descriptor is invalid');
+        }
+        const tool = rawTool as Record<string, unknown>;
+        discovered.push(ClientToolDescriptorSchema.parse({
           server: serverName,
           tool: tool.name,
-          description: tool.description || '',
-          inputSchema: tool.inputSchema || {},
-        });
+          description: tool.description ?? '',
+          inputSchema: tool.inputSchema ?? {},
+        }));
       }
     }
 
@@ -240,7 +270,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     for (const listener of this.listeners) {
       try {
         listener([...this.tools]);
-      } catch (e) {}
+      } catch {}
     }
   }
 
@@ -253,7 +283,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
       }
 
       try {
-        const baseUrl = `http://localhost:${this.config.port}`;
+        const baseUrl = this.baseUrl();
         const headers = {
           'Authorization': `Bearer ${this.config.pairingToken}`,
         };
@@ -271,7 +301,7 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
         if (this.hostStatus !== 'connected') {
           await this.connect();
         }
-      } catch (e) {
+      } catch {
         if (this.hostStatus === 'connected') {
           this.setHostStatus('error');
           this.setClientStatus('notConnected');
@@ -301,12 +331,5 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
       this.clientStatus = status;
       this.onStatusChange?.(this.hostStatus, this.clientStatus);
     }
-  }
-}
-
-// Keep McpClient class as a wrapper for backward compatibility if needed by the UI
-export class McpClient extends LocalMcpHttpToolProvider {
-  constructor(config: any, onStatusChange?: any) {
-    super(config, onStatusChange);
   }
 }

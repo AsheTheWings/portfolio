@@ -32,6 +32,7 @@ import type {
   WireSessionEvent,
   WsAgentErrorPayload,
 } from '../types/protocol';
+import { workflowRecoveryCommand } from '../lib/workflow-recovery';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
@@ -223,7 +224,15 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
 
     const unsubError = client.on('error', (msg: WsErrorMessage) => {
       useAgentStore.getState().setError(msg.error);
-      toastError(msg.error);
+      const recoveryCommand = workflowRecoveryCommand(msg);
+      toastError(msg.error, recoveryCommand ? {
+        description: 'Reset the paused workflow to continue this session with the current version.',
+        duration: 15_000,
+        action: {
+          label: 'Reset workflow',
+          onClick: () => client.send(recoveryCommand),
+        },
+      } : undefined);
     });
 
     const unsubBranched = client.on('session_branched', (msg: WsSessionBranchedMessage) => {

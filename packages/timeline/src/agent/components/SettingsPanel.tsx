@@ -14,7 +14,7 @@ import type { McpHostStatus } from '../types';
 import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import { useAgentConnection } from '../hooks/useAgentConnection';
 import { useAgentStore } from '../stores/useAgentStore';
-import { httpClient } from '@portfolio/api-client';
+import { agentimeHttp } from '../lib/agentime-client';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { CustomModelProvidersSection } from './CustomModelProvidersSection';
 
@@ -70,11 +70,11 @@ const API_KEY_SECTIONS = [
 // ============================================================
 
 async function saveProviderKey(provider: string, key: string): Promise<void> {
-  await httpClient.put(`/settings/api-keys/${provider}`, { key });
+  await agentimeHttp.upsertCredential(provider, key);
 }
 
 async function removeProviderKey(provider: string): Promise<void> {
-  await httpClient.delete(`/settings/api-keys/${provider}`);
+  await agentimeHttp.deleteCredential(provider);
 }
 
 // ============================================================
@@ -509,4 +509,3 @@ export function SettingsPanel() {
     </Card>
   );
 }
-

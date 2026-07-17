@@ -30,7 +30,6 @@ interface UseSessionMetadataReturn {
   
   // Actions (debounced automatically)
   updateTitle: (title: string) => void;
-  updateAgentName: (name: string) => void;
   updateTitleLocked: (locked: boolean) => void;
 }
 
@@ -43,7 +42,6 @@ interface UseSessionMetadataReturn {
 export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn {
   // Debounce timers
   const titleDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const agentNameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fetch sessions list (includes all metadata)
   const { sessions, isLoading, isError } = useSessionHistory(100);
@@ -58,8 +56,8 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
       id: session.id,
       title: session.title || null,
       titleLocked: session.titleLocked || false,
-      agentName: session.agentName,
-      turnCount: session.turnsCount,
+      agentName: session.agentName ?? 'Assistant',
+      turnCount: session.interactionsCount,
       eventCount: session.eventCount,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
@@ -72,16 +70,13 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
     updates: { title?: string; agentName?: string; titleLocked?: boolean }
   ) => {
     try {
-      const response = await fetch(`/api/agent/sessions/${sessionId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      
-      if (response.ok) {
-        // Trigger cache revalidation for sessions list
-        mutate(agentSWRKeys.sessionHistory(100));
-      }
+      const { agentimeHttp } = await import('../lib/agentime-client');
+      const canonical = {
+        ...(updates.title !== undefined ? { title: updates.title } : {}),
+        ...(updates.titleLocked !== undefined ? { titleLocked: updates.titleLocked } : {}),
+      };
+      if (Object.keys(canonical).length) await agentimeHttp.updateSession(sessionId, canonical);
+      mutate(agentSWRKeys.sessionHistory(100));
     } catch (err) {
       console.error('Failed to save metadata:', err);
     }
@@ -105,21 +100,6 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
     }, 1500);
   }, [sessionId, saveMetadataToDB]);
 
-  // Debounced agent name update (1500ms)
-  const updateAgentName = useCallback((agentName: string) => {
-    if (!sessionId) return;
-    
-    // Clear existing timeout
-    if (agentNameDebounceRef.current) {
-      clearTimeout(agentNameDebounceRef.current);
-    }
-    
-    // Set new timeout
-    agentNameDebounceRef.current = setTimeout(() => {
-      saveMetadataToDB(sessionId, { agentName });
-    }, 1500);
-  }, [sessionId, saveMetadataToDB]);
-
   // Update title locked status (no debounce - immediate save)
   const updateTitleLocked = useCallback((locked: boolean) => {
     if (!sessionId) return;
@@ -131,7 +111,6 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
     isLoading,
     isError,
     updateTitle,
-    updateAgentName,
     updateTitleLocked,
   };
 }

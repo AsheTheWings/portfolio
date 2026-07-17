@@ -1,27 +1,6 @@
-import type { AgentConfig, AgentMetadata } from './session';
+import type { ToolDescriptor } from '@agentime/protocol';
 
-// Tool handler function type
-export type ToolHandler = (
-  args: Record<string, unknown>,
-  context: {
-    agentConfig?: AgentConfig;
-    userFeedback?: unknown;
-    toolCallEventId?: string;
-    metadata?: AgentMetadata;  // Read-only snapshot of turn metadata at call time
-    interactionId?: string;           // Turn ID from session context
-    turnMetadata?: AgentMetadata;  // Turn-scoped metadata for job aggregation
-  }
-) => Promise<unknown>;
-
-// MCP Tools definition
-export interface Tool {
-  server: string;
-  tool: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  source: 'builtin' | 'managed' | 'delegated';
-  handler?: ToolHandler;  // Built-in tools provide their own handler
-}
+export type Tool = ToolDescriptor;
 
 // MCP host status (HTTP reachability of MCP host service)
 export type McpHostStatus = 'notConnected' | 'connected' | 'error';

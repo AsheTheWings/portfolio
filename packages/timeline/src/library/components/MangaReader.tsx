@@ -363,7 +363,7 @@ export function MangaReader({ folderName, images, onClose }: MangaReaderProps) {
                 </div>
               )}
               <img
-                src={image.url}
+                src={image.presentationUrl ?? undefined}
                 alt={image.altText || image.fileName}
                 className="block w-full h-auto"
                 loading={index < 3 ? 'eager' : 'lazy'}

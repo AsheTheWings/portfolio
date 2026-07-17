@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import type { Folder } from '../types';
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 interface CreateFolderTreeResult {
   folderMap: Record<string, string>;
@@ -24,73 +25,25 @@ export function useFolderActions() {
   const removeFolder = useLibraryStore((state) => state.removeFolder);
 
   const createFolder = useCallback(async (name: string, parentId: string | null) => {
-    const allFolders = useLibraryStore.getState().allFolders;
-    const parentFolder = parentId ? allFolders.find(f => f.id === parentId) : null;
-
-    // Calculate path: parent.path/name for nested, /name for root
-    const normalizedName = name.trim().replace(/\s+/g, '_').replace(/[<>:"/\\|?*]/g, '_');
-    const path = parentFolder ? `${parentFolder.path}/${normalizedName}` : `/${normalizedName}`;
-
-    const response = await fetch('/api/library/folders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parentId: parentId, path }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to create folder');
-    }
-
-    const { folder } = await response.json();
+    const folder = await agentimeHttp.createLibraryFolder({ name, parentId });
     addFolder(folder);
     return folder as Folder;
   }, [addFolder]);
 
   const renameFolder = useCallback(async (folderId: string, name: string) => {
-    const response = await fetch(`/api/library/folders/${folderId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to rename folder');
-    }
-
-    const { folder } = await response.json();
+    const folder = await agentimeHttp.updateLibraryFolder(folderId, { name });
     updateFolder(folderId, folder);
     return folder as Folder;
   }, [updateFolder]);
 
   const moveFolder = useCallback(async (folderId: string, newParentId: string | null) => {
-    const response = await fetch(`/api/library/folders/${folderId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId: newParentId }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to move folder');
-    }
-
-    const { folder } = await response.json();
+    const folder = await agentimeHttp.updateLibraryFolder(folderId, { parentId: newParentId });
     updateFolder(folderId, folder);
     return folder as Folder;
   }, [updateFolder]);
 
   const deleteFolder = useCallback(async (folderId: string) => {
-    const response = await fetch(`/api/library/folders/${folderId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to delete folder');
-    }
-
+    await agentimeHttp.deleteLibraryFolder(folderId);
     removeFolder(folderId);
   }, [removeFolder]);
 
@@ -104,18 +57,20 @@ export function useFolderActions() {
     paths: string[],
     parentId: string | null
   ): Promise<CreateFolderTreeResult> => {
-    const response = await fetch('/api/library/folders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths, parentId: parentId }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to create folder tree');
+    const folderMap: Record<string, string> = {};
+    const folders: Folder[] = [];
+    for (const relativePath of [...new Set(paths)].sort((a, b) => a.split('/').length - b.split('/').length)) {
+      const parts = relativePath.split('/').filter(Boolean);
+      const name = parts.at(-1);
+      if (!name) continue;
+      const parentPath = parts.slice(0, -1).join('/');
+      const created = await agentimeHttp.createLibraryFolder({
+        name,
+        parentId: parentPath ? folderMap[parentPath] ?? parentId : parentId,
+      });
+      folderMap[relativePath] = created.id;
+      folders.push(created);
     }
-
-    const { folderMap, folders } = await response.json();
     
     // Add all created folders to the store
     addFolders(folders);

@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import type { Asset } from '../types';
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 interface UseAssetsByIdsResult {
   assets: Asset[];
@@ -53,20 +54,9 @@ export function useAssetsByIds(
       setError(null);
       
       try {
-        const params = new URLSearchParams();
-        ids.forEach(id => params.append('ids', id));
-        
-        const response = await fetch(`/api/library/assets?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to fetch assets');
-        }
-        
-        const data = await response.json();
-        setAssets(data.assets || []);
+        const resolved = await Promise.all(ids.map((id) => agentimeHttp.getLibraryAsset(id)));
+        controller.signal.throwIfAborted();
+        setAssets(resolved);
         // Only mark as fetched after successful completion
         prevIdsRef.current = idsKey;
       } catch (err) {

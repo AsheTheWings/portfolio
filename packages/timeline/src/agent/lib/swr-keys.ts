@@ -1,6 +1,6 @@
 export const agentSWRKeys = {
-  acquiredAgents: '/api/agent/agents/acquired',
-  configuredProviders: '/settings/api-keys',
-  sessionHistory: (limit: number) => `/api/agent/sessions?limit=${limit}`,
-  agentSearch: (query: string) => `/api/agent/agents/search?q=${encodeURIComponent(query.trim())}`,
+  acquiredAgents: 'agentime:agents:acquired',
+  configuredProviders: 'agentime:credentials',
+  sessionHistory: (limit: number) => `agentime:sessions:${limit}`,
+  agentSearch: (query: string) => `agentime:agents:search:${query.trim()}`,
 } as const;

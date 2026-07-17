@@ -3,23 +3,10 @@
  */
 
 import type { AgentStatus, WorkflowStatus } from '../utils/status';
-import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec } from './llm';
+import type { LlmRegistrySnapshot, ModelParameterDefinition, ModelSpec } from './llm';
 import type { Tool, McpHostStatus, McpClientStatus } from './tools';
 import type { Workflow } from './workflow';
-
-// Saved agent record as returned by the REST API
-export interface SavedAgent {
-  id: string;
-  userId: string;
-  name: string;
-  description: string | null;
-  avatarImage: string | null;
-  color: string | null;
-  agentConfig: AgentConfig;
-  isPublic: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { AgentConfig, SavedAgent, WireSessionEvent } from '@agentime/protocol';
 
 // Wire format for agents in events (no metadata, just config)
 // This is the core agent identity: ID + execution config.
@@ -29,22 +16,7 @@ export interface Agent {
 }
 
 // Agent configuration (per-call settings)
-export interface AgentConfig {
-  modelId: string;
-  providerId?: string;
-  // Client-authored operating directives (UI label: "System Instructions").
-  clientInstructions?: string;
-  stream: boolean;
-  maxModelCalls: number;
-
-  // harness owned configuration
-  enableTools: boolean;
-  availableTools: Tool[];
-  maxConcurrentTools: number;
-
-  // OpenRouter/OpenAI-compatible request parameters using native snake_case keys.
-  providerParameters: Record<string, unknown>;
-}
+export type { AgentConfig } from '@agentime/protocol';
 
 // Base interface for all native tool metadata
 export interface BaseNativeToolMetadata {
@@ -263,7 +235,7 @@ export interface SessionComponentData {
   // Event metadata
   metadata?: AgentMetadata;
   interactionId?: string;
-  agentId?: string;
+  agentId?: string | null;
 
   // Tool identity
   server?: string;
@@ -307,17 +279,9 @@ export interface SessionComponent {
 export type UIInterface = 'chat' | 'flat';
 
 // Session event base fields
-interface SessionEventBase {
-  eventId: string;              // Unique per event
-  workflowId: string | null;    // Run-scoped events stamp the active workflow id
-  runId: string | null;         // Run-scoped events stamp the active run id
-  interactionId: string;        // Interaction id — shared between user-input-committed and all events produced by the run it kicked off
-  agentId?: string;             // Which agent produced this event ('none' = assistant, UUID = saved agent)
-  toolCallEventId?: string;     // Links tool-result/tool-effects/user-feedback-result to originating tool-call's eventId
-  role: 'user' | 'agent' | 'system'; // Event owner role
-  sequence: number;
-  timestamp: Date;              // When event was created
-}
+type SessionEventBase = Omit<WireSessionEvent, 'timestamp' | 'type' | 'data'> & {
+  timestamp: Date;
+};
 
 // Individual typed event interfaces
 export interface ModelThoughtChunkEvent extends SessionEventBase {
@@ -515,7 +479,7 @@ export interface AgentState {
   toolsPool: Tool[];
   workflowsPool: Workflow[];
   modelsPool: ModelSpec[];
-  modelParameters: ModelParameterSchema[];
+  modelParameters: ModelParameterDefinition[];
   defaultModelId: string | null;
 
   rejectedTools: { server: string; tool: string; code: string }[];
@@ -573,9 +537,6 @@ export interface AgentState {
   // Acquired agents management
   setAcquiredAgents: (agents: SavedAgent[]) => void;
   getAcquiredAgent: (id: string) => SavedAgent | undefined;
-
-  /** @deprecated Use agents[0].config / updateFrontAgentConfig instead */
-  setAgentConfig: (config: AgentConfig | null | ((prev: AgentConfig | null) => AgentConfig | null)) => void;
 
   // Tool management
   setToolsPool: (tools: Tool[]) => void;

@@ -9,7 +9,7 @@
  */
 
 import useSWR, { mutate as swrMutate } from 'swr';
-import { fetchAcquiredAgents } from '../lib/agent-api';
+import { agentimeHttp } from '../lib/agentime-client';
 import type { SavedAgent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 import { agentSWRKeys } from '../lib/swr-keys';
@@ -23,7 +23,7 @@ export function revalidateAcquiredAgents(): void {
 }
 
 async function fetcher(): Promise<SavedAgent[]> {
-  return fetchAcquiredAgents();
+  return agentimeHttp.listAcquiredAgents();
 }
 
 export function useAcquiredAgentsQuery() {

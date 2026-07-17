@@ -132,7 +132,7 @@ export function AssetViewer({
         {/* Asset display */}
         {isVideo ? (
           <video
-            src={asset.url}
+            src={asset.presentationUrl ?? undefined}
             controls
             autoPlay
             className="h-full w-full object-contain"
@@ -141,7 +141,7 @@ export function AssetViewer({
           />
         ) : (
           <img
-            src={asset.url}
+            src={asset.presentationUrl ?? undefined}
             alt={asset.altText || asset.fileName}
             className="h-full w-full object-contain"
             onLoad={() => setStatus('loaded')}

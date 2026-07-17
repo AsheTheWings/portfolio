@@ -15,10 +15,10 @@ import type {
   SessionEvent,
   Agent,
   AgentConfig,
-  SavedAgent,
   UIInterface,
   ToolEffectsData,
 } from '../types/session';
+import type { SavedAgent } from '@agentime/protocol';
 import { createDefaultAgentConfig, createAssistantAgent } from '../utils/agent-factory';
 import { saveAgents } from '../utils/agent-storage';
 import { toSessionComponents, processEventIntoComponents } from '../utils/toSessionComponent';
@@ -30,7 +30,7 @@ import {
   type AgentStatus,
   type WorkflowStatus,
 } from '../utils/status';
-import type { LlmRegistrySnapshot, ModelParameterSchema, ModelSpec } from '../types/llm';
+import type { LlmRegistrySnapshot, ModelParameterDefinition, ModelSpec } from '../types/llm';
 
 // ============================================================
 // Pure model selectors over `ModelSpec[]`
@@ -125,7 +125,7 @@ function injectAmbient(
 
 /**
  * Enforce business rules on agent config to maintain invariants.
- * Extracted from setAgentConfig for reuse by multi-agent actions.
+ * Shared invariant enforcement for multi-agent configuration actions.
  */
 function enforceConfigInvariants(
   config: AgentConfig,
@@ -239,7 +239,7 @@ const initialState = {
   toolsPool: [] as import('../types/tools').Tool[],
   workflowsPool: [] as import('../types/workflow').Workflow[],
   modelsPool: [] as import('../types/llm').ModelSpec[],
-  modelParameters: [] as ModelParameterSchema[],
+  modelParameters: [] as ModelParameterDefinition[],
   defaultModelId: null as string | null,
   selectedWorkflowId: '' as string,  // hydrated from localStorage in useHydrateStore
   
@@ -415,27 +415,6 @@ export const getStoreDefinition = (
     const updated = [...currentAgents];
     const [agent] = updated.splice(idx, 1);
     updated.unshift(agent);
-    saveAgents(updated);
-    set({ agents: updated });
-  },
-
-  /** @deprecated Compat shim — updates agents[0].config */
-  setAgentConfig: (agentConfigOrUpdater) => {
-    const currentAgents = get().agents;
-    const currentConfig = currentAgents[0]?.config ?? createDefaultAgentConfig(get().defaultModelId ?? undefined, get().modelsPool);
-    
-    const agentConfig = typeof agentConfigOrUpdater === 'function'
-      ? agentConfigOrUpdater(currentConfig)
-      : agentConfigOrUpdater;
-
-    if (!agentConfig) return;
-
-    const finalConfig = enforceConfigInvariants(agentConfig, currentConfig, get().toolsPool, get().modelsPool, get().defaultModelId);
-
-    const updated = currentAgents.length > 0
-      ? [{ ...currentAgents[0], config: finalConfig }, ...currentAgents.slice(1)]
-      : [{ agentId: 'none', config: finalConfig }];
-
     saveAgents(updated);
     set({ agents: updated });
   },

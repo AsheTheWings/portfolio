@@ -21,7 +21,6 @@ import { useAcquireAgent, useReleaseAgent, useDeleteAgent } from '../hooks/useAg
 import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
 import { WorkflowCard } from './WorkflowCard';
 import { AgentCard } from './AgentCard';
-import { workflowLockReason } from '../utils/workflow-eligibility';
 
 interface AgentsHubProps {
   onClose: () => void;
@@ -65,8 +64,8 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
   const acquiredList = useMemo(() => {
     const list = Object.values(acquiredAgentsMap);
     list.sort((a, b) => {
-      const aOwned = a.userId === userId ? 0 : 1;
-      const bOwned = b.userId === userId ? 0 : 1;
+      const aOwned = a.ownerId === userId ? 0 : 1;
+      const bOwned = b.ownerId === userId ? 0 : 1;
       if (aOwned !== bOwned) return aOwned - bOwned;
       return a.name.localeCompare(b.name);
     });
@@ -80,7 +79,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
   const handleSelect = useCallback(
     (agent: SavedAgent) => {
       const isPresent = selectedAgentIds.has(agent.id);
-      toggleAgent(agent.id, agent.agentConfig);
+      toggleAgent(agent.id, agent.config);
       if (!isPresent) {
         setFrontAgent(agent.id);
       }
@@ -198,7 +197,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
           <div className="p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {displayList.map((agent) => {
-                const isOwner = agent.userId === userId;
+                const isOwner = agent.ownerId === userId;
                 const isAcquired = agent.id in acquiredAgentsMap;
                 return (
                   <AgentCard
@@ -229,14 +228,12 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               {workflowsPool.map((w) => {
-                const lockReason = workflowLockReason(w, agents);
                 return (
                   <WorkflowCard
                     key={w.id}
                     workflow={w}
                     isSelected={w.id === selectedWorkflowId}
-                    disabled={lockReason !== null}
-                    disabledReason={lockReason ?? undefined}
+                    disabled={false}
                     onClick={() => { void switchWorkflow(w.id); }}
                   />
                 );
@@ -275,5 +272,3 @@ function useDebounced(value: string, delay: number): string {
   }, [value, delay]);
   return debounced;
 }
-
-

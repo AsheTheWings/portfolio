@@ -57,14 +57,14 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
   useEffect(() => {
     const wsClient = clientRef.current!;
     const unsub = wsClient.onStateChange(setConnectionState);
-    wsClient.connect();
+    void wsClient.connect();
 
     // Listen to delegated_tool_catalog_ack to update selectable tools and rejected tools (R61 & R62)
-    const unsubAck = wsClient.on('delegated_tool_catalog_ack', (msg: any) => {
+    const unsubAck = wsClient.on('delegated_tool_catalog_ack', (msg) => {
       const baseTools = useAgentStore.getState().toolsPool.filter(t => t.source !== 'delegated');
       const delegatedToolsInRegistry = wsClient.getClientInstance().registry.getMergedCatalog();
       
-      const acceptedTools = msg.accepted.map((acc: any) => {
+      const acceptedTools = msg.accepted.map((acc) => {
         const found = delegatedToolsInRegistry.find(t => t.server === acc.server && t.tool === acc.tool);
         return {
           server: acc.server,
@@ -122,8 +122,8 @@ export function useAgentConnection() {
     (msg: WsClientMessage) => {
       try {
         client.send(msg);
-      } catch (err: any) {
-        toastError(err.message || String(err));
+      } catch (err: unknown) {
+        toastError(err instanceof Error ? err.message : String(err));
         throw err;
       }
     },

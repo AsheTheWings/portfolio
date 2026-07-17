@@ -39,7 +39,7 @@ export function SessionPopover({
 }: SessionPopoverProps) {
   const { setPersistSession, setEphemeral, agents } = useAgent();
   const acquiredAgentsMap = useAgentStore((s) => s.acquiredAgents);
-  const { metadata, updateTitle, updateAgentName, updateTitleLocked } = useSessionMetadata(sessionId);
+  const { metadata, updateTitle, updateTitleLocked } = useSessionMetadata(sessionId);
   
   const [localTitle, setLocalTitle] = useState('');
   const [localAgentName, setLocalAgentName] = useState('');
@@ -68,12 +68,6 @@ export function SessionPopover({
     updateTitle(newTitle);
   };
 
-  const handleAgentNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newAgentName = e.target.value;
-    setLocalAgentName(newAgentName);
-    updateAgentName(newAgentName);
-  };
-
   if (!sessionId) {
     return (
       <div className="text-xs text-muted-foreground font-light w-[200px] flex justify-center">
@@ -96,7 +90,7 @@ export function SessionPopover({
               return {
                 name: saved?.name,
                 color: saved?.color ?? '#E2E8F0',
-                avatarImage: saved?.avatarImage ?? null,
+                avatarImage: saved?.portraitRef ?? null,
                 agentId: a.agentId,
               };
             });
@@ -181,16 +175,12 @@ export function SessionPopover({
               />
             </div>
 
-            {/* Agent Name */}
+            {/* Agent identity is workflow-derived and is not mutable session metadata. */}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="agentName" className="text-xs">Agent Name</Label>
-              <Input
-                id="agentName"
-                value={localAgentName}
-                onChange={handleAgentNameChange}
-                placeholder="assistant"
-                className="h-8 text-xs"
-              />
+              <Label className="text-xs">Agent Name</Label>
+              <span className="h-8 rounded-md border border-input px-3 py-1.5 text-xs text-muted-foreground">
+                {localAgentName || 'assistant'}
+              </span>
             </div>
 
             {/* Counts */}

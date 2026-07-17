@@ -521,7 +521,7 @@ export function Library({
                 }
               }}
               canPaste={canPaste}
-              itemPath={asset.storagePath}
+              itemPath={asset.fileName}
               isMultiSelection={selectedIds.size > 1}
               isLocked={currentFolderIsLocked}
             >

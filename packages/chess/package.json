@@ -14,6 +14,16 @@
   },
   "dependencies": {
     "@portfolio/auth": "workspace:*",
-    "@portfolio/ui": "workspace:*"
+    "@portfolio/ui": "workspace:*",
+    "lucide-react": "^0.546.0",
+    "react-icons": "^5.5.0",
+    "react-resizable-panels": "^4.11.1",
+    "sonner": "^2.0.7",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "next": "^15.5.7",
+    "react": "19.1.0"
   }
 }

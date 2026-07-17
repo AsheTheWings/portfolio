@@ -8,23 +8,11 @@
 import { useState, useCallback } from 'react';
 import useSWR from 'swr';
 import type { Asset, Folder } from '../types';
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 interface MangaReaderState {
   isOpen: boolean;
   folder: Folder | null;
-}
-
-interface AssetsResponse {
-  assets: Asset[];
-  total: number;
-}
-
-async function fetcher(url: string): Promise<AssetsResponse> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch assets');
-  }
-  return response.json();
 }
 
 export function useMangaReader() {
@@ -34,11 +22,11 @@ export function useMangaReader() {
   });
 
   // Fetch assets for the folder when manga reader is open
-  const { data, isLoading, error } = useSWR<AssetsResponse>(
+  const { data, isLoading, error } = useSWR<Asset[]>(
     state.isOpen && state.folder
-      ? `/api/library/assets?folderId=${state.folder.id}&fileType=image`
+      ? `agentime:library:manga:${state.folder.id}`
       : null,
-    fetcher,
+    () => agentimeHttp.listLibraryAssets({ folderId: state.folder!.id, limit: 100 }),
     {
       revalidateOnFocus: false,
       dedupingInterval: 5000,
@@ -46,7 +34,7 @@ export function useMangaReader() {
   );
 
   // Filter only image assets
-  const images = (data?.assets ?? []).filter(
+  const images = (data ?? []).filter(
     (asset) => asset.fileType === 'image'
   );
 

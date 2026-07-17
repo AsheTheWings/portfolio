@@ -20,12 +20,8 @@ const nextConfig: NextConfig = {
         destination: `${BACKEND_URL}/agent/:path*`,
       },
       {
-        source: "/api/library/:path*",
-        destination: `${BACKEND_URL}/library/:path*`,
-      },
-      {
-        source: "/api/settings/:path*",
-        destination: `${BACKEND_URL}/settings/:path*`,
+        source: "/api/auth/ws-ticket",
+        destination: `${BACKEND_URL}/auth/ws-ticket`,
       },
       {
         source: "/api/chess/:path*",

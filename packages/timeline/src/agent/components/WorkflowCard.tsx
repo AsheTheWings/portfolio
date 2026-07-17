@@ -1,9 +1,8 @@
 'use client';
 
-import { CheckCircle2, Lock } from 'lucide-react';
+import { CheckCircle2, Lock, Workflow as WorkflowIcon } from 'lucide-react';
 import type { Workflow } from '../types';
 import { workflowDisplayName } from '../types';
-import { MermaidDiagram } from './MermaidDiagram';
 
 interface WorkflowCardProps {
   workflow: Workflow;
@@ -41,9 +40,8 @@ export function WorkflowCard({
           : ''}
       `}
     >
-      {/* Mermaid diagram area — 2:3 aspect, locked so a tall SVG can't push the card */}
-      <div className="w-full aspect-[2/3] min-h-0 overflow-hidden bg-surface-2 p-3 flex items-center justify-center">
-        <MermaidDiagram source={workflow.mermaid} className="w-full h-full" />
+      <div className="flex min-h-28 w-full items-center justify-center bg-surface-2 p-3">
+        <WorkflowIcon className="size-9 text-muted-foreground" aria-hidden="true" />
       </div>
 
       {/* Label area */}
@@ -58,6 +56,7 @@ export function WorkflowCard({
             <CheckCircle2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
           ) : null}
         </div>
+        <span className="text-[0.65rem] text-muted-foreground">Version {workflow.version}</span>
         <p className="text-[0.7rem] text-muted-foreground leading-snug line-clamp-3">
           {workflow.description}
         </p>

@@ -281,7 +281,7 @@ export function HistoryPanel() {
                     <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[0.65rem] text-muted-foreground leading-tight">
                       <span className="truncate max-w-[80px]">{session.agentName}</span>
                       <span>•</span>
-                      <span className="whitespace-nowrap">{session.turnsCount} {session.turnsCount === 1 ? 'turn' : 'turns'}</span>
+                      <span className="whitespace-nowrap">{session.interactionsCount} {session.interactionsCount === 1 ? 'turn' : 'turns'}</span>
                       <span>•</span>
                       <span className="whitespace-nowrap" title={`Created: ${formatDate(session.createdAt)}`}>
                         Created {formatRelativeTime(session.createdAt)}

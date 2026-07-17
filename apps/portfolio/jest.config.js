@@ -23,6 +23,9 @@ const moduleNameMapper = {
   '^@portfolio/timeline/(.*)$': '<rootDir>/../../packages/timeline/src/$1',
   '^@portfolio/ui$': '<rootDir>/../../packages/ui/src/index.ts',
   '^@portfolio/ui/(.*)$': '<rootDir>/../../packages/ui/src/$1',
+  '^@agentime/protocol$': '<rootDir>/../../packages/timeline/node_modules/@agentime/protocol/dist/index.js',
+  '^@agentime/client$': '<rootDir>/../../packages/timeline/node_modules/@agentime/client/dist/index.js',
+  '^@agentime/client/tools$': '<rootDir>/../../packages/timeline/node_modules/@agentime/client/dist/tools.js',
 };
 
 const transform = {
@@ -43,7 +46,7 @@ const transform = {
 const ESM_DEPS = [
   'msw', '@mswjs', '@bundled-es-modules', 'rettime', 'until-async',
   'headers-polyfill', '@open-draft', 'tough-cookie', 'strict-event-emitter',
-  'outvariant', 'is-node-process', 'jose',
+  'outvariant', 'is-node-process', 'jose', '@agentime',
 ];
 
 const nodeTransform = {
@@ -54,7 +57,7 @@ const nodeTransform = {
 };
 
 const nodeTransformIgnorePatterns = [
-  `/node_modules/(?!(${ESM_DEPS.join('|')})/)`,
+  `/node_modules/(?!(?:\\.bun/[^/]+/node_modules/)?(?:${ESM_DEPS.join('|')})(?:/|$))`,
   '/\\.next/',
 ];
 

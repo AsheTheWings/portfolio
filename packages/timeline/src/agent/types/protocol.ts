@@ -7,6 +7,7 @@ import type {
   SessionCreatedMessage,
   SessionBranchedMessage,
   ErrorMessage,
+  AgentExecutionErrorPayload,
   WireSessionEvent as CanonicalWireSessionEvent,
 } from "@agentime/protocol";
 
@@ -17,4 +18,4 @@ export type WsSessionCreatedMessage = SessionCreatedMessage;
 export type WsSessionBranchedMessage = SessionBranchedMessage;
 export type WsErrorMessage = ErrorMessage;
 export type WireSessionEvent = CanonicalWireSessionEvent;
-export type WsAgentErrorPayload = any;
+export type WsAgentErrorPayload = AgentExecutionErrorPayload;

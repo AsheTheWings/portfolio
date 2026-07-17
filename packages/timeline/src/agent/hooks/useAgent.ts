@@ -13,7 +13,7 @@ export function useAgent() {
   // Granular state selectors
   const currentSessionId = useAgentStore((state) => state.currentSessionId);
   const agents = useAgentStore((state) => state.agents);
-  // Derived: front agent's config for backward compat
+  // The front participant drives controls that edit one agent at a time.
   const agentConfig = useAgentStore((state) => state.agents[0]?.config ?? null);
   const sessionComponents = useAgentStore((state) => state.sessionComponents);
   const persistSession = useAgentStore((state) => state.persistSession);
@@ -56,7 +56,6 @@ export function useAgent() {
   
   // Action selectors
   const setCurrentSessionId = useAgentStore((state) => state.setCurrentSessionId);
-  const setAgentConfig = useAgentStore((state) => state.setAgentConfig);
   const setAgents = useAgentStore((state) => state.setAgents);
   const updateFrontAgentConfig = useAgentStore((state) => state.updateFrontAgentConfig);
   const setFrontAgent = useAgentStore((state) => state.setFrontAgent);
@@ -90,9 +89,8 @@ export function useAgent() {
     updateFrontAgentConfig,
     setFrontAgent,
     
-    // Compat: front agent config
+    // Front-agent configuration
     agentConfig,
-    setAgentConfig,
     
     // UI state
     sessionComponents,

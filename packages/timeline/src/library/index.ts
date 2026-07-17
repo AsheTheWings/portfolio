@@ -10,7 +10,6 @@ export type {
   ListAssetsParams,
   UploadAssetRequest,
   UpdateAssetRequest,
-  SignedUrlResponse,
   // Folder types
   Folder,
   FolderWithContents,

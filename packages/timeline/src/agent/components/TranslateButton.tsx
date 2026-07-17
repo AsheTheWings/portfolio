@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { agentimeHttp } from '../lib/agentime-client';
 import { Languages, Check, Loader2 } from 'lucide-react';
 import {
   Command,
@@ -102,18 +103,10 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
     setIsTranslating(true);
     setComponentTranslating(componentId, true);
     try {
-      const response = await fetch('/api/agent/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: originalText,
-          targetLanguage: language,
-        }),
+      const translatedText = await agentimeHttp.translateText({
+        text: originalText,
+        targetLanguage: language,
       });
-
-      if (!response.ok) throw new Error('Translation failed');
-
-      const { translatedText } = await response.json();
       cacheTranslation(componentId, language, translatedText);
       setActiveTranslation(componentId, language);
       setPreferredTranslationLanguage(language);

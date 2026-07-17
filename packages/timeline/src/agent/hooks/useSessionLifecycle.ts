@@ -12,7 +12,7 @@
 import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
-import { fetchSessionEvents, deleteSession } from '../lib/agent-api';
+import { agentimeHttp } from '../lib/agentime-client';
 import { saveCurrentSessionId } from '../utils/agent-storage';
 import type { SessionEvent } from '../types';
 import type { WireSessionEvent } from '../types/protocol';
@@ -55,8 +55,8 @@ export function useSessionLifecycle() {
         if (initialEvents) {
           events = wireToSessionEvents(initialEvents);
         } else {
-          const response = await fetchSessionEvents(sessionId);
-          events = response.events as SessionEvent[];
+          const response = await agentimeHttp.getSession(sessionId);
+          events = wireToSessionEvents(response.events);
         }
 
         // 2. All store mutations in one synchronous block (React batches these)
@@ -122,7 +122,7 @@ export function useSessionLifecycle() {
 
         if (opts?.delete) {
           try {
-            await deleteSession(sessionId);
+            await agentimeHttp.deleteSession(sessionId);
           } catch (e) {
             console.error('Failed to delete session:', e);
           }

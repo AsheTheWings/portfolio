@@ -42,6 +42,16 @@ Bun-workspaces monorepo (Next.js). `apps/` holds the Next.js application and
 directly — this file intentionally does not enumerate workspaces so it won't
 drift as they change.
 
+## Agentime client boundary
+
+Portfolio consumes `@agentime/client` and `@agentime/protocol` as exact registry
+versions with a committed lockfile. Do not commit `workspace:`, `file:`, Git,
+tarball, or neighboring-repository resolutions for these dependencies.
+
+Portfolio owns its React components, hooks, Zustand projections, authentication
+acquisition, and optional localhost MCP adapter. Reuse the packages' transport,
+protocol, and delegated-tool contracts rather than recreating clients or DTOs.
+
 ## Deploying (main ← dev)
 
 Deploys are **user-initiated only**. From the `dev` worktree:

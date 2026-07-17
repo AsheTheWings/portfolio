@@ -78,8 +78,8 @@ describe('parseTaggedContent', () => {
   });
 
   it('treats untagged residue as developer text', () => {
-    const { developerText, userText } = parseTaggedContent('legacy message');
-    expect(developerText).toBe('legacy message');
+    const { developerText, userText } = parseTaggedContent('operator notice');
+    expect(developerText).toBe('operator notice');
     expect(userText).toBeNull();
   });
 });

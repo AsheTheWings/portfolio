@@ -14,24 +14,7 @@ import useSWR from 'swr';
 import { useEffect } from 'react';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import type { Folder } from '../types';
-
-interface FoldersResponse {
-  folders: Folder[];
-}
-
-/**
- * Fetcher function for SWR
- */
-async function fetcher(url: string): Promise<FoldersResponse> {
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'Failed to fetch folders');
-  }
-  
-  return response.json();
-}
+import { agentimeHttp } from '../../agent/lib/agentime-client';
 
 /**
  * Hook for folder revalidation with SWR
@@ -43,9 +26,9 @@ export function useFoldersQuery() {
   const allFolders = useLibraryStore((state) => state.allFolders);
 
   // SWR fetch - only revalidates, doesn't block initial render
-  const { data, error, isValidating, mutate } = useSWR<FoldersResponse>(
-    '/api/library/folders?all=true',
-    fetcher,
+  const { data, error, isValidating, mutate } = useSWR<Folder[]>(
+    'agentime:library:folders',
+    () => agentimeHttp.listLibraryFolders(),
     {
       // Don't fetch on mount if already hydrated from server
       revalidateOnMount: allFolders.length === 0,
@@ -63,8 +46,8 @@ export function useFoldersQuery() {
 
   // Sync to Zustand store when SWR fetches new data
   useEffect(() => {
-    if (data?.folders && data.folders.length > 0) {
-      hydrateAllFolders(data.folders);
+    if (data?.length) {
+      hydrateAllFolders(data);
     }
   }, [data, hydrateAllFolders]);
 

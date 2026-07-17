@@ -14,6 +14,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Input, Label, Switch, Textarea, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@portfolio/ui/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
 import { useCustomModelProviders } from '../hooks/useCustomModelProviders';
+import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import type { ModelSpec } from '../types/llm';
 import { getModelContextLength, getModelDisplayName, getModelMaxCompletionTokens } from '../utils/models';
 
@@ -84,7 +85,11 @@ export function CustomModelProvidersSection() {
     removeProvider,
     setProviderEnabled,
   } = useCustomModelProviders();
-  const saveDisabled = saving || !draft.provider.trim() || !draft.baseURL.trim() || !hasChanges;
+  const saveDisabled = saving || !draft.provider.trim() || !draft.baseUrl.trim() || !hasChanges;
+  const { configuredProviders } = useConfiguredProviders();
+  const editingHasApiKey = editingProvider
+    ? configuredProviders.has(`model-provider:${editingProvider.id}`)
+    : false;
 
   return (
     <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
@@ -124,7 +129,7 @@ export function CustomModelProvidersSection() {
                       </span>
 
                     </div>
-                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{provider.baseURL}</p>
+                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{provider.baseUrl}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {provider.models.length} {provider.models.length === 1 ? 'model' : 'models'}
                     </p>
@@ -199,8 +204,8 @@ export function CustomModelProvidersSection() {
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
                   <Label className="font-normal text-xs">Base URL <RequiredAsterisk /></Label>
                   <Input
-                    value={draft.baseURL}
-                    onChange={(e) => patchDraft({ baseURL: e.target.value })}
+                    value={draft.baseUrl}
+                    onChange={(e) => patchDraft({ baseUrl: e.target.value })}
                     className="h-8 font-mono text-xs placeholder:text-xs"
                     placeholder="https://api.openai.com/v1"
                     autoComplete="off"
@@ -228,18 +233,18 @@ export function CustomModelProvidersSection() {
                   </p>
                 </div>
                 <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <Label className="font-normal text-xs">API Key {editingProvider?.hasApiKey ? '(configured)' : ''}</Label>
+                  <Label className="font-normal text-xs">API Key {editingHasApiKey ? '(configured)' : ''}</Label>
                   <Input
                     type="password"
                     value={draft.apiKey}
                     onChange={(e) => patchDraft({ apiKey: e.target.value, removeApiKey: false })}
                     className="h-8 font-mono text-xs placeholder:text-xs"
-                    placeholder={editingProvider?.hasApiKey ? 'Leave blank to keep existing key' : 'sk-...'}
+                    placeholder={editingHasApiKey ? 'Leave blank to keep existing key' : 'sk-...'}
                     autoComplete="new-password"
                     autoCorrect="off"
                     spellCheck={false}
                   />
-                  {editingProvider?.hasApiKey && (
+                  {editingHasApiKey && (
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"

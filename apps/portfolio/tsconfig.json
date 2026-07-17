@@ -42,8 +42,6 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "../../packages/timeline/src/agent/tools/agent-job-deprecated",
-    "../../packages/timeline/src/agent/components/BackgroundJobInterfaceDeprecated.tsx"
+    "node_modules"
   ]
 }

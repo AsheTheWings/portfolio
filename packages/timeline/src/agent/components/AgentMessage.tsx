@@ -69,7 +69,7 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
   );
   const agentName = agentId === 'none' || !agentId ? 'Assistant' : (acquiredAgent?.name ?? 'Agent');
   const agentColor = agentId === 'none' || !agentId ? '#E2E8F0' : (acquiredAgent?.color ?? '#E2E8F0');
-  const avatarImage = acquiredAgent?.avatarImage ?? null;
+  const avatarImage = acquiredAgent?.portraitRef ?? null;
 
   // ── Hooks ───────────────────────────────────────────────
   const { submitEdit, revertToComponent } = useSessionBranching();

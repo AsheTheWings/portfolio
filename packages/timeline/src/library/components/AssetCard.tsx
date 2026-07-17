@@ -184,18 +184,12 @@ function AssetCardComponent({
   const getImageSrc = () => {
     if (imageSrc) return imageSrc;
     if (isVideo) {
-      // Videos should always use thumbnail or placeholder, never the video URL
-      return asset.thumbnailUrl || '/video-placeholder.svg';
+      return '/video-placeholder.svg';
     }
-    return asset.thumbnailUrl || asset.url;
+    return asset.presentationUrl ?? undefined;
   };
 
   const handleImageError = () => {
-    if (!imageSrc && asset.thumbnailUrl && asset.url && asset.thumbnailUrl !== asset.url && !isVideo) {
-      // Only try fallback for images, not videos
-      setImageSrc(asset.url);
-      return;
-    }
     setStatus('error');
   };
 

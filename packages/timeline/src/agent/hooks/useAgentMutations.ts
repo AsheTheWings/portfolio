@@ -3,14 +3,12 @@
 /**
  * useAgentMutations — SWR-bound mutation hooks for the acquired-agents cache.
  *
- * Each hook wraps a REST call in lib/agent-api and auto-revalidates the
- * `/api/agent/agents/acquired` SWR key on success. Components should never
- * call the REST client directly — use these hooks so cache invalidation is
- * centralised and consistent.
+ * Each hook uses the canonical Agentime client and shares one cache key so
+ * acquisition changes are reflected consistently across the interface.
  */
 
 import useSWRMutation from 'swr/mutation';
-import { acquireAgent, releaseAgent, deleteAgent } from '../lib/agent-api';
+import { agentimeHttp } from '../lib/agentime-client';
 import { agentSWRKeys } from '../lib/swr-keys';
 
 type IdArg = { arg: string };
@@ -19,7 +17,7 @@ export function useAcquireAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await acquireAgent(agentId);
+      await agentimeHttp.acquireAgent(agentId);
     },
   );
 }
@@ -28,7 +26,7 @@ export function useReleaseAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await releaseAgent(agentId);
+      await agentimeHttp.releaseAgent(agentId);
     },
   );
 }
@@ -37,7 +35,7 @@ export function useDeleteAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await deleteAgent(agentId);
+      await agentimeHttp.deleteAgent(agentId);
     },
   );
 }

@@ -13,11 +13,34 @@
     "react": "19.1.0"
   },
   "dependencies": {
+    "@agentime/client": "0.1.1-dev.4",
+    "@agentime/protocol": "0.1.1-dev.4",
+    "@gsap/react": "^2.1.2",
+    "@mui/material": "^6.1.9",
     "@portfolio/api-client": "workspace:*",
     "@portfolio/auth": "workspace:*",
     "@portfolio/ui": "workspace:*",
-    "mermaid": "^11.16.0",
-    "@agentime/client": "workspace:*",
-    "@agentime/protocol": "workspace:*"
+    "@viselect/react": "^3.9.0",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.42.2",
+    "gsap": "^3.14.2",
+    "highlight.js": "^11.11.1",
+    "lucide-react": "^0.546.0",
+    "markdown-to-jsx": "^8.0.0",
+    "motion": "^12.38.0",
+    "react-dropzone": "^14.3.8",
+    "react-markdown": "^10.1.0",
+    "react-simple-code-editor": "^0.14.1",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "swr": "^2.3.6",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "next": "^15.5.7",
+    "react": "19.1.0"
   }
 }

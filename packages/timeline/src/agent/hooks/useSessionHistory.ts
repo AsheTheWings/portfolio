@@ -1,54 +1,28 @@
 'use client';
 
-/**
- * useSessionHistory Hook
- * Fetches and caches session history using SWR via REST proxy
- */
-
 import useSWR from 'swr';
+import type { SessionSummary } from '@agentime/protocol';
+import { agentimeHttp } from '../lib/agentime-client';
 import { agentSWRKeys } from '../lib/swr-keys';
 
-export interface SessionRow {
-  id: string;
-  title?: string;
-  titleLocked?: boolean;
-  agentName: string;
-  eventCount: number;
-  turnsCount: number;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-}
+export type SessionRow = SessionSummary;
 
-interface SessionHistoryResponse {
-  sessions: SessionRow[];
-  success: boolean;
-}
-
-const fetcher = async (url: string): Promise<SessionHistoryResponse> => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch sessions');
-  }
-  return response.json();
-};
-
-export function useSessionHistory(limit: number = 100) {
-  const { data, error, isLoading, mutate } = useSWR<SessionHistoryResponse>(
+export function useSessionHistory(limit = 100) {
+  const { data = [], error, isLoading, mutate } = useSWR<SessionSummary[]>(
     agentSWRKeys.sessionHistory(limit),
-    fetcher,
+    () => agentimeHttp.listSessions({ limit }),
     {
-      refreshInterval: 30000,
+      refreshInterval: 30_000,
       revalidateOnFocus: true,
-      dedupingInterval: 5000,
+      dedupingInterval: 5_000,
       keepPreviousData: true,
-    }
+    },
   );
 
   return {
-    sessions: data?.sessions || [],
+    sessions: data,
     isLoading,
-    isError: !!error,
+    isError: Boolean(error),
     error,
     mutate,
   };

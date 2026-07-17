@@ -4,12 +4,13 @@ import React, { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X, Check } from 'lucide-react';
 import { Checkbox as MuiCheckbox } from '@mui/material';
 import { Input, Label, Slider, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, InputWithStackedButtons } from '@portfolio/ui/components/shadcn';
-import type { ModelParameterSchema } from '../types/llm';
+import type { ModelParameterDefinition } from '../types/llm';
+import type { JsonValue } from '@agentime/protocol';
 
-type ProviderParameters = Record<string, unknown>;
+type ProviderParameters = Record<string, JsonValue | undefined>;
 
 interface ModelParameterControlProps {
-  schema: ModelParameterSchema;
+  schema: ModelParameterDefinition;
   providerParameters: ProviderParameters;
   defaultValue?: unknown;
   onUpdate: (updates: ProviderParameters) => void;
