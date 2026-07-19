@@ -48,6 +48,26 @@ describe('Agentime frontend boundaries', () => {
     expect(/@agentime\/(?:client|protocol)@(?:workspace:|file:|git\+)/.test(lockfile)).toBe(false);
   });
 
+  it('keeps local Agentime links ephemeral and restores registry mode for deployment', async () => {
+    const rootManifest = JSON.parse(await readFile(join(portfolioRoot, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(rootManifest.scripts['agentime:link']).toBe('bun run scripts/agentime-packages.ts link');
+    expect(rootManifest.scripts['agentime:status']).toBe('bun run scripts/agentime-packages.ts status');
+    expect(rootManifest.scripts['agentime:registry']).toBe('bun run scripts/agentime-packages.ts registry');
+
+    const modeScript = await readFile(join(portfolioRoot, 'scripts/agentime-packages.ts'), 'utf8');
+    expect(modeScript).toContain('"--no-save"');
+    expect(modeScript).toContain('"--frozen-lockfile"');
+    expect(modeScript).toContain('assertDependencyFilesUnchanged');
+    expect(modeScript).toContain('"@agentime/protocol"');
+    expect(modeScript).toContain('"@agentime/client"');
+    expect(modeScript).toContain('Agentime dependency state is mixed');
+
+    const deployment = await readFile(join(portfolioRoot, 'scripts/deploy.sh'), 'utf8');
+    expect(deployment).toContain('bun run agentime:status --require registry');
+  });
+
   it('resolves Agentime tests through published package outputs only', async () => {
     const jestConfig = await readFile(join(portfolioRoot, 'apps/portfolio/jest.config.js'), 'utf8');
     expect(jestConfig).not.toContain('@agentime/server');

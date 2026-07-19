@@ -813,11 +813,8 @@ interface UseAgentStore {
 
 export const useAgentStore: UseAgentStore = Object.assign(
   function useAgentStore<T>(selector?: (state: AgentState) => T) {
-    const store = useContext(AgentStoreContext);
+    const store = useContext(AgentStoreContext) ?? useAgentStoreSingleton;
     const sel = selector || ((s: AgentState) => s as any);
-    if (!store) {
-      return useAgentStoreSingleton(sel);
-    }
     return useStore(store, sel);
   },
   {

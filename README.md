@@ -14,7 +14,7 @@ Prerequisites: [Bun](https://bun.sh) (see `packageManager` in
 [`package.json`](./package.json) for the pinned version).
 
 ```sh
-bun install      # install workspace dependencies
+bun install --frozen-lockfile
 bun run dev      # start the Next.js app in development
 ```
 
@@ -37,12 +37,16 @@ Keep `typecheck`, `lint`, `test`, and `build` green before committing.
 
 Project documentation lives in [`docs/`](./docs/):
 
-- [`docs/testing.md`](./docs/testing.md) — testing pattern: the layers
-  (unit → component → API/integration → browser smoke), conventions, tooling, and what
-  to test first. Read this before adding tests.
+- [`docs/README.md`](./docs/README.md) — authoritative directive index.
+- [`docs/development.md`](./docs/development.md) — workspace and dependency
+  development, including local Agentime client links.
+- [`docs/testing.md`](./docs/testing.md) — test layers, conventions, and
+  tooling.
+- [`docs/deployment.md`](./docs/deployment.md) — production promotion and
+  qualification.
 
-Operating rules for AI agents (worktree layout, the `dev/` vs `.main/`
-distinction, and the pre-merge checklist) are in [`AGENTS.md`](./AGENTS.md).
+Repository-wide worktree rules and directive routing are in
+[`AGENTS.md`](./AGENTS.md).
 
 ## Repository layout
 
@@ -52,5 +56,5 @@ portfolio/
 └── .main/    branch `main`  → stable / release branch
 ```
 
-All work happens in `dev/`. `main` advances only by fast-forward from `dev`.
-See [`AGENTS.md`](./AGENTS.md) for the full worktree rules.
+All work happens in `dev/`. `main` advances only through the deployment
+workflow defined in [`docs/deployment.md`](./docs/deployment.md).

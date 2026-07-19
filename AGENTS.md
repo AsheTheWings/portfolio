@@ -1,105 +1,52 @@
 # AGENTS.md
 
-Operating rules for AI agents working in this repository. Read this before
-making changes.
+Operating rules for AI agents working in this repository.
 
-## TL;DR
+## Repository rules
 
-- Do **all** work in the **`dev/`** worktree (branch `dev`).
-- **Never edit tracked files in the `.main/` worktree.** It is the deploy target
-  for branch `main` and is updated only by `scripts/deploy.sh`.
-- `dev/` is the source of truth; `.main/` is only a snapshot of `main`.
+- Make every tracked change in the `dev/` worktree on branch `dev`.
+- Never edit tracked files, commit, or merge inside `.main/`. It is the
+  production worktree for branch `main` and moves only through the canonical
+  deployment workflow.
+- Each worktree may have its own gitignored `.env.local`. Treat environment
+  files, credentials, service state, and release state as external
+  configuration; never commit them.
+- Read the relevant directive before changing a governed domain. The `docs/`
+  tree in `dev/` is authoritative; `.main/docs/` is only the last deployed
+  snapshot.
 
-## Repository layout
+The linked worktrees are:
 
-This project is a single git repo checked out as **two linked worktrees** under
-/root/Desktop/portfolio/:
-
-```
-portfolio/
-├── dev/      branch `dev`   → active development (this worktree)
-└── .main/    branch `main`  → production; served by systemd
-```
-
-- The directory `.main` (leading dot) holds the **`main`** branch. "The `.main`
-  worktree" and "the `main` branch" refer to the same line of history.
-- Production runs from `.main` via the systemd unit **`portfolio-frontend.service`**
-  (`WorkingDirectory=.../.main`, `bun run start`).
-
-## Worktree rules
-
-1. All code changes, commits, and tests happen in **`dev/`**.
-2. **Do not edit, commit, or `git merge` inside `.main/`.** It only ever moves
-   forward by fast-forward from `dev` during a deploy.
-3. Exception — **local config is per-worktree**: each worktree has its own
-   gitignored env files (`.env.local`). Adjusting them is configuration, not a
-   code change, and is allowed. Never move secrets into tracked files.
-
-## Project structure
-
-Bun-workspaces monorepo (Next.js). `apps/` holds the Next.js application and
-`packages/` holds shared workspace libraries it consumes. Explore the tree
-directly — this file intentionally does not enumerate workspaces so it won't
-drift as they change.
-
-## Agentime client boundary
-
-Portfolio consumes `@agentime/client` and `@agentime/protocol` as exact registry
-versions with a committed lockfile. Do not commit `workspace:`, `file:`, Git,
-tarball, or neighboring-repository resolutions for these dependencies.
-
-Portfolio owns its React components, hooks, Zustand projections, authentication
-acquisition, and optional localhost MCP adapter. Reuse the packages' transport,
-protocol, and delegated-tool contracts rather than recreating clients or DTOs.
-
-## Deploying (main ← dev)
-
-Deploys are **user-initiated only**. From the `dev` worktree:
-
-```sh
-./scripts/deploy.sh
+```text
+/root/Desktop/portfolio/
+├── dev/      branch dev   — active development
+└── .main/    branch main  — production, served by systemd
 ```
 
-It fast-forwards `main` to `dev` (refuses a non-fast-forward), installs deps,
-builds production Next.js bundles, restarts `portfolio-frontend.service`, and
-health-checks it. Requirements:
+## Directive routing
 
-- The systemd unit must already exist — `deploy.sh` does **not** provision it.
-- `sudo systemctl` access for the restart.
+[`docs/README.md`](docs/README.md) is the maintained documentation index.
+Before working in a domain, read and follow its directive:
 
-Do not perform these steps by hand in `.main`; use the script so the safety
-checks (clean tree, fast-forward-only, build-before-restart) always run.
+- [`docs/development.md`](docs/development.md) — workspace development,
+  dependency modes, environment ownership, and Agentime client integration.
+- [`docs/testing.md`](docs/testing.md) — test layers, placement, tooling, and
+  canonical verification commands.
+- [`docs/deployment.md`](docs/deployment.md) — production promotion,
+  dependency installation, build, restart, and health qualification.
 
-## Verifying changes (in `dev/`)
+Multiple directives may apply to one change. Each directive owns its domain;
+do not duplicate or redefine its contract in this file.
 
-To run the development server:
+## Durable entry points
 
-```sh
-bun run next dev -p 3010
-```
-
-Other verification checks:
-
-```sh
-bun run typecheck   # tsc --noEmit
-bun run lint        # next lint
-bun run test        # test suite (Jest; `bun test` runs Bun's own runner)
-bun run build       # production build — the strongest pre-merge check
-```
-
-Keep these green before committing.
+Use root `package.json` scripts and the directive documents as the authority
+for current commands. Do not use bare `bun test`; it bypasses the maintained
+Jest configuration. Production deployments are user-initiated and must use
+the deployment entry point defined in `docs/deployment.md`.
 
 ## Maintaining this file
 
-Keep AGENTS.md **durable**. State rules and orientation that rarely change; do
-not couple it to volatile detail — workspace-by-workspace structure, file
-names, or exhaustive command lists. Point to the living source instead (the
-tree itself, the root `package.json` workspaces and scripts). If a line here
-would need editing every time a package or route is added, it belongs in that
-source, not in this file.
-
-## Testing Credentials (dev db)
-
-You can use the following credentials for local testing in the dev database:
-- **Username**: `Ashe`
-- **Password**: `dsT$C4KDuLA_4H`
+Keep this file limited to repository-wide operating rules and directive
+routing. Workspace inventories, command catalogs, dependency procedures, and
+deployment sequences belong to their owning source or directive.

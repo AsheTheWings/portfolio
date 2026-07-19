@@ -33,7 +33,7 @@ ok()   { printf '\033[32m✓ %s\033[0m\n' "$*"; }
 [ "$(basename "$DEV_DIR")" = "dev" ] || die "Run this from the 'dev' worktree (got: $DEV_DIR)."
 [ -d "$MAIN_DIR" ] || die "main worktree not found at $MAIN_DIR"
 systemctl cat "$SERVICE" >/dev/null 2>&1 \
-  || die "systemd unit '$SERVICE' not found. Provision it once before deploying (see AGENTS.md)."
+  || die "systemd unit '$SERVICE' not found. Provision it once before deploying (see docs/deployment.md)."
 
 git -C "$DEV_DIR" diff --quiet && git -C "$DEV_DIR" diff --cached --quiet \
   || die "dev worktree has uncommitted changes; commit or stash first."
@@ -56,6 +56,8 @@ ok "$TARGET_BRANCH at $(git -C "$MAIN_DIR" rev-parse --short HEAD)"
 # ── Dependencies ─────────────────────────────────────────────────────
 log "Installing dependencies (.main)"
 ( cd "$MAIN_DIR" && bun install --frozen-lockfile )
+( cd "$MAIN_DIR" && bun run agentime:status --require registry ) \
+  || die "production dependencies are not in Agentime registry mode"
 
 # ── Production build (Next.js) ───────────────────────────────────────
 # NEXT_PUBLIC_WS_URL is baked into the bundle at build time, so

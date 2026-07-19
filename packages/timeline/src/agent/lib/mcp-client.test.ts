@@ -7,7 +7,7 @@ afterEach(() => {
 
 describe("LocalMcpHttpToolProvider integration", () => {
   test("handles discovery, pairing requirements, execution, cancellation, and health loss", async () => {
-    let fetchCalls: any[] = [];
+    const fetchCalls: any[] = [];
     
     globalThis.fetch = (async (url: any, options: any) => {
       fetchCalls.push({ url, options });
