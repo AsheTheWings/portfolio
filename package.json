@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "next": "cd apps/portfolio && node -r ../../logger-patch.js ../../node_modules/next/dist/bin/next",
+    "next": "cd apps/portfolio && node -r ../../logger-patch.js ./node_modules/next/dist/bin/next",
     "dev": "bun --filter @portfolio/app dev",
     "build": "bun --filter @portfolio/app build",
     "start": "bun --filter @portfolio/app start",
