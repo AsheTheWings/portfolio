@@ -6,7 +6,20 @@ import type { AgentStatus, WorkflowStatus } from '../utils/status';
 import type { LlmRegistrySnapshot, ModelParameterDefinition, ModelSpec } from './llm';
 import type { Tool, McpHostStatus, McpClientStatus } from './tools';
 import type { Workflow } from './workflow';
-import type { AgentConfig, SavedAgent, WireSessionEvent } from '@agentime/protocol';
+import type {
+  AgentConfig,
+  AgentimeProblem,
+  SavedAgent,
+  ToolOutcome,
+  WireSessionEvent,
+} from '@agentime/protocol';
+import type {
+  ConnectionProblemState,
+  LocalMcpProblem,
+  ProblemDelivery,
+  ProblemOccurrence,
+  UncertainWorkflowRun,
+} from '../problems/types';
 
 // Wire format for agents in events (no metadata, just config)
 // This is the core agent identity: ID + execution config.
@@ -208,6 +221,7 @@ export type SessionComponentType =
   | 'tool-call'
   | 'system-call'
   | 'user-feedback'
+  | 'workflow-problem'
   // system components
   | 'config-panel'
   | 'history-panel'
@@ -242,8 +256,8 @@ export interface SessionComponentData {
   tool?: string;
   arguments?: Record<string, unknown>;
   result?: unknown;
-  error?: string;
-  isError?: boolean;
+  outcome?: ToolOutcome;
+  problem?: AgentimeProblem;
 
   // Event history (append-only, deduplicated by eventId)
   sessionEvents?: SessionEvent[];
@@ -278,131 +292,12 @@ export interface SessionComponent {
 // UI interface mode — determines component derivation strategy
 export type UIInterface = 'chat' | 'flat';
 
-// Session event base fields
-type SessionEventBase = Omit<WireSessionEvent, 'timestamp' | 'type' | 'data'> & {
-  timestamp: Date;
-};
+type WithClientTimestamp<Event> = Event extends { timestamp: unknown }
+  ? Omit<Event, 'timestamp'> & { timestamp: Date }
+  : never;
 
-// Individual typed event interfaces
-export interface ModelThoughtChunkEvent extends SessionEventBase {
-  type: 'model-thought-chunk';
-  data: ThoughtChunkData;
-}
-
-export interface ModelThoughtCompletedEvent extends SessionEventBase {
-  type: 'model-thought-completed';
-  data: ThoughtCompletedData;
-}
-
-export interface ModelMessageChunkEvent extends SessionEventBase {
-  type: 'model-message-chunk';
-  data: MessageChunkData;
-}
-
-export interface ModelMessageCompletedEvent extends SessionEventBase {
-  type: 'model-message-completed';
-  data: MessageCompletedData;
-}
-
-export interface ToolCallEvent extends SessionEventBase {
-  type: 'tool-call';
-  data: ToolCallData;
-}
-
-export interface ToolEffectsEvent extends SessionEventBase {
-  type: 'tool-effects';
-  data: ToolEffectsData;
-}
-
-export interface ToolResultEvent extends SessionEventBase {
-  type: 'tool-result';
-  data: ToolResultData;
-}
-
-export interface AgentTurnCompletedEvent extends SessionEventBase {
-  type: 'agent-turn-completed';
-  data: AgentTurnCompletedData;
-}
-
-export interface UserFeedbackResultEvent extends SessionEventBase {
-  type: 'user-feedback-result';
-  data: UserFeedbackResultData;
-}
-
-export interface UserInputCommittedEvent extends SessionEventBase {
-  type: 'user-input-committed';
-  data: UserInputCommittedData;
-}
-
-export interface SessionBranchedEvent extends SessionEventBase {
-  type: 'session_branched';
-  breakpointEventId?: string;   // Links branch to the event it was created from
-  data: SessionBranchedEventData;
-}
-
-// ── Workflow run lifecycle events ──────────────────────────
-// Emitted by the backend's WorkflowRuntime on every run. These are
-// system-scoped (no agentId) and drive the WorkflowStatus state
-// machine on the FE.
-
-export interface WorkflowLifecycleData {
-  workflowId: string;
-  runId: string;
-  origin?: { kind: string; connectionId?: string };
-}
-
-export interface WorkflowStartedEvent extends SessionEventBase {
-  type: 'workflow_started';
-  data: WorkflowLifecycleData;
-}
-
-export interface WorkflowResumedEvent extends SessionEventBase {
-  type: 'workflow_resumed';
-  data: WorkflowLifecycleData;
-}
-
-export interface WorkflowPausedEvent extends SessionEventBase {
-  type: 'workflow_paused';
-  data: WorkflowLifecycleData;
-}
-
-export interface WorkflowCompletedEvent extends SessionEventBase {
-  type: 'workflow_completed';
-  data: WorkflowLifecycleData;
-}
-
-export interface WorkflowAbortedEvent extends SessionEventBase {
-  type: 'workflow_aborted';
-  data: WorkflowLifecycleData;
-}
-
-export interface WorkflowFailedEvent extends SessionEventBase {
-  type: 'workflow_failed';
-  data: WorkflowLifecycleData & { error?: { code: string; message: string } };
-}
-
-export type WorkflowLifecycleEvent =
-  | WorkflowStartedEvent
-  | WorkflowResumedEvent
-  | WorkflowPausedEvent
-  | WorkflowCompletedEvent
-  | WorkflowAbortedEvent
-  | WorkflowFailedEvent;
-
-// Union of all event types
-export type SessionEvent =
-  | ModelThoughtChunkEvent
-  | ModelThoughtCompletedEvent
-  | ModelMessageChunkEvent
-  | ModelMessageCompletedEvent
-  | ToolCallEvent
-  | ToolEffectsEvent
-  | ToolResultEvent
-  | AgentTurnCompletedEvent
-  | UserFeedbackResultEvent
-  | UserInputCommittedEvent
-  | SessionBranchedEvent
-  | WorkflowLifecycleEvent;
+/** Canonical protocol event with the ISO timestamp decoded for UI use. */
+export type SessionEvent = WithClientTimestamp<WireSessionEvent>;
 
 // Editing state types
 export type EditingData = {
@@ -494,8 +389,17 @@ export interface AgentState {
   // Scroll state
   scrollToComponentId: string | null;
   preserveScrollOnSessionChange: boolean;
-  error: string | null;
   submitTrigger: number;
+
+  // Structured failure occurrences. Durable workflow/tool occurrences are
+  // reconstructed from sessionEvents; transient scopes clear independently.
+  problemOccurrences: Record<string, ProblemOccurrence>;
+  problemOccurrenceOrder: string[];
+  commandProblemIds: Record<string, string>;
+  notifiedProblemIds: Record<string, true>;
+  uncertainWorkflowRuns: Record<string, UncertainWorkflowRun>;
+  connectionProblem: ConnectionProblemState;
+  localMcpProblems: Record<string, LocalMcpProblem>;
 
   // Editing state
   editingEventId: string | null;
@@ -546,7 +450,10 @@ export interface AgentState {
 
   // UI component actions
   setSessionComponents: (components: SessionComponent[] | ((prev: SessionComponent[]) => SessionComponent[])) => void;
-  appendEvent: (event: SessionEvent) => void;
+  appendEvent: (
+    event: SessionEvent,
+    delivery?: Extract<ProblemDelivery, 'live' | 'replay' | 'catch_up'>,
+  ) => void;
   hydrateFromEvents: (events: SessionEvent[]) => void;
   clearEvents: () => void;
   markInitialConfigShown: () => void;
@@ -577,9 +484,19 @@ export interface AgentState {
   // canonical workflow_* session event arrives.
   setWorkflowStatus: (status: WorkflowStatus) => void;
 
-  // State actions
-  setError: (error: string | null) => void;
-  clearError: () => void;
+  // Failure state actions
+  recordProblem: (occurrence: ProblemOccurrence) => void;
+  clearProblem: (diagnosticId: string) => void;
+  setCommandProblem: (controlId: string, occurrence: ProblemOccurrence | null) => void;
+  markProblemNotified: (diagnosticId: string) => void;
+  markWorkflowUncertain: (run: UncertainWorkflowRun) => void;
+  setWorkflowSynchronization: (
+    runId: string,
+    synchronization: UncertainWorkflowRun['synchronization'],
+  ) => void;
+  setConnectionProblem: (connection: ConnectionProblemState) => void;
+  setLocalMcpProblem: (problem: LocalMcpProblem) => void;
+  clearLocalMcpProblem: (id: string) => void;
   setScrollToComponentId: (componentId: string | null) => void;
   clearScrollToComponentId: () => void;
   setPreserveScrollOnSessionChange: (preserve: boolean) => void;

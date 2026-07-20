@@ -16,12 +16,15 @@ import { MarkdownContent } from './MarkdownContent';
 import { ThreeDotsScaleMiddleIcon } from '@portfolio/ui/icons/ThreeDotsScaleMiddleIcon';
 import { BorderBeam } from '@portfolio/ui/components/shadcn/border-beam';
 import type { SessionComponentData, EditingData } from '../types';
+import { useAgentStore } from '../stores/useAgentStore';
+import { ProblemNotice } from './ProblemNotice';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 
 hljs.registerLanguage('json', json);
 
 interface ToolCallProps {
+  toolCallEventId: string;
   data?: SessionComponentData;
   isEditMode?: boolean;
   editingData?: EditingData | null;
@@ -31,6 +34,7 @@ interface ToolCallProps {
 }
 
 export function ToolCall({
+  toolCallEventId,
   data: propData,
   isEditMode = false,
   editingData,
@@ -43,13 +47,14 @@ export function ToolCall({
   const server = data.server as string | undefined;
   const toolCall = data.arguments;
   const toolResult = data.result;
-
-  // Error is now in result: { status: 'error', message: '...' }
-  const errorResult = toolResult as { status?: string; message?: string } | undefined;
-  const error = errorResult?.status === 'error' ? errorResult.message : undefined;
+  const toolProblem = data.outcome?.status === 'failure'
+    ? data.outcome.problem
+    : data.problem;
+  const currentSessionId = useAgentStore((state) => state.currentSessionId);
+  const resultEvent = data.sessionEvents?.findLast((event) => event.type === 'tool-result');
 
   // Derived: executing if we have tool call but no result yet
-  const isExecuting = Boolean(server && toolResult === undefined);
+  const isExecuting = Boolean(server && data.outcome === undefined);
 
   const [jsonError, setJsonError] = useState<string | null>(null);
 
@@ -102,9 +107,8 @@ export function ToolCall({
   };
 
   // Status
-  const hasResult = toolResult !== undefined;
-  const mcpIsError = !!(toolResult && typeof toolResult === 'object' && (toolResult as { isError?: boolean }).isError === true);
-  const hasFailed = !!error || mcpIsError;
+  const hasResult = data.outcome?.status === 'success';
+  const hasFailed = Boolean(toolProblem);
 
   // Extract and format tool result content (MCP spec)
   const getResultContent = (): { content: string; isString: boolean } => {
@@ -263,12 +267,18 @@ export function ToolCall({
                   </div>
                 )}
                 {!isExecuting && Boolean(hasFailed) && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-red-500 font-medium">Error</div>
-                    <pre className="text-xs text-red-400 font-mono whitespace-pre-wrap break-words">
-                      {error || resultContent || 'Tool execution failed'}
-                    </pre>
-                  </div>
+                  toolProblem && currentSessionId && resultEvent ? (
+                    <ProblemNotice
+                      problem={toolProblem}
+                      location={{
+                        kind: 'tool',
+                        sessionId: currentSessionId,
+                        runId: resultEvent.runId ?? undefined,
+                        toolCallEventId,
+                        eventId: resultEvent.eventId,
+                      }}
+                    />
+                  ) : null
                 )}
                 {!isExecuting && !hasFailed && hasResult && (
                   <>
@@ -298,4 +308,3 @@ export function ToolCall({
     </div>
   );
 }
-

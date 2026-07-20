@@ -9,6 +9,7 @@
 import { FeedbackPanel } from './FeedbackPanel';
 import { useWorkflow } from '../hooks/useWorkflow';
 import type { FeedbackAction } from '../types';
+import { ControlProblemNotice } from './ControlProblemNotice';
 
 const RESUME_WORKFLOW_ACTIONS: FeedbackAction[] = [
   { id: 'resume', label: 'Resume workflow', primary: true, icon: 'Play' },
@@ -27,6 +28,7 @@ export function ResumeWorkflow() {
           stackPrompt
           onAction={resumeWorkflow}
         />
+        <ControlProblemNotice controlId="workflow-resume" className="mt-2" />
       </div>
     </div>
   );

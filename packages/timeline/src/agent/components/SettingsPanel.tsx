@@ -15,6 +15,8 @@ import { loadMcpConfig, saveMcpConfig } from '../utils/mcp-config';
 import { useAgentConnection } from '../hooks/useAgentConnection';
 import { useAgentStore } from '../stores/useAgentStore';
 import { agentimeHttp } from '../lib/agentime-client';
+import { recordHttpProblem } from '../problems/http';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import { CustomModelProvidersSection } from './CustomModelProvidersSection';
 
@@ -105,7 +107,9 @@ function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProp
       setEditing(false);
       onSaved(provider.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save key');
+      if (!recordHttpProblem(err, 'credential', `credential:${provider.id}`)) {
+        setError('Failed to save key');
+      }
     } finally {
       setSaving(false);
     }
@@ -118,7 +122,9 @@ function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProp
       await removeProviderKey(provider.id);
       onRemoved(provider.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove key');
+      if (!recordHttpProblem(err, 'credential', `credential:${provider.id}`)) {
+        setError('Failed to remove key');
+      }
     } finally {
       setRemoving(false);
     }
@@ -218,6 +224,10 @@ function ApiKeyRow({ provider, isConfigured, onSaved, onRemoved }: ApiKeyRowProp
         {error && (
           <p className="text-xs text-destructive">{error}</p>
         )}
+        <FeatureProblemNotice
+          feature="credential"
+          controlId={`credential:${provider.id}`}
+        />
       </div>
     </div>
   );
@@ -277,9 +287,7 @@ export function SettingsPanel() {
     if (newEnabled) {
       try {
         await connectMcp(config);
-      } catch (err: unknown) {
-        console.warn('MCP connection failed:', err instanceof Error ? err.message : String(err));
-      }
+      } catch {}
     } else {
       await disconnectMcp();
     }
@@ -308,9 +316,7 @@ export function SettingsPanel() {
         prevMcpPort.current = mcpPort;
         await disconnectMcp();
         await connectMcp(config);
-      } catch (err: unknown) {
-        console.warn('[SettingsPanel] Reconnection failed:', err instanceof Error ? err.message : String(err));
-      }
+      } catch {}
     }, 1000);
     return () => clearTimeout(timeoutId);
   }, [mcpPort, mcpEnabled, mcpHostStatus, connectMcp, disconnectMcp]);
@@ -321,6 +327,11 @@ export function SettingsPanel() {
 
   const content = (
     <div className="flex flex-col pb-4">
+      <FeatureProblemNotice
+        feature="credential"
+        controlId="credentials-list"
+        className="mb-4"
+      />
       <div>
         {/* Interface Mode */}
         <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">

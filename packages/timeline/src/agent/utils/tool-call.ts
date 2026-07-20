@@ -18,9 +18,7 @@ export function getToolDisplayName(data: SessionComponentData): string {
 
 /** Derive execution status from tool-call component data */
 export function getToolStatus(data: SessionComponentData): 'executing' | 'complete' | 'failed' {
-  const result = data.result;
-  if (data.server && result === undefined) return 'executing';
-  const errorResult = result as { status?: string } | undefined;
-  const mcpIsError = !!(result && typeof result === 'object' && (result as { isError?: boolean }).isError === true);
-  return (errorResult?.status === 'error' || mcpIsError) ? 'failed' : 'complete';
+  if (data.outcome?.status === 'failure') return 'failed';
+  if (data.outcome?.status === 'success') return 'complete';
+  return data.server ? 'executing' : 'complete';
 }

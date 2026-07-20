@@ -21,6 +21,7 @@ import { useAcquireAgent, useReleaseAgent, useDeleteAgent } from '../hooks/useAg
 import { useWorkflowSwitcher } from '../hooks/useWorkflowSwitcher';
 import { WorkflowCard } from './WorkflowCard';
 import { AgentCard } from './AgentCard';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 
 interface AgentsHubProps {
   onClose: () => void;
@@ -98,9 +99,7 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
     async (agentId: string) => {
       try {
         await triggerAcquire(agentId);
-      } catch (err) {
-        console.error('[AgentsHub] Acquire failed:', err);
-      }
+      } catch {}
     },
     [triggerAcquire],
   );
@@ -120,8 +119,9 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
       } else {
         await triggerRelease(confirmDialog.agentId);
       }
-    } catch (err) {
-      console.error(`[AgentsHub] ${confirmDialog.action} failed:`, err);
+    } catch {
+      // The mutation hook has already retained the canonical problem in the
+      // initiating feature scope.
     } finally {
       setConfirmDialog({ open: false, action: null, agentId: null, agentName: null });
     }
@@ -181,6 +181,12 @@ export function AgentsHub({ onClose }: AgentsHubProps) {
 
       {/* Scrollable content: agents + workflows */}
       <div className="flex-1 overflow-auto pb-8 scrollbar-container px-14">
+        <FeatureProblemNotice feature="agent" className="mx-6 mt-3" />
+        <FeatureProblemNotice
+          feature="session"
+          controlId="workflow-switch"
+          className="mx-6 mt-3"
+        />
         {/* Agents */}
         <p className="px-6 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Agents</p>
         {isLoading ? (

@@ -22,6 +22,7 @@ import { useSessionLifecycle } from '../hooks/useSessionLifecycle';
 import { useWorkflow } from '../hooks/useWorkflow';
 import type { SessionComponent, SessionEvent, EditingData, FeedbackAction } from '../types';
 import { getAgentStatus, statusLabel } from '../utils/status';
+import { ControlProblemNotice } from './ControlProblemNotice';
 
 // ────────────────────────────────────────────────────────────
 // View slots — discriminated union of carousel views
@@ -336,6 +337,10 @@ export const AgentMessage = React.memo(function AgentMessage({ component }: Agen
               submitFeedback(activeFeedback.toolCallEventId, { action: actionId })
             }
           />
+          <ControlProblemNotice
+            controlId={`tool-feedback:${activeFeedback.toolCallEventId}`}
+            className="mt-2"
+          />
         </div>
       );
     }
@@ -487,6 +492,7 @@ function SubViewRenderer({
     case 'tool-call': {
       return (
         <ToolCall
+          toolCallEventId={item.id}
           data={item.data}
           isEditMode={isEditMode}
           editingData={isEditMode ? editingData : undefined}

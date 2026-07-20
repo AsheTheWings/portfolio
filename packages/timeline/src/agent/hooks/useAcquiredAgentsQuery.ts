@@ -13,6 +13,7 @@ import { agentimeHttp } from '../lib/agentime-client';
 import type { SavedAgent } from '../types';
 import { useAgentStore } from '../stores/useAgentStore';
 import { agentSWRKeys } from '../lib/swr-keys';
+import { withHttpProblem } from '../problems/http';
 
 /**
  * Trigger a revalidation of the acquired agents cache.
@@ -23,7 +24,11 @@ export function revalidateAcquiredAgents(): void {
 }
 
 async function fetcher(): Promise<SavedAgent[]> {
-  return agentimeHttp.listAcquiredAgents();
+  return withHttpProblem(
+    () => agentimeHttp.listAcquiredAgents(),
+    'agent',
+    'acquired-agents',
+  );
 }
 
 export function useAcquiredAgentsQuery() {

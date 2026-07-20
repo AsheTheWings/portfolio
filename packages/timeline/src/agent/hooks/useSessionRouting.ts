@@ -14,6 +14,7 @@ import { useSessionLifecycle } from './useSessionLifecycle';
 import { useAgentConnection } from './useAgentConnection';
 import { saveCurrentSessionId } from '../utils/agent-storage';
 import type { WireSessionEvent } from '../types/protocol';
+import { runScopedCommand } from '../problems/commands';
 
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{16,36}$/;
 const TIMELINE_BASE_PATH = '/apps/timeline';
@@ -28,7 +29,7 @@ interface UseSessionRoutingOptions {
 export function useSessionRouting({ urlSessionId, initialEvents }: UseSessionRoutingOptions = {}) {
   const currentSessionId = useAgentStore((s) => s.currentSessionId);
   const { loadSession } = useSessionLifecycle();
-  const { send } = useAgentConnection();
+  const { command } = useAgentConnection();
   
   // Track if we've done initial resolution to prevent loops
   const initialResolvedRef = useRef(false);
@@ -72,9 +73,8 @@ export function useSessionRouting({ urlSessionId, initialEvents }: UseSessionRou
             await loadSession(urlSessionId, initialEventsRef.current ?? undefined);
             saveCurrentSessionId(urlSessionId);
             lastSyncedSessionRef.current = urlSessionId;
-          } catch (error) {
+          } catch {
             // Session doesn't exist or failed to load → redirect to base
-            console.error('Failed to load session from URL:', error);
             saveCurrentSessionId(null);
             navigateToSession(null);
           }
@@ -85,7 +85,11 @@ export function useSessionRouting({ urlSessionId, initialEvents }: UseSessionRou
           // receiving session events from the backend.
           saveCurrentSessionId(urlSessionId);
           lastSyncedSessionRef.current = urlSessionId;
-          send({ type: 'subscribe', sessionId: urlSessionId });
+          void runScopedCommand(
+            command,
+            { type: 'subscribe', sessionId: urlSessionId },
+            `session-subscribe:${urlSessionId}`,
+          ).catch(() => undefined);
         }
       }
       // No URL session on base route → server redirect handles this via cookie.
@@ -93,7 +97,7 @@ export function useSessionRouting({ urlSessionId, initialEvents }: UseSessionRou
     };
 
     resolveSession();
-  }, [urlSessionId, currentSessionId, loadSession, navigateToSession, send]);
+  }, [urlSessionId, currentSessionId, loadSession, navigateToSession, command]);
 
   /**
    * Sync URL when store's currentSessionId changes (after initial resolution)
@@ -112,7 +116,7 @@ export function useSessionRouting({ urlSessionId, initialEvents }: UseSessionRou
     // Navigating to '/' when currentSessionId is null causes a page transition
     // that remounts AgentConnectionProvider, destroying the WS connection.
     // When the user sends the next message the backend will create a new session
-    // and session_created will update the URL via this same effect.
+    // and workflow_accepted will update the URL via this same effect.
     if (currentSessionId) {
       navigateToSession(currentSessionId);
     } else {

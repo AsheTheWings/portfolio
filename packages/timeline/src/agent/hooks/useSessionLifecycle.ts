@@ -17,6 +17,8 @@ import { saveCurrentSessionId } from '../utils/agent-storage';
 import type { SessionEvent } from '../types';
 import type { WireSessionEvent } from '../types/protocol';
 import { deriveAgentStatuses } from '../utils/status';
+import { runScopedCommand } from '../problems/commands';
+import { recordHttpProblem } from '../problems/http';
 
 /**
  * Convert wire events (ISO timestamps) to rich SessionEvents (Date objects)
@@ -29,7 +31,7 @@ function wireToSessionEvents(wireEvents: WireSessionEvent[]): SessionEvent[] {
 }
 
 export function useSessionLifecycle() {
-  const { send } = useAgentConnection();
+  const { command } = useAgentConnection();
 
   /**
    * Load existing session and subscribe to live events via WS.
@@ -47,8 +49,6 @@ export function useSessionLifecycle() {
       const store = useAgentStore.getState();
 
       try {
-        store.setError(null);
-
         // 1. Get events FIRST — before clearing store to avoid empty-state flash
         //    (await breaks React's batch, so fetch before any store mutations)
         let events: SessionEvent[];
@@ -95,17 +95,19 @@ export function useSessionLifecycle() {
           ? Math.max(...events.map(e => e.sequence))
           : undefined;
 
-        send({ type: 'subscribe', sessionId, lastSequence });
+        await runScopedCommand(
+          command,
+          { type: 'subscribe', sessionId, lastSequence },
+          `session-subscribe:${sessionId}`,
+        );
 
         return { sessionId };
       } catch (e: unknown) {
-        const errorMessage = e instanceof Error ? e.message : 'Failed to load session';
-        useAgentStore.getState().setError(errorMessage);
-        console.error('Failed to load session:', e);
+        recordHttpProblem(e, 'session', `session-load:${sessionId}`);
         throw e;
       }
     },
-    [send]
+    [command]
   );
 
   /**
@@ -118,13 +120,17 @@ export function useSessionLifecycle() {
 
       if (sessionId) {
         // Unsubscribe from live events
-        send({ type: 'unsubscribe', sessionId });
+        await runScopedCommand(
+          command,
+          { type: 'unsubscribe', sessionId },
+          `session-unsubscribe:${sessionId}`,
+        ).catch(() => undefined);
 
         if (opts?.delete) {
           try {
             await agentimeHttp.deleteSession(sessionId);
           } catch (e) {
-            console.error('Failed to delete session:', e);
+            recordHttpProblem(e, 'session', `session-delete:${sessionId}`);
           }
         }
       }
@@ -133,11 +139,10 @@ export function useSessionLifecycle() {
       store.clearEvents();
       store.clearUserMessagesHistory();
       store.resetAllAgentStatuses('idle');
-      store.setError(null);
       // Preserve agents in store and localStorage — user keeps their agent setup for next session
       saveCurrentSessionId(null);
     },
-    [send]
+    [command]
   );
 
   return {

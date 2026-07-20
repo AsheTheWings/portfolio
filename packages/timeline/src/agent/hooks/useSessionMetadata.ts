@@ -10,6 +10,7 @@ import { useRef, useCallback, useMemo } from 'react';
 import { mutate } from 'swr';
 import { useSessionHistory } from './useSessionHistory';
 import { agentSWRKeys } from '../lib/swr-keys';
+import { withHttpProblem } from '../problems/http';
 
 export interface SessionMetadata {
   id: string;
@@ -75,11 +76,15 @@ export function useSessionMetadata(sessionId?: string): UseSessionMetadataReturn
         ...(updates.title !== undefined ? { title: updates.title } : {}),
         ...(updates.titleLocked !== undefined ? { titleLocked: updates.titleLocked } : {}),
       };
-      if (Object.keys(canonical).length) await agentimeHttp.updateSession(sessionId, canonical);
+      if (Object.keys(canonical).length) {
+        await withHttpProblem(
+          () => agentimeHttp.updateSession(sessionId, canonical),
+          'session',
+          `session-metadata:${sessionId}`,
+        );
+      }
       mutate(agentSWRKeys.sessionHistory(100));
-    } catch (err) {
-      console.error('Failed to save metadata:', err);
-    }
+    } catch {}
   }, []);
 
   // Debounced title update (1500ms)

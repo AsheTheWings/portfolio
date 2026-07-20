@@ -16,6 +16,7 @@ import { useAgent } from '../hooks/useAgent';
 import { useUserInput } from '../hooks/useUserInput';
 import { useAgentStore } from '../stores/useAgentStore';
 import { isWorkflowActive } from '../utils/status';
+import { ControlProblemNotice } from './ControlProblemNotice';
 
 gsap.registerPlugin(useGSAP);
 
@@ -286,25 +287,29 @@ export const InteractionArea = forwardRef<MessageInputRef, InteractionAreaProps>
         <div className="flex-1 min-w-0" />
 
         {/* Morphing container: GSAP-driven width + marginRight animation */}
-        <div
-          ref={morphRef}
-          className="pointer-events-auto flex-shrink-0 relative"
-        >
-          <MessageInput
-            ref={ref}
-            onSend={submitUserInput}
-            onInsert={insertDeveloperMessage}
-            isWorkflowRunning={isWorkflowRunning}
-            onAbort={abortWorkflow}
-            placeholder={userMode === 'client' ? 'Type your message...' : 'Type a message...'}
-            onMentionOpenChange={setIsMentionOpen}
-            collapsed={isCollapsed}
-            onExpand={expandInput}
-            isAnimating={isAnimating}
-            userMode={userMode}
-            hasStagedMessage={hasStagedDeveloperMessage}
-            onContentChange={setHasInputContent}
-          />
+        <div className="flex flex-col gap-2">
+          <div
+            ref={morphRef}
+            className="pointer-events-auto flex-shrink-0 relative"
+          >
+            <MessageInput
+              ref={ref}
+              onSend={submitUserInput}
+              onInsert={insertDeveloperMessage}
+              isWorkflowRunning={isWorkflowRunning}
+              onAbort={abortWorkflow}
+              placeholder={userMode === 'client' ? 'Type your message...' : 'Type a message...'}
+              onMentionOpenChange={setIsMentionOpen}
+              collapsed={isCollapsed}
+              onExpand={expandInput}
+              isAnimating={isAnimating}
+              userMode={userMode}
+              hasStagedMessage={hasStagedDeveloperMessage}
+              onContentChange={setHasInputContent}
+            />
+          </div>
+          <ControlProblemNotice controlId="composer" />
+          <ControlProblemNotice controlId="workflow-abort" />
         </div>
       </div>
     );

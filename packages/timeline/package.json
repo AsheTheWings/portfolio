@@ -13,8 +13,8 @@
     "react": "19.1.0"
   },
   "dependencies": {
-    "@agentime/client": "0.1.1-dev.4",
-    "@agentime/protocol": "0.1.1-dev.4",
+    "@agentime/client": "0.2.0-dev.1",
+    "@agentime/protocol": "0.2.0-dev.1",
     "@gsap/react": "^2.1.2",
     "@mui/material": "^6.1.9",
     "@portfolio/api-client": "workspace:*",

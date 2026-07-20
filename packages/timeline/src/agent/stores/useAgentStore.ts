@@ -31,6 +31,16 @@ import {
   type WorkflowStatus,
 } from '../utils/status';
 import type { LlmRegistrySnapshot, ModelParameterDefinition, ModelSpec } from '../types/llm';
+import type {
+  ConnectionProblemState,
+  LocalMcpProblem,
+  ProblemOccurrence,
+  UncertainWorkflowRun,
+} from '../problems/types';
+import {
+  durableProblemOccurrence,
+  indexDurableProblems,
+} from '../problems/occurrences';
 
 // ============================================================
 // Pure model selectors over `ModelSpec[]`
@@ -253,8 +263,18 @@ const initialState = {
   workflowRunId: null as string | null,
   scrollToComponentId: null as string | null,
   preserveScrollOnSessionChange: false,
-  error: null as string | null,
   submitTrigger: 0,
+  problemOccurrences: {} as Record<string, ProblemOccurrence>,
+  problemOccurrenceOrder: [] as string[],
+  commandProblemIds: {} as Record<string, string>,
+  notifiedProblemIds: {} as Record<string, true>,
+  uncertainWorkflowRuns: {} as Record<string, UncertainWorkflowRun>,
+  connectionProblem: {
+    status: 'disconnected',
+    problemDiagnosticId: null,
+    diagnostic: null,
+  } as ConnectionProblemState,
+  localMcpProblems: {} as Record<string, LocalMcpProblem>,
   
   // Editing
   editingEventId: null as string | null,
@@ -302,12 +322,99 @@ export const getStoreDefinition = (
     });
   },
 
-  setError: (error: string | null) => {
-    set({ error });
+  recordProblem: (occurrence) => {
+    set((state) => ({
+      problemOccurrences: {
+        ...state.problemOccurrences,
+        [occurrence.diagnosticId]: occurrence,
+      },
+      problemOccurrenceOrder: state.problemOccurrences[occurrence.diagnosticId]
+        ? state.problemOccurrenceOrder
+        : [...state.problemOccurrenceOrder, occurrence.diagnosticId],
+    }));
   },
 
-  clearError: () => {
-    set({ error: null });
+  clearProblem: (diagnosticId) => {
+    set((state) => {
+      const problemOccurrences = { ...state.problemOccurrences };
+      delete problemOccurrences[diagnosticId];
+      return {
+        problemOccurrences,
+        problemOccurrenceOrder: state.problemOccurrenceOrder.filter((id) => id !== diagnosticId),
+      };
+    });
+  },
+
+  setCommandProblem: (controlId, occurrence) => {
+    set((state) => {
+      const commandProblemIds = { ...state.commandProblemIds };
+      const problemOccurrences = { ...state.problemOccurrences };
+      const problemOccurrenceOrder = [...state.problemOccurrenceOrder];
+      const priorId = commandProblemIds[controlId];
+      if (priorId) {
+        delete commandProblemIds[controlId];
+        delete problemOccurrences[priorId];
+        const index = problemOccurrenceOrder.indexOf(priorId);
+        if (index >= 0) problemOccurrenceOrder.splice(index, 1);
+      }
+      if (occurrence) {
+        commandProblemIds[controlId] = occurrence.diagnosticId;
+        problemOccurrences[occurrence.diagnosticId] = occurrence;
+        if (!problemOccurrenceOrder.includes(occurrence.diagnosticId)) {
+          problemOccurrenceOrder.push(occurrence.diagnosticId);
+        }
+      }
+      return { commandProblemIds, problemOccurrences, problemOccurrenceOrder };
+    });
+  },
+
+  markProblemNotified: (diagnosticId) => {
+    set((state) => ({
+      notifiedProblemIds: { ...state.notifiedProblemIds, [diagnosticId]: true },
+    }));
+  },
+
+  markWorkflowUncertain: (run) => {
+    set((state) => ({
+      workflowStatus: 'uncertain',
+      workflowRunId: run.runId,
+      sessionComponents: state.sessionComponents.map((component) => (
+        component.isStreaming ? { ...component, isStreaming: false } : component
+      )),
+      uncertainWorkflowRuns: {
+        ...state.uncertainWorkflowRuns,
+        [run.runId]: run,
+      },
+    }));
+  },
+
+  setWorkflowSynchronization: (runId, synchronization) => {
+    set((state) => {
+      const run = state.uncertainWorkflowRuns[runId];
+      if (!run) return {};
+      return {
+        uncertainWorkflowRuns: {
+          ...state.uncertainWorkflowRuns,
+          [runId]: { ...run, synchronization },
+        },
+      };
+    });
+  },
+
+  setConnectionProblem: (connectionProblem) => set({ connectionProblem }),
+
+  setLocalMcpProblem: (problem) => {
+    set((state) => ({
+      localMcpProblems: { ...state.localMcpProblems, [problem.id]: problem },
+    }));
+  },
+
+  clearLocalMcpProblem: (id) => {
+    set((state) => {
+      const localMcpProblems = { ...state.localMcpProblems };
+      delete localMcpProblems[id];
+      return { localMcpProblems };
+    });
   },
 
   setScrollToComponentId: (componentId: string | null) => {
@@ -465,9 +572,21 @@ export const getStoreDefinition = (
       sessionComponents: typeof components === 'function' ? components(state.sessionComponents) : components,
     })),
 
-  appendEvent: (event: SessionEvent) => {
+  appendEvent: (event: SessionEvent, delivery = 'live') => {
     set((state) => {
       const sessionEvents = [...state.sessionEvents, event];
+      const occurrence = state.currentSessionId
+        ? durableProblemOccurrence(event, state.currentSessionId, delivery)
+        : null;
+      const problemOccurrences = occurrence
+        ? {
+            ...state.problemOccurrences,
+            [occurrence.diagnosticId]: occurrence,
+          }
+        : state.problemOccurrences;
+      const problemOccurrenceOrder = occurrence && !state.problemOccurrences[occurrence.diagnosticId]
+        ? [...state.problemOccurrenceOrder, occurrence.diagnosticId]
+        : state.problemOccurrenceOrder;
 
       // Pull the staged preview out, run event processing on the
       // event-derived list, then re-append the staged preview at the tail.
@@ -525,6 +644,8 @@ export const getStoreDefinition = (
         agentStatuses,
         workflowStatus,
         workflowRunId,
+        problemOccurrences,
+        problemOccurrenceOrder,
       };
     });
 
@@ -541,7 +662,12 @@ export const getStoreDefinition = (
   },
 
   hydrateFromEvents: (events: SessionEvent[]) => {
-    const { activePanels, uiInterface, stagedDeveloperMessage } = get();
+    const {
+      activePanels,
+      currentSessionId,
+      uiInterface,
+      stagedDeveloperMessage,
+    } = get();
     const sessionComponents = injectAmbient(
       toSessionComponents(events, uiInterface),
       activePanels,
@@ -558,18 +684,51 @@ export const getStoreDefinition = (
         break;
       }
     }
-    set({ sessionEvents: events, sessionComponents, workflowStatus, workflowRunId });
+    const durableProblems = currentSessionId
+      ? indexDurableProblems(events, currentSessionId)
+      : { problemOccurrences: {}, problemOccurrenceOrder: [] };
+    const transientProblems = Object.fromEntries(
+      Object.entries(get().problemOccurrences).filter(([, occurrence]) => (
+        occurrence.location.kind !== 'workflow' && occurrence.location.kind !== 'tool'
+      )),
+    );
+    const transientOrder = get().problemOccurrenceOrder.filter((id) => transientProblems[id]);
+    set({
+      sessionEvents: events,
+      sessionComponents,
+      workflowStatus,
+      workflowRunId,
+      problemOccurrences: {
+        ...transientProblems,
+        ...durableProblems.problemOccurrences,
+      },
+      problemOccurrenceOrder: [
+        ...transientOrder,
+        ...durableProblems.problemOccurrenceOrder,
+      ],
+    });
   },
 
-  clearEvents: () => set({
-    sessionEvents: [],
-    sessionComponents: [],
-    activePanels: new Map(),
-    // A fresh session has no pending compose — the staged preview is tied
-    // to the just-cleared session context.
-    stagedDeveloperMessage: null,
-    workflowStatus: 'idle',
-    workflowRunId: null,
+  clearEvents: () => set((state) => {
+    const retainedProblems = Object.fromEntries(
+      Object.entries(state.problemOccurrences).filter(([, occurrence]) => (
+        occurrence.location.kind === 'connection'
+        || occurrence.location.kind === 'mcp'
+        || occurrence.location.kind === 'feature'
+      )),
+    );
+    return {
+      sessionEvents: [],
+      sessionComponents: [],
+      activePanels: new Map(),
+      stagedDeveloperMessage: null,
+      workflowStatus: 'idle',
+      workflowRunId: null,
+      problemOccurrences: retainedProblems,
+      problemOccurrenceOrder: state.problemOccurrenceOrder.filter((id) => retainedProblems[id]),
+      commandProblemIds: {},
+      uncertainWorkflowRuns: {},
+    };
   }),
 
   clearSystemPanels: () =>

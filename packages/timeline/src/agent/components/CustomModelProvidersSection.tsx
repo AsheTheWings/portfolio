@@ -14,6 +14,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Input, Label, Switch, Textarea, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@portfolio/ui/components/shadcn';
 import { useAgent } from '../hooks/useAgent';
 import { useCustomModelProviders } from '../hooks/useCustomModelProviders';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 import { useConfiguredProviders } from '../hooks/useConfiguredProviders';
 import type { ModelSpec } from '../types/llm';
 import { getModelContextLength, getModelDisplayName, getModelMaxCompletionTokens } from '../utils/models';
@@ -93,6 +94,7 @@ export function CustomModelProvidersSection() {
 
   return (
     <div className="mb-6 lg:break-inside-avoid-column flex flex-col gap-3">
+      <FeatureProblemNotice feature="model" controlId="custom-model-providers" />
       <div className="flex items-start justify-between gap-3">
         <div>
           <Label>Custom Model Providers</Label>

@@ -10,9 +10,10 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
 import { JsonValueSchema, type JsonValue } from '@agentime/protocol';
+import { runScopedCommand } from '../problems/commands';
 
 export function useSessionBranching() {
-  const { send } = useAgentConnection();
+  const { command } = useAgentConnection();
 
   /**
    * Submit edit by sending edit_session_event WS message
@@ -24,7 +25,6 @@ export function useSessionBranching() {
     const store = useAgentStore.getState();
     const sessionId = store.currentSessionId;
     if (!sessionId) {
-      console.error('Cannot submit edit: no current session');
       return;
     }
 
@@ -48,14 +48,14 @@ export function useSessionBranching() {
 
     const frontConfig = store.agents[0]?.config ?? undefined;
 
-    send({
+    await runScopedCommand(command, {
       type: 'edit_session_event',
       sessionId,
       breakpointEventId: editingEventId,
       updatedData,
       configOverride: frontConfig,
-    });
-  }, [send]);
+    }, `session-edit:${editingEventId}`).catch(() => undefined);
+  }, [command]);
 
   /**
    * Revert to a session event by sending revert_to_session_event WS message
@@ -64,16 +64,15 @@ export function useSessionBranching() {
     const store = useAgentStore.getState();
     const sessionId = store.currentSessionId;
     if (!sessionId) {
-      console.error('Cannot revert: no current session');
       return;
     }
 
-    send({
+    await runScopedCommand(command, {
       type: 'revert_to_session_event',
       sessionId,
       breakpointEventId: eventId,
-    });
-  }, [send]);
+    }, `session-revert:${eventId}`).catch(() => undefined);
+  }, [command]);
 
   return {
     submitEdit,

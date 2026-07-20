@@ -30,6 +30,8 @@ import type { SessionEvent, Agent } from '../types';
  *   completed  — last run finished cleanly.
  *   aborted    — last run was cancelled (user-initiated).
  *   failed     — last run errored.
+ *   uncertain  — the server could not durably commit the terminal state;
+ *                synchronization and recovery are required.
  */
 export type WorkflowStatus =
   | 'idle'
@@ -37,7 +39,8 @@ export type WorkflowStatus =
   | 'paused'
   | 'completed'
   | 'aborted'
-  | 'failed';
+  | 'failed'
+  | 'uncertain';
 
 /**
  * Per-agent runtime status. Distinct from WorkflowStatus — describes what

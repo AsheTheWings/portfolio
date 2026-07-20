@@ -10,6 +10,7 @@
 import useSWRMutation from 'swr/mutation';
 import { agentimeHttp } from '../lib/agentime-client';
 import { agentSWRKeys } from '../lib/swr-keys';
+import { withHttpProblem } from '../problems/http';
 
 type IdArg = { arg: string };
 
@@ -17,7 +18,11 @@ export function useAcquireAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await agentimeHttp.acquireAgent(agentId);
+      await withHttpProblem(
+        () => agentimeHttp.acquireAgent(agentId),
+        'agent',
+        `agent-acquire:${agentId}`,
+      );
     },
   );
 }
@@ -26,7 +31,11 @@ export function useReleaseAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await agentimeHttp.releaseAgent(agentId);
+      await withHttpProblem(
+        () => agentimeHttp.releaseAgent(agentId),
+        'agent',
+        `agent-release:${agentId}`,
+      );
     },
   );
 }
@@ -35,7 +44,11 @@ export function useDeleteAgent() {
   return useSWRMutation(
     agentSWRKeys.acquiredAgents,
     async (_key: string, { arg: agentId }: IdArg) => {
-      await agentimeHttp.deleteAgent(agentId);
+      await withHttpProblem(
+        () => agentimeHttp.deleteAgent(agentId),
+        'agent',
+        `agent-delete:${agentId}`,
+      );
     },
   );
 }

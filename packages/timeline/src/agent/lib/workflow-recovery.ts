@@ -1,18 +1,22 @@
-import type { ClientMessage, ErrorMessage } from '@agentime/protocol';
+import type { AgentCommandInput } from '@agentime/client';
+import type { AgentimeProblem } from '@agentime/protocol';
 
-type AbandonWorkflowMessage = Extract<ClientMessage, { type: 'abandon_workflow' }>;
+type AbandonWorkflowCommand = Extract<AgentCommandInput, { type: 'abandon_workflow' }>;
 
-export function workflowRecoveryCommand(message: ErrorMessage): AbandonWorkflowMessage | null {
+export function workflowRecoveryCommand(
+  problem: AgentimeProblem,
+  sessionId: string,
+  runId?: string,
+): AbandonWorkflowCommand | null {
   if (
-    (message.code !== 'WORKFLOW_VERSION_UNSUPPORTED' && message.code !== 'WORKFLOW_RECOVERY_REQUIRED')
-    || !message.sessionId
-    || !message.recoveryActions?.includes('abandon_workflow')
+    (problem.code !== 'WORKFLOW_VERSION_UNSUPPORTED' && problem.code !== 'WORKFLOW_RECOVERY_REQUIRED')
+    || !problem.recoveryActions.includes('abandon_workflow')
   ) {
     return null;
   }
   return {
     type: 'abandon_workflow',
-    sessionId: message.sessionId,
-    ...(typeof message.details?.runId === 'string' ? { runId: message.details.runId } : {}),
+    sessionId,
+    ...(runId ? { runId } : {}),
   };
 }

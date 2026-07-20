@@ -4,13 +4,11 @@
  * useWsEventIngestion - Central WS event handler
  *
  * Listens to all server→client WS messages and routes them:
- * - session_event       → store.appendEvent (handles catch-up + live events
- *                         uniformly; lifecycle events transition WorkflowStatus
- *                         and bulk-update agentStatuses inside the store;
- *                         workflow_failed also surfaces provider errors).
- * - session_created     → store.setCurrentSessionId + URL update.
- * - session_branched    → navigation to new branch session.
- * - error               → store.setError.
+ * - session_event → typed durable state with explicit delivery origin.
+ * - workflow_accepted → implicit-session routing.
+ * - session_branched → branch navigation.
+ * - SDK problem occurrences → scoped transient state and supplementary live
+ *   workflow notification.
  *
  * Background tab optimization:
  * When the browser tab is hidden, incoming session_event messages are buffered
@@ -26,13 +24,12 @@ import { toastError } from '@portfolio/ui/components/FeedbackMessage';
 import type { SessionEvent } from '../types';
 import type {
   WsSessionEventMessage,
-  WsSessionCreatedMessage,
   WsSessionBranchedMessage,
-  WsErrorMessage,
   WireSessionEvent,
-  WsAgentErrorPayload,
 } from '../types/protocol';
-import { workflowRecoveryCommand } from '../lib/workflow-recovery';
+import type { SessionEventDelivery } from '@agentime/protocol';
+import { runScopedCommand } from '../problems/commands';
+import { resolveProblemPresentation } from '../problems/presentation';
 
 const CHUNK_TYPES = new Set(['model-thought-chunk', 'model-message-chunk']);
 
@@ -51,44 +48,17 @@ function chunkKey(event: SessionEvent): string {
   return `${event.type}:${event.agentId ?? 'none'}`;
 }
 
-function formatAgentExecutionError(error: WsAgentErrorPayload | undefined): string {
-  if (!error) return 'Something went wrong. Please try again.';
-
-  const modelSuffix = error.modelId ? ` (${error.modelId})` : '';
-
-  switch (error.code) {
-    case 'MISSING_API_KEY':
-      return 'This agent needs an API key before it can run. Add the provider key in Settings → API Keys.';
-    case 'MODEL_UNAVAILABLE':
-      return `This agent’s configured model is no longer available${modelSuffix}. Choose another model.`;
-    case 'MODEL_PROVIDER_AUTH_FAILED':
-      return 'The provider rejected your API key. Check or replace it in Settings → API Keys.';
-    case 'MODEL_PROVIDER_RATE_LIMITED':
-      return 'The model provider rate-limited this request. Try again later.';
-    case 'MODEL_PROVIDER_FAILED':
-      return error.retryable
-        ? 'The model provider failed to complete this request. Try again.'
-        : 'The model provider rejected this request. Check the selected model and provider settings.';
-    case 'AGENT_RUNTIME_ERROR':
-      return 'The agent failed while processing this request. Please try again.';
-    default:
-      return 'An unexpected error occurred during execution.';
-  }
-}
-
-function getWorkflowFailedError(event: SessionEvent): WsAgentErrorPayload | undefined {
-  if (event.type !== 'workflow_failed') return undefined;
-  return (event.data as { error?: WsAgentErrorPayload }).error;
-}
-
-function ingestSessionEvent(event: SessionEvent): void {
+function ingestSessionEvent(
+  event: SessionEvent,
+  delivery: SessionEventDelivery,
+): void {
   const store = useAgentStore.getState();
 
   if (event.type === 'user-input-committed') {
     window.dispatchEvent(new Event('agent:collapseAll'));
   }
 
-  store.appendEvent(event);
+  store.appendEvent(event, delivery);
 
   if (event.type === 'workflow_aborted') {
     // agent-turn-completed isn't emitted on abort, so streaming composites
@@ -97,12 +67,6 @@ function ingestSessionEvent(event: SessionEvent): void {
       (components) => components.map((c) => (c.isStreaming ? { ...c, isStreaming: false } : c)),
     );
     return;
-  }
-
-  if (event.type === 'workflow_failed') {
-    const errorMessage = formatAgentExecutionError(getWorkflowFailedError(event));
-    store.setError(errorMessage);
-    toastError(errorMessage);
   }
 }
 
@@ -118,14 +82,20 @@ function ingestSessionEvent(event: SessionEvent): void {
  * This ensures tool-calls and status transitions appear in the correct
  * sequence relative to the text that preceded them.
  */
-function collapseBuffer(buffer: SessionEvent[]): SessionEvent[] {
+interface BufferedEvent {
+  event: SessionEvent;
+  delivery: SessionEventDelivery;
+}
+
+function collapseBuffer(buffer: BufferedEvent[]): BufferedEvent[] {
   if (buffer.length <= 1) return buffer;
 
-  const collapsed: SessionEvent[] = [];
-  let pendingChunk: SessionEvent | null = null;
+  const collapsed: BufferedEvent[] = [];
+  let pendingChunk: BufferedEvent | null = null;
   let pendingKey: string | null = null;
 
-  for (const event of buffer) {
+  for (const buffered of buffer) {
+    const event = buffered.event;
     if (!CHUNK_TYPES.has(event.type)) {
       // Non-chunk: flush any pending chunk, then emit this event
       if (pendingChunk) {
@@ -133,7 +103,7 @@ function collapseBuffer(buffer: SessionEvent[]): SessionEvent[] {
         pendingChunk = null;
         pendingKey = null;
       }
-      collapsed.push(event);
+      collapsed.push(buffered);
       continue;
     }
 
@@ -142,7 +112,7 @@ function collapseBuffer(buffer: SessionEvent[]): SessionEvent[] {
     if (pendingChunk && pendingKey === key) {
       // Merge text into pending chunk
       const dataKey = event.type === 'model-message-chunk' ? 'message' : 'thoughts';
-      const pendingData = pendingChunk.data as unknown as Record<string, unknown>;
+      const pendingData = pendingChunk.event.data as unknown as Record<string, unknown>;
       const eventData = event.data as unknown as Record<string, unknown>;
       pendingData[dataKey] = (pendingData[dataKey] as string) + (eventData[dataKey] as string);
       // Take latest metadata
@@ -151,7 +121,10 @@ function collapseBuffer(buffer: SessionEvent[]): SessionEvent[] {
       // Different key — flush pending, start new
       if (pendingChunk) collapsed.push(pendingChunk);
       // Clone to avoid mutating the original event later
-      pendingChunk = { ...event, data: { ...event.data } } as SessionEvent;
+      pendingChunk = {
+        ...buffered,
+        event: { ...event, data: { ...event.data } } as SessionEvent,
+      };
       pendingKey = key;
     }
   }
@@ -175,7 +148,7 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
   onSessionBranchedRef.current = options?.onSessionBranched;
 
   // Background tab buffering
-  const eventBuffer = useRef<SessionEvent[]>([]);
+  const eventBuffer = useRef<BufferedEvent[]>([]);
   const isHidden = useRef(false);
 
   useEffect(() => {
@@ -195,8 +168,8 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const collapsed = collapseBuffer(eventBuffer.current);
       eventBuffer.current = [];
 
-      for (const event of collapsed) {
-        ingestSessionEvent(event);
+      for (const buffered of collapsed) {
+        ingestSessionEvent(buffered.event, buffered.delivery);
       }
     };
 
@@ -209,30 +182,93 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
       const event = wireToSessionEvent(msg.event);
 
       if (isHidden.current) {
-        eventBuffer.current.push(event);
+        eventBuffer.current.push({ event, delivery: msg.delivery });
         return;
       }
 
-      ingestSessionEvent(event);
+      ingestSessionEvent(event, msg.delivery);
     });
 
-    const unsubCreated = client.on('session_created', (msg: WsSessionCreatedMessage) => {
-      console.log(`[WsIngestion] session_created — newSessionId=${msg.sessionId}`);
-      useAgentStore.getState().setCurrentSessionId(msg.sessionId);
-      onSessionCreatedRef.current?.(msg.sessionId);
+    const unsubAccepted = client.on('workflow_accepted', (msg) => {
+      const store = useAgentStore.getState();
+      if (store.currentSessionId !== msg.sessionId) {
+        store.setCurrentSessionId(msg.sessionId);
+        onSessionCreatedRef.current?.(msg.sessionId);
+      }
     });
 
-    const unsubError = client.on('error', (msg: WsErrorMessage) => {
-      useAgentStore.getState().setError(msg.error);
-      const recoveryCommand = workflowRecoveryCommand(msg);
-      toastError(msg.error, recoveryCommand ? {
-        description: 'Reset the paused workflow to continue this session with the current version.',
-        duration: 15_000,
-        action: {
-          label: 'Reset workflow',
-          onClick: () => client.send(recoveryCommand),
-        },
-      } : undefined);
+    const unsubProblems = client.onProblem((occurrence) => {
+      const store = useAgentStore.getState();
+      if (occurrence.source === 'connection') {
+        const phase = occurrence.problem.code === 'AUTHENTICATION_REQUIRED'
+          ? 'authentication'
+          : occurrence.problem.code === 'PROTOCOL_VERSION_UNSUPPORTED'
+            ? 'protocol'
+            : 'transport';
+        store.recordProblem({
+          diagnosticId: occurrence.problem.diagnosticId,
+          problem: occurrence.problem,
+          delivery: 'connection',
+          observedAt: new Date().toISOString(),
+          location: { kind: 'connection', phase },
+        });
+        store.setConnectionProblem({
+          ...store.connectionProblem,
+          status: 'error',
+          problemDiagnosticId: occurrence.problem.diagnosticId,
+        });
+        return;
+      }
+
+      if (occurrence.source === 'workflow_state_uncertain') {
+        store.recordProblem({
+          diagnosticId: occurrence.problem.diagnosticId,
+          problem: occurrence.problem,
+          delivery: 'connection',
+          observedAt: new Date().toISOString(),
+          location: {
+            kind: 'workflow',
+            sessionId: occurrence.sessionId,
+            runId: occurrence.runId,
+          },
+        });
+        store.markWorkflowUncertain({
+          sessionId: occurrence.sessionId,
+          workflowId: occurrence.workflowId,
+          runId: occurrence.runId,
+          problemDiagnosticId: occurrence.problem.diagnosticId,
+          synchronization: 'synchronizing',
+        });
+        void runScopedCommand(
+          client.command.bind(client),
+          {
+            type: 'sync_session',
+            sessionId: occurrence.sessionId,
+            lastSequence: store.sessionEvents.at(-1)?.sequence ?? -1,
+          },
+          `workflow-sync:${occurrence.runId}`,
+        ).then(() => {
+          store.setWorkflowSynchronization(occurrence.runId, 'synchronized');
+        }).catch(() => {
+          store.setWorkflowSynchronization(occurrence.runId, 'required');
+        });
+        return;
+      }
+
+      if (
+        occurrence.source === 'workflow'
+        && occurrence.delivery === 'live'
+        && !occurrence.duplicate
+        && !store.notifiedProblemIds[occurrence.problem.diagnosticId]
+      ) {
+        const presentation = resolveProblemPresentation(occurrence.problem, {
+          kind: 'workflow',
+          sessionId: occurrence.sessionId,
+          runId: occurrence.runId,
+        });
+        toastError(presentation.title, { description: presentation.message });
+        store.markProblemNotified(occurrence.problem.diagnosticId);
+      }
     });
 
     const unsubBranched = client.on('session_branched', (msg: WsSessionBranchedMessage) => {
@@ -242,15 +278,15 @@ export function useWsEventIngestion(options?: UseWsEventIngestionOptions) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       unsubSession();
-      unsubCreated();
-      unsubError();
+      unsubAccepted();
+      unsubProblems();
       unsubBranched();
       // Flush any remaining buffered events on cleanup
       if (eventBuffer.current.length > 0) {
         const collapsed = collapseBuffer(eventBuffer.current);
         eventBuffer.current = [];
-        for (const event of collapsed) {
-          ingestSessionEvent(event);
+        for (const buffered of collapsed) {
+          ingestSessionEvent(buffered.event, buffered.delivery);
         }
       }
     };

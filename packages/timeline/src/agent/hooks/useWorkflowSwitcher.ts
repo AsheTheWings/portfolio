@@ -19,6 +19,7 @@ import { useCallback } from 'react';
 import { useAgentStore } from '../stores/useAgentStore';
 import { saveSelectedWorkflowId } from '../utils/agent-storage';
 import { agentimeHttp } from '../lib/agentime-client';
+import { withHttpProblem } from '../problems/http';
 
 export function useWorkflowSwitcher() {
   const setSelectedWorkflowId = useAgentStore((s) => s.setSelectedWorkflowId);
@@ -42,10 +43,12 @@ export function useWorkflowSwitcher() {
     const sessionId = state.currentSessionId;
     if (sessionId) {
       try {
-        await agentimeHttp.updateSession(sessionId, { workflow: workflowId });
-      } catch (err) {
-        console.error('[useWorkflowSwitcher] Failed to update session workflow:', err);
-      }
+        await withHttpProblem(
+          () => agentimeHttp.updateSession(sessionId, { workflow: workflowId }),
+          'session',
+          'workflow-switch',
+        );
+      } catch {}
     }
   }, [setSelectedWorkflowId, setUserMode]);
 

@@ -12,6 +12,7 @@ import useSWR from 'swr';
 import { agentimeHttp } from '../lib/agentime-client';
 import type { SavedAgent } from '../types';
 import { agentSWRKeys } from '../lib/swr-keys';
+import { withHttpProblem } from '../problems/http';
 
 function buildKey(query: string | null): string | null {
   if (!query || query.trim().length === 0) return null;
@@ -21,7 +22,11 @@ function buildKey(query: string | null): string | null {
 export function useAgentSearch(query: string | null) {
   const { data: results = [], error, isLoading, isValidating } = useSWR<SavedAgent[]>(
     buildKey(query),
-    () => agentimeHttp.searchAgents({ query: query!.trim() }),
+    () => withHttpProblem(
+      () => agentimeHttp.searchAgents({ query: query!.trim() }),
+      'agent',
+      'agent-search',
+    ),
     {
       dedupingInterval: 1_000,
       keepPreviousData: true,

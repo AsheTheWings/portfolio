@@ -19,13 +19,14 @@ import { useCallback } from 'react';
 import type { JsonValue } from '@agentime/protocol';
 import { useAgentStore } from '../stores/useAgentStore';
 import { useAgentConnection } from './useAgentConnection';
+import { runScopedCommand } from '../problems/commands';
 
 export function useWorkflow() {
-  const { send } = useAgentConnection();
+  const { command } = useAgentConnection();
 
   /**
    * Send user message to backend via WS.
-   * If no sessionId exists, backend creates a new session (session_created msg)
+   * If no sessionId exists, the backend creates a session and accepts the workflow.
    * using the workflow id carried in the payload.
    */
   const submitMessage = useCallback((
@@ -52,23 +53,28 @@ export function useWorkflow() {
     store.setAgents(store.agents);
     const agents = useAgentStore.getState().agents;
 
-    try {
-      send({
+    void runScopedCommand(command, {
         type: 'user_message',
         sessionId: store.currentSessionId ?? undefined,
         data: {
           message,
-          agents: agents.map(a => ({ agentId: a.agentId, config: a.config })),
+          agents: agents.map(a => ({ agentId: a.agentId })),
           workflow: store.selectedWorkflowId || undefined,
           libraryItemIds,
         },
-      });
-    } catch (err) {
+        runOptions: {
+          persist: store.persistSession,
+          ephemeral: store.ephemeral,
+        },
+      }, 'composer').then((accepted) => {
+        if (accepted.type === 'workflow_accepted' && !store.currentSessionId) {
+          store.setCurrentSessionId(accepted.sessionId);
+        }
+      }).catch(() => {
       store.setWorkflowStatus('idle');
       store.resetAllAgentStatuses('idle');
-      console.error("Failed to send user message:", err);
-    }
-  }, [send]);
+    });
+  }, [command]);
 
   /**
    * Abort the active workflow run on the backend. Emits `workflow_aborted`
@@ -79,11 +85,11 @@ export function useWorkflow() {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;
 
-    send({
+    void runScopedCommand(command, {
       type: 'abort_workflow',
       sessionId,
-    });
-  }, [send]);
+    }, 'workflow-abort').catch(() => undefined);
+  }, [command]);
 
   /**
    * Submit feedback result to backend via WS
@@ -95,13 +101,13 @@ export function useWorkflow() {
     const sessionId = useAgentStore.getState().currentSessionId;
     if (!sessionId) return;
 
-    send({
+    void runScopedCommand(command, {
       type: 'submit_feedback',
       sessionId,
       toolCallEventId,
       feedbackData,
-    });
-  }, [send]);
+    }, `tool-feedback:${toolCallEventId}`).catch(() => undefined);
+  }, [command]);
 
   /**
    * Resume the paused run with no additional input — reuses the same
@@ -117,11 +123,13 @@ export function useWorkflow() {
     store.setWorkflowStatus('running');
     store.resetAllAgentStatuses('processing');
 
-    send({
+    void runScopedCommand(command, {
       type: 'resume_workflow',
       sessionId,
+    }, 'workflow-resume').catch(() => {
+      store.setWorkflowStatus('paused');
     });
-  }, [send]);
+  }, [command]);
 
   return {
     submitMessage,

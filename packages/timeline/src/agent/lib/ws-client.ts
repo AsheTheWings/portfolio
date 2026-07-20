@@ -1,8 +1,20 @@
 'use client';
 
 import { AgentClient } from '@agentime/client';
-import type { ClientMessage, ServerMessage } from '@agentime/protocol';
+import type {
+  AgentCommandInput,
+  AgentClientDiagnostic,
+  AgentimeProblemOccurrence,
+  CommandSuccessMessage,
+} from '@agentime/client';
+import type {
+  ServerMessage,
+} from '@agentime/protocol';
 import type { McpConfig } from '../types';
+import type {
+  LocalMcpProblem,
+} from '../problems/types';
+import type { McpClientStatus, McpHostStatus } from '../types/tools';
 import { LocalMcpHttpToolProvider } from './mcp-client';
 import { loadMcpConfig } from '../utils/mcp-config';
 
@@ -17,7 +29,15 @@ export class AgentWsClient {
   private state: ConnectionState = 'disconnected';
   private stateListeners = new Set<(state: ConnectionState) => void>();
 
-  constructor(wsUrl: string) {
+  constructor(
+    wsUrl: string,
+    onDiagnostic?: (diagnostic: AgentClientDiagnostic) => void,
+    private onMcpStatus?: (
+      hostStatus: McpHostStatus,
+      clientStatus: McpClientStatus,
+    ) => void,
+    private onMcpProblem?: (problem: LocalMcpProblem) => void,
+  ) {
     this.client = new AgentClient({
       resolveUrl: async () => {
         const res = await fetch('/api/auth/ws-ticket', { method: 'POST', credentials: 'include' });
@@ -27,6 +47,7 @@ export class AgentWsClient {
         const data = await res.json();
         return `${wsUrl.replace(/\/+$/, '')}/agent/ws?ticket=${encodeURIComponent(data.ticket)}`;
       },
+      onDiagnostic,
     });
 
     this.client.onStateChange((state, error) => {
@@ -60,8 +81,12 @@ export class AgentWsClient {
     this.stateListeners.clear();
   }
 
-  send(msg: ClientMessage): void {
-    this.client.send(msg);
+  command(message: AgentCommandInput): Promise<CommandSuccessMessage> {
+    return this.client.command(message);
+  }
+
+  onProblem(handler: (occurrence: AgentimeProblemOccurrence) => void): () => void {
+    return this.client.onProblem(handler);
   }
 
   on<TType extends ServerMessage['type']>(
@@ -94,7 +119,7 @@ export class AgentWsClient {
     if (this.mcpProvider) {
       await this.client.registry.unregisterProvider(this.mcpProvider.id);
     }
-    const provider = new LocalMcpHttpToolProvider(config);
+    const provider = this.createMcpProvider(config);
     this.mcpProvider = provider;
     const registration = this.client.registry.registerProvider(provider);
     this.mcpRegistration = registration;
@@ -111,7 +136,7 @@ export class AgentWsClient {
   private async ensureMcpProvider(): Promise<void> {
     if (this.mcpRegistration) return this.mcpRegistration;
     if (this.mcpProvider) return;
-    const provider = new LocalMcpHttpToolProvider(loadMcpConfig());
+    const provider = this.createMcpProvider(loadMcpConfig());
     this.mcpProvider = provider;
     const registration = this.client.registry.registerProvider(provider);
     this.mcpRegistration = registration;
@@ -132,6 +157,27 @@ export class AgentWsClient {
       try {
         listener(state);
       } catch {}
+    }
+  }
+
+  private createMcpProvider(config: McpConfig): LocalMcpHttpToolProvider {
+    try {
+      return new LocalMcpHttpToolProvider(
+        config,
+        this.onMcpStatus,
+        this.onMcpProblem,
+      );
+    } catch (error) {
+      this.onMcpProblem?.({
+        id: crypto.randomUUID(),
+        code: 'MCP_CONFIGURATION_INVALID',
+        message: 'The local MCP configuration is invalid.',
+        operation: 'configuration',
+        retryable: false,
+        recoveryActions: ['inspect_mcp_configuration'],
+        observedAt: new Date().toISOString(),
+      });
+      throw error;
     }
   }
 }

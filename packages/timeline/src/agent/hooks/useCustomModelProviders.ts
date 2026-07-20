@@ -12,6 +12,7 @@ import type {
   CustomModelProvider,
 } from '@agentime/protocol';
 import { agentimeHttp } from '../lib/agentime-client';
+import { recordHttpProblem } from '../problems/http';
 import { useAgentStore } from '../stores/useAgentStore';
 import type {
   LlmApiSurface,
@@ -190,7 +191,11 @@ export function useCustomModelProviders() {
   useEffect(() => {
     fetchModelProviders()
       .then(setProviders)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load providers'))
+      .catch((err) => {
+        if (!recordHttpProblem(err, 'model', 'custom-model-providers')) {
+          setError('Failed to load providers');
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -276,7 +281,9 @@ export function useCustomModelProviders() {
       await refreshModelRegistry();
       closeForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save provider');
+      if (!recordHttpProblem(err, 'model', 'custom-model-providers')) {
+        setError(err instanceof Error ? err.message : 'Failed to save provider');
+      }
     } finally {
       setSaving(false);
     }
@@ -291,7 +298,9 @@ export function useCustomModelProviders() {
       await refreshProviders(provider.id === draft.id ? null : undefined);
       await refreshModelRegistry();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete provider');
+      if (!recordHttpProblem(err, 'model', 'custom-model-providers')) {
+        setError('Failed to delete provider');
+      }
     } finally {
       setRemovingId(null);
     }
@@ -305,7 +314,9 @@ export function useCustomModelProviders() {
       await refreshProviders(provider.id === draft.id ? provider.id : undefined);
       await refreshModelRegistry();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update provider status');
+      if (!recordHttpProblem(err, 'model', 'custom-model-providers')) {
+        setError('Failed to update provider status');
+      }
     } finally {
       setUpdatingEnabledId(null);
     }

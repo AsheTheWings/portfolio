@@ -11,6 +11,7 @@ import {
   type JsonValue,
 } from '@agentime/protocol';
 import type { McpConfig, McpHostStatus, McpClientStatus } from '../types/tools';
+import type { LocalMcpProblem } from '../problems/types';
 import { normalizeMcpConfig } from '../utils/mcp-config';
 
 const MAX_ERROR_RESPONSE_BYTES = 64_000;
@@ -53,7 +54,8 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
 
   constructor(
     config: McpConfig,
-    private onStatusChange?: (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void
+    private onStatusChange?: (hostStatus: McpHostStatus, clientStatus: McpClientStatus) => void,
+    private onProblem?: (problem: LocalMcpProblem) => void,
   ) {
     this.config = normalizeMcpConfig(config);
   }
@@ -75,6 +77,12 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     if (!this.config.pairingToken) {
       this.setHostStatus('error');
       this.setClientStatus('notConnected');
+      this.reportProblem(
+        'MCP_PAIRING_REQUIRED',
+        'Pair this browser with the local MCP host before connecting.',
+        'configuration',
+        false,
+      );
       throw new Error('MCP pairing token is required');
     }
 
@@ -123,6 +131,12 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
       this.setClientStatus('notConnected');
       this.tools = [];
       this.notifyListeners();
+      this.reportProblem(
+        'MCP_HOST_UNAVAILABLE',
+        'The local MCP host could not be reached or initialized.',
+        'registration',
+        true,
+      );
       throw err;
     } finally {
       this.startHealthCheck();
@@ -156,6 +170,13 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     context: { signal: AbortSignal }
   ): Promise<JsonValue> {
     if (!this.config.enabled || !this.config.pairingToken) {
+      this.reportProblem(
+        'MCP_PAIRING_REQUIRED',
+        'The local MCP provider is disabled or not paired.',
+        'configuration',
+        false,
+        call.server,
+      );
       throw new Error('Local MCP provider is disabled or not paired');
     }
 
@@ -168,32 +189,43 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
     // Timeout signal for R70: local-host adapter must apply timeouts and response-size validation
     const signal = AbortSignal.any([context.signal, AbortSignal.timeout(30_000)]);
 
-    const response = await fetch(`${baseUrl}/mcp/execute`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        server: call.server,
-        tool: call.tool,
-        arguments: call.arguments,
-      }),
-      signal,
-    });
+    try {
+      const response = await fetch(`${baseUrl}/mcp/execute`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          server: call.server,
+          tool: call.tool,
+          arguments: call.arguments,
+        }),
+        signal,
+      });
 
-    if (!response.ok) {
-      const payload = await readBoundedJson(response, MAX_ERROR_RESPONSE_BYTES).catch(() => undefined);
-      const error = payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>).error
+      if (!response.ok) {
+        await readBoundedJson(response, MAX_ERROR_RESPONSE_BYTES).catch(() => undefined);
+        throw new Error('Local MCP execution was rejected');
+      }
+
+      const parsed = await readBoundedJson(response, MAX_EXECUTION_RESPONSE_BYTES);
+      const result = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>).result
         : undefined;
-      throw new Error(typeof error === 'string' && error.length <= 1_000
-        ? error
-        : `Execution failed with status ${response.status}`);
+      return JsonValueSchema.parse(result);
+    } catch (error) {
+      const timedOut = error instanceof DOMException
+        && (error.name === 'TimeoutError' || error.name === 'AbortError')
+        && !context.signal.aborted;
+      this.reportProblem(
+        timedOut ? 'MCP_TIMEOUT' : 'MCP_EXECUTION_FAILED',
+        timedOut
+          ? 'The local MCP tool exceeded its execution time limit.'
+          : 'The local MCP tool could not complete.',
+        'execution',
+        true,
+        call.server,
+      );
+      throw error;
     }
-
-    const parsed = await readBoundedJson(response, MAX_EXECUTION_RESPONSE_BYTES);
-    const result = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>).result
-      : undefined;
-    return JsonValueSchema.parse(result);
   }
 
   subscribeCatalog(listener: (tools: readonly ClientToolDescriptor[]) => void): () => void {
@@ -308,6 +340,12 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
           this.tools = [];
           this.notifyListeners();
         }
+        this.reportProblem(
+          'MCP_HEALTH_FAILED',
+          'The local MCP host health check failed.',
+          'health',
+          true,
+        );
       }
     }, 6000);
   }
@@ -331,5 +369,24 @@ export class LocalMcpHttpToolProvider implements ClientToolProvider {
       this.clientStatus = status;
       this.onStatusChange?.(this.hostStatus, this.clientStatus);
     }
+  }
+
+  private reportProblem(
+    code: LocalMcpProblem['code'],
+    message: string,
+    operation: LocalMcpProblem['operation'],
+    retryable: boolean,
+    server?: string,
+  ): void {
+    this.onProblem?.({
+      id: `local-mcp:${operation}:${server ?? 'host'}`,
+      code,
+      message,
+      operation,
+      ...(server ? { server } : {}),
+      retryable,
+      recoveryActions: retryable ? ['retry', 'inspect_mcp_configuration'] : ['inspect_mcp_configuration'],
+      observedAt: new Date().toISOString(),
+    });
   }
 }

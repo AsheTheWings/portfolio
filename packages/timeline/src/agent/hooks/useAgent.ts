@@ -22,7 +22,6 @@ export function useAgent() {
   
   // Per-agent statuses (consumers aggregate via helpers in utils/status)
   const agentStatuses = useAgentStore((state) => state.agentStatuses);
-  const error = useAgentStore((state) => state.error);
   const scrollToComponentId = useAgentStore((state) => state.scrollToComponentId);
   const submitTrigger = useAgentStore((state) => state.submitTrigger);
   
@@ -66,8 +65,6 @@ export function useAgent() {
   const clearEvents = useAgentStore((state) => state.clearEvents);
   const setPersistSession = useAgentStore((state) => state.setPersistSession);
   const setEphemeral = useAgentStore((state) => state.setEphemeral);
-  const setError = useAgentStore((state) => state.setError);
-  const clearError = useAgentStore((state) => state.clearError);
   const setScrollToComponentId = useAgentStore((state) => state.setScrollToComponentId);
   const clearScrollToComponentId = useAgentStore((state) => state.clearScrollToComponentId);
   const setPreserveScrollOnSessionChange = useAgentStore((state) => state.setPreserveScrollOnSessionChange);
@@ -102,7 +99,6 @@ export function useAgent() {
     
     // Per-agent runtime status map
     agentStatuses,
-    error,
     scrollToComponentId,
     submitTrigger,
     
@@ -129,8 +125,6 @@ export function useAgent() {
     setEphemeral,
     
     // State actions
-    setError,
-    clearError,
     setScrollToComponentId,
     clearScrollToComponentId,
     setPreserveScrollOnSessionChange,

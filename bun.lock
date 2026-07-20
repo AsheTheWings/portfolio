@@ -162,8 +162,8 @@
       "name": "@portfolio/timeline",
       "version": "0.1.0",
       "dependencies": {
-        "@agentime/client": "0.1.1-dev.4",
-        "@agentime/protocol": "0.1.1-dev.4",
+        "@agentime/client": "0.2.0-dev.1",
+        "@agentime/protocol": "0.2.0-dev.1",
         "@gsap/react": "^2.1.2",
         "@mui/material": "^6.1.9",
         "@portfolio/api-client": "workspace:*",
@@ -257,9 +257,9 @@
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
-    "@agentime/client": ["@agentime/client@0.1.1-dev.4", "", { "dependencies": { "@agentime/protocol": "0.1.1-dev.4", "zod": "^4.3.6" } }, "sha512-zdWka/VhIzTbk7vWw/Xd/mpm0tr1pth/vm0kiEdKxTxB0NnpUU5Ok3F/SkoX4E/f5i8QGMU3AMwpjMcr3YjTCA=="],
+    "@agentime/client": ["@agentime/client@0.2.0-dev.1", "", { "dependencies": { "@agentime/protocol": "0.2.0-dev.1", "zod": "^4.3.6" } }, "sha512-V6FuBUDxYm9nb5TSbjtCkOAkgoXL2qEKkuqGwikAg40vPgytHulHg+hBviSzx5ulafLAImdcb96MpJ62Zk2cpQ=="],
 
-    "@agentime/protocol": ["@agentime/protocol@0.1.1-dev.4", "", { "dependencies": { "zod": "^4.3.6" } }, "sha512-6bGKDEoJjuHtFongU5yrd3Jt7d8RtwNYA38kKdz+KD6E0KTn2HcssxNzYFCrnb1qtJ0CGR6vOsUr4yp8NTqw1g=="],
+    "@agentime/protocol": ["@agentime/protocol@0.2.0-dev.1", "", { "dependencies": { "zod": "^4.3.6" } }, "sha512-5uFB+WSFii3UTRXj1eBWjZTWtnAeroVqZKQyMm/YPSLT3rfeHAsku6vYZ3T6+ZL+fj9DuZH/qIaQQDJ9x2IvbQ=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 

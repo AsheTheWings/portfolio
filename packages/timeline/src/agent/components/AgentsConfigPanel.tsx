@@ -29,6 +29,8 @@ import {
   Input,
 } from '@portfolio/ui/components/shadcn';
 import { agentimeHttp } from '../lib/agentime-client';
+import { recordHttpProblem } from '../problems/http';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 import { revalidateAcquiredAgents } from '../hooks/useAcquiredAgentsQuery';
 import type { AgentConfig, Agent } from '../types/session';
 import type { JsonValue } from '@agentime/protocol';
@@ -561,7 +563,7 @@ function ExportAgentForm({ onBack }: ExportAgentFormProps) {
       setSaved(true);
       setTimeout(() => onBack(), 1500);
     } catch (err) {
-      console.error('[ExportAgent] Failed:', err);
+      recordHttpProblem(err, 'agent', 'agent-export');
     } finally {
       setSaving(false);
     }
@@ -584,6 +586,7 @@ function ExportAgentForm({ onBack }: ExportAgentFormProps) {
           Export the current configuration as a reusable agent.
         </p>
       </div>
+      <FeatureProblemNotice feature="agent" controlId="agent-export" />
 
       <div className="flex-1 flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">

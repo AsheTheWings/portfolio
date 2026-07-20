@@ -12,6 +12,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { agentimeHttp } from '../lib/agentime-client';
+import { recordHttpProblem } from '../problems/http';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 import { Languages, Check, Loader2 } from 'lucide-react';
 import {
   Command,
@@ -111,7 +113,7 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
       setActiveTranslation(componentId, language);
       setPreferredTranslationLanguage(language);
     } catch (error) {
-      console.error('Translation error:', error);
+      recordHttpProblem(error, 'text', `translation:${componentId}`);
     } finally {
       setIsTranslating(false);
       setComponentTranslating(componentId, false);
@@ -131,6 +133,11 @@ export function TranslateButton({ componentId, originalText }: TranslateButtonPr
 
   return (
     <div ref={containerRef} className="relative">
+      <FeatureProblemNotice
+        feature="text"
+        controlId={`translation:${componentId}`}
+        className="absolute bottom-full right-0 z-50 mb-2 w-80"
+      />
       <button
         onClick={handleButtonClick}
         disabled={isTranslating}

@@ -25,6 +25,7 @@ import { useAgent } from '../hooks/useAgent';
 import { useSessionMetadata } from '../hooks/useSessionMetadata';
 import { useAgentStore } from '../stores/useAgentStore';
 import type { SavedAgent as _SavedAgent } from '../types';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 
 interface SessionPopoverProps {
   sessionId?: string;
@@ -137,6 +138,10 @@ export function SessionPopover({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex flex-col gap-4">
+          <FeatureProblemNotice
+            feature="session"
+            controlId={`session-metadata:${sessionId}`}
+          />
           {/* Header */}
           <div className="flex flex-col gap-2">
             <h4 className="text-sm font-semibold">Session Configuration</h4>

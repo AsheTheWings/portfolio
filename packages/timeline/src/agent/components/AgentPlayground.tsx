@@ -29,6 +29,9 @@ import type { AgentServerData } from '../lib/server-data';
 import { agentSWRKeys } from '../lib/swr-keys';
 import { loadUIFlags, saveUIFlags } from '../utils/agent-storage';
 import { isWorkflowActive } from '../utils/status';
+import { ConnectionStatus } from './ConnectionStatus';
+import { runScopedCommand } from '../problems/commands';
+import { WorkflowUncertainStatus } from './WorkflowUncertainStatus';
 
 interface AgentPlaygroundProps {
   /** Session ID from URL (optional, for dynamic route). */
@@ -51,24 +54,27 @@ export function AgentPlayground({ sessionId, initialAgentData, initialEvents }: 
 
   // Lifecycle + WS connection for branch session transitions
   const { loadSession } = useSessionLifecycle();
-  const { send } = useAgentConnection();
+  const { command } = useAgentConnection();
 
   // Handle session_branched — fully transition to the new branch session.
   // The routing hook's initialResolvedRef blocks re-resolution on soft
   // navigation, so we load the session here directly. The routing hook's
   // currentSessionId-sync effect handles URL update automatically.
   const handleSessionBranched = useCallback(async (newSessionId: string) => {
-    console.log('[AgentPlayground] handleSessionBranched', { newSessionId: newSessionId.slice(0, 8) });
     const store = useAgentStore.getState();
     const oldSessionId = store.currentSessionId;
     store.cancelEdit();
     if (oldSessionId) {
-      send({ type: 'unsubscribe', sessionId: oldSessionId });
+      await runScopedCommand(
+        command,
+        { type: 'unsubscribe', sessionId: oldSessionId },
+        `session-unsubscribe:${oldSessionId}`,
+      ).catch(() => undefined);
     }
     await loadSession(newSessionId);
-  }, [send, loadSession]);
+  }, [command, loadSession]);
 
-  // Subscribe to WS events (session_event, session_created, agent_status, session_branched, error)
+  // Subscribe to canonical Agentime WebSocket deliveries.
   useWsEventIngestion({ onSessionBranched: handleSessionBranched });
 
   // Reset store on logout
@@ -201,6 +207,8 @@ export function AgentPlayground({ sessionId, initialAgentData, initialEvents }: 
   return (
     <SWRConfig value={{ fallback: { [agentSWRKeys.configuredProviders]: initialAgentData.configuredProviders } }}>
       <div className="h-full w-full bg-background text-foreground">
+        <ConnectionStatus />
+        <WorkflowUncertainStatus />
         {/* Vertically Centered Tools Bar */}
         <ToolsBar 
           onNewSessionClick={handleNewSessionClick}

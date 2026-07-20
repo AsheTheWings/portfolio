@@ -3,7 +3,7 @@
 /**
  * useAgentConnection — React hook wrapping the WS client.
  *
- * Provides connection state, send(), and typed event subscription.
+ * Provides connection state, correlated commands, and typed subscriptions.
  * The underlying AgentWsClient is created once in AgentConnectionProvider
  * and shared via React context.
  */
@@ -18,10 +18,12 @@ import {
   type ReactNode,
 } from 'react';
 import { AgentWsClient, type ConnectionState } from '../lib/ws-client';
-import type { WsClientMessage, WsServerMessage } from '../types/protocol';
+import type { WsServerMessage } from '../types/protocol';
 import { useAgentStore } from '../stores/useAgentStore';
-import type { LocalMcpHttpToolProvider } from '../lib/mcp-client';
-import { toastError } from '@portfolio/ui/components/FeedbackMessage';
+import type {
+  AgentCommandInput,
+  CommandSuccessMessage,
+} from '@agentime/client';
 
 // ============================================================
 // Context
@@ -50,13 +52,58 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
 
   // Create client once
   if (!clientRef.current) {
-    clientRef.current = new AgentWsClient(WS_URL);
+    clientRef.current = new AgentWsClient(
+      WS_URL,
+      (diagnostic) => {
+        const store = useAgentStore.getState();
+        store.setConnectionProblem({
+          ...store.connectionProblem,
+          status: diagnostic.code === 'CONNECTION_FAILED' || diagnostic.code === 'WEBSOCKET_FAILED'
+            ? 'error'
+            : store.connectionProblem.status,
+          diagnostic: {
+            code: diagnostic.code,
+            message: diagnostic.message,
+            observedAt: new Date().toISOString(),
+          },
+        });
+        if (diagnostic.code === 'TOOL_CATALOG_FAILED') {
+          store.setLocalMcpProblem({
+            id: 'local-mcp:catalog:host',
+            code: 'MCP_CATALOG_REJECTED',
+            message: 'The delegated MCP tool catalog was rejected.',
+            operation: 'catalog',
+            retryable: true,
+            recoveryActions: ['retry', 'inspect_mcp_configuration'],
+            observedAt: new Date().toISOString(),
+          });
+        }
+      },
+      (hostStatus, clientStatus) => {
+        useAgentStore.getState().setMcpStatus(hostStatus, clientStatus);
+      },
+      (problem) => {
+        useAgentStore.getState().setLocalMcpProblem(problem);
+      },
+    );
   }
   const client = clientRef.current;
 
   useEffect(() => {
     const wsClient = clientRef.current!;
-    const unsub = wsClient.onStateChange(setConnectionState);
+    const unsub = wsClient.onStateChange((state) => {
+      setConnectionState(state);
+      const store = useAgentStore.getState();
+      store.setConnectionProblem({
+        status: state,
+        problemDiagnosticId: state === 'connected'
+          ? null
+          : store.connectionProblem.problemDiagnosticId,
+        diagnostic: state === 'connected'
+          ? null
+          : store.connectionProblem.diagnostic,
+      });
+    });
     void wsClient.connect();
 
     // Listen to delegated_tool_catalog_ack to update selectable tools and rejected tools (R61 & R62)
@@ -77,23 +124,23 @@ export function AgentConnectionProvider({ children }: AgentConnectionProviderPro
 
       useAgentStore.getState().setToolsPool([...baseTools, ...acceptedTools]);
       useAgentStore.getState().setRejectedTools(msg.rejected || []);
-    });
-
-    // Listen to MCP provider status changes to update Zustand store
-    const updateMcpStatus = () => {
-      const mcpProvider = wsClient.getClientInstance().registry.getProviders().find(p => p.id === 'local-mcp') as LocalMcpHttpToolProvider | undefined;
-      if (mcpProvider) {
-        useAgentStore.getState().setMcpStatus(mcpProvider.getHostStatus(), mcpProvider.getClientStatus());
+      for (const rejection of msg.rejected) {
+        useAgentStore.getState().setLocalMcpProblem({
+          id: `local-mcp:catalog:${rejection.server}:${rejection.tool}`,
+          code: 'MCP_CATALOG_REJECTED',
+          message: `The MCP tool ${rejection.server}/${rejection.tool} was not accepted.`,
+          operation: 'catalog',
+          server: rejection.server,
+          retryable: true,
+          recoveryActions: ['retry', 'inspect_mcp_configuration'],
+          observedAt: new Date().toISOString(),
+        });
       }
-    };
-    
-    // Periodically update status or set it on state change
-    const statusInterval = setInterval(updateMcpStatus, 1000);
+    });
 
     return () => {
       unsub();
       unsubAck();
-      clearInterval(statusInterval);
       // Use disconnect() instead of destroy() to survive React Strict Mode
       // double-invoke (mount → cleanup → remount). The client stays alive
       // so the next mount's connect() can reuse it.
@@ -118,15 +165,9 @@ export function useAgentConnection() {
 
   const { client, connectionState } = ctx;
 
-  const send = useCallback(
-    (msg: WsClientMessage) => {
-      try {
-        client.send(msg);
-      } catch (err: unknown) {
-        toastError(err instanceof Error ? err.message : String(err));
-        throw err;
-      }
-    },
+  const command = useCallback(
+    (message: AgentCommandInput): Promise<CommandSuccessMessage> =>
+      client.command(message),
     [client],
   );
 
@@ -143,7 +184,7 @@ export function useAgentConnection() {
   return {
     connectionState,
     isConnected: connectionState === 'connected',
-    send,
+    command,
     subscribe,
     client,
   };

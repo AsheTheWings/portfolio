@@ -92,4 +92,23 @@ describe('Agentime frontend boundaries', () => {
     }
     expect(violations).toEqual([]);
   });
+
+  it('does not restore removed public failure or WebSocket contracts', async () => {
+    const violations: string[] = [];
+    for (const file of await sourceFiles(timelineSource)) {
+      if (file === resolve(__dirname, 'architecture.test.ts')) continue;
+      const source = await readFile(file, 'utf8');
+      for (const removed of [
+        /\bAgentimeError\b/,
+        /\bAgentExecutionErrorPayload\b/,
+        /\bsession_created\b/,
+        /\bworkflow_started_ack\b/,
+      ]) {
+        if (removed.test(source)) {
+          violations.push(`${relative(portfolioRoot, file)} contains ${removed.source}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });

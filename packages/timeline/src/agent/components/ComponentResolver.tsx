@@ -25,6 +25,7 @@ import { UserFeedback } from './UserFeedback';
 import { FlatAgentResponse } from './FlatAgentResponse';
 import { ResumeWorkflow } from './ResumeWorkflow';
 import { isTextFeedback } from '../utils/toSessionComponent';
+import { ProblemNotice } from './ProblemNotice';
 
 // Tool-owned components
 import { SystemCall } from '../tools/system-call';
@@ -83,9 +84,14 @@ export function resolveComponent(
       return <AgentThoughts thoughts={component.data.thoughts} isStreaming={component.isStreaming} />;
 
     case 'tool-call':
-      // In client mode: suppress tool-call cards entirely.
-      if (isClientMode) return null;
-      return <ToolCall data={component.data} />;
+      // Client mode hides routine tool detail, but a durable tool failure must
+      // remain visible with its canonical diagnostic reference.
+      if (
+        isClientMode
+        && component.data.outcome?.status !== 'failure'
+        && !component.data.problem
+      ) return null;
+      return <ToolCall toolCallEventId={component.id} data={component.data} />;
 
     case 'message':
       if (component.role !== 'agent') return null;
@@ -96,6 +102,24 @@ export function resolveComponent(
     // System components
     case 'resume-workflow':
       return <ResumeWorkflow />;
+
+    case 'workflow-problem': {
+      const problem = component.data.problem;
+      const event = component.data.sessionEvents?.findLast((item) => item.type === 'workflow_failed');
+      const sessionId = useAgentStore.getState().currentSessionId;
+      if (!problem || !event || !sessionId || event.type !== 'workflow_failed') return null;
+      return (
+        <ProblemNotice
+          problem={problem}
+          location={{
+            kind: 'workflow',
+            sessionId,
+            runId: event.data.runId,
+            eventId: event.eventId,
+          }}
+        />
+      );
+    }
 
     // System panels
     case 'config-panel':

@@ -26,6 +26,7 @@ import {
 import { CalendarIcon } from 'lucide-react';
 import { ThreeDotsScaleMiddleIcon } from '@portfolio/ui/icons/ThreeDotsScaleMiddleIcon';
 import { useSessionHistory } from '../hooks/useSessionHistory';
+import { FeatureProblemNotice } from './FeatureProblemNotice';
 import { useAgent } from '../hooks/useAgent';
 
 interface _SessionRow {
@@ -54,14 +55,14 @@ export function HistoryPanel() {
       setLoadingSessionId(sessionId);
       await loadSession(sessionId);
       removeComponent('history-panel');
-    } catch (error) {
-      console.error('Failed to resume session:', error);
+    } catch {
+      // Session lifecycle retains the canonical problem for this control.
     } finally {
       setLoadingSessionId(null);
     }
   };
   // Fetch last 100 sessions with SWR (cached + auto-refresh)
-  const { sessions: allSessions, isLoading, isError, error } = useSessionHistory(100);
+  const { sessions: allSessions, isLoading, isError } = useSessionHistory(100);
   
   // Filters (client-side)
   const [searchQuery, setSearchQuery] = useState('');
@@ -232,11 +233,12 @@ export function HistoryPanel() {
           <div className="flex-1 flex justify-center items-center">
             <ThreeDotsScaleMiddleIcon size={32} className="text-muted-foreground" />
           </div>
-        ) : (isError) && (
-          <div className="flex-1 flex justify-center items-center text-center text-xs text-red-500">
-            {error?.message || 'Failed to load sessions'}
-          </div>
-        )}
+        ) : isError ? (
+          <FeatureProblemNotice
+            feature="session"
+            controlId="session-history:100"
+          />
+        ) : null}
 
         {!isLoading && !isError && filteredSessions.length === 0 && (
           <div className="flex-1 flex justify-center items-center text-center text-xs text-muted-foreground">

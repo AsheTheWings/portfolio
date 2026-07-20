@@ -10,9 +10,14 @@
 import useSWR from 'swr';
 import { agentimeHttp } from '../lib/agentime-client';
 import { agentSWRKeys } from '../lib/swr-keys';
+import { withHttpProblem } from '../problems/http';
 
 async function fetchConfiguredProviders(): Promise<string[]> {
-  return (await agentimeHttp.listCredentials()).map((credential) => credential.provider);
+  return (await withHttpProblem(
+    () => agentimeHttp.listCredentials(),
+    'credential',
+    'credentials-list',
+  )).map((credential) => credential.provider);
 }
 
 export function useConfiguredProviders() {

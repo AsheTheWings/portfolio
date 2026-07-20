@@ -1,4 +1,5 @@
 import { LocalMcpHttpToolProvider } from "./mcp-client";
+import type { LocalMcpProblem } from "../problems/types";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
@@ -113,12 +114,13 @@ describe("LocalMcpHttpToolProvider integration", () => {
       return new Response(null, { status: 404 });
     }) as typeof fetch;
 
+    const problems: LocalMcpProblem[] = [];
     const provider = new LocalMcpHttpToolProvider({
       enabled: true,
       port: 8765,
       servers: [],
       pairingToken: 'token',
-    });
+    }, undefined, (problem) => problems.push(problem));
     await provider.connect();
     const call = {
       sessionId: 'session', runId: 'run', requestId: 'request',
@@ -129,6 +131,52 @@ describe("LocalMcpHttpToolProvider integration", () => {
     await expect(provider.execute(call, { signal: cancelled.signal })).rejects.toMatchObject({ name: 'AbortError' });
     await expect(provider.execute(call, { signal: new AbortController().signal }))
       .rejects.toThrow('size limit');
+    expect(problems).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'local-mcp:execution:fixture',
+        code: 'MCP_EXECUTION_FAILED',
+        operation: 'execution',
+        server: 'fixture',
+      }),
+    ]));
     await provider.disconnect();
+  });
+
+  test("publishes bounded pairing and registration status for the settings surface", async () => {
+    const problems: LocalMcpProblem[] = [];
+    const unpaired = new LocalMcpHttpToolProvider({
+      enabled: true,
+      port: 8765,
+      servers: [],
+    }, undefined, (problem) => problems.push(problem));
+    await expect(unpaired.connect()).rejects.toThrow('pairing token');
+    expect(problems).toEqual([
+      expect.objectContaining({
+        id: 'local-mcp:configuration:host',
+        code: 'MCP_PAIRING_REQUIRED',
+        operation: 'configuration',
+        retryable: false,
+        recoveryActions: ['inspect_mcp_configuration'],
+      }),
+    ]);
+
+    globalThis.fetch = jest.fn().mockRejectedValue(
+      new Error('private browser network detail'),
+    ) as typeof fetch;
+    const unavailable = new LocalMcpHttpToolProvider({
+      enabled: true,
+      port: 8765,
+      servers: [{ name: 'fixture' }],
+      pairingToken: 'paired',
+    }, undefined, (problem) => problems.push(problem));
+    await expect(unavailable.connect()).rejects.toThrow('private browser network detail');
+    expect(problems.at(-1)).toEqual(expect.objectContaining({
+      id: 'local-mcp:registration:host',
+      code: 'MCP_HOST_UNAVAILABLE',
+      message: 'The local MCP host could not be reached or initialized.',
+      operation: 'registration',
+    }));
+    expect(JSON.stringify(problems)).not.toContain('private browser network detail');
+    await unavailable.disconnect();
   });
 });

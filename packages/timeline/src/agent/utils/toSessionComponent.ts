@@ -17,8 +17,35 @@ import type {
   SessionComponent,
   SessionComponentData,
   SessionComponentControls,
+  SessionComponentType,
+  FeedbackAction,
+  ToolEffects,
   UIInterface,
 } from '../types';
+
+const SESSION_COMPONENT_TYPES = new Set<SessionComponentType>([
+  'message',
+  'user-message',
+  'agent-message',
+  'agent-thoughts',
+  'tool-result',
+  'tool-call',
+  'system-call',
+  'user-feedback',
+  'workflow-problem',
+  'config-panel',
+  'history-panel',
+  'settings-panel',
+  'asset-picker-panel',
+  'resume-workflow',
+]);
+const FEEDBACK_ACTION_VARIANTS = new Set<NonNullable<FeedbackAction['variant']>>([
+  'default',
+  'outline',
+  'destructive',
+  'secondary',
+  'ghost',
+]);
 
 // ============================================================
 // Immutability helper — React.memo / Zustand shallow comparison
@@ -286,7 +313,14 @@ function processEventForChat(
           (c) => c.type === 'tool-call' && c.id === event.toolCallEventId,
         );
         if (target) {
-          target.data.result = event.data.result;
+          target.data.outcome = event.data.outcome;
+          if (event.data.outcome.status === 'success') {
+            target.data.result = event.data.outcome.result;
+            target.data.problem = undefined;
+          } else {
+            target.data.result = undefined;
+            target.data.problem = event.data.outcome.problem;
+          }
           target.data.metadata = event.data.metadata;
           target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
           composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
@@ -306,7 +340,7 @@ function processEventForChat(
           (c) => c.type === 'tool-call' && c.id === event.toolCallEventId,
         );
         if (target) {
-          target.data.toolEffects = event.data.toolEffects;
+          target.data.toolEffects = toApplicationToolEffects(event.data.toolEffects);
           target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
           composite.data.sessionEvents = [...(composite.data.sessionEvents || []), event];
           stamp(components, composite);
@@ -385,9 +419,14 @@ function processEventForChat(
     case 'workflow_started':
     case 'workflow_resumed':
     case 'workflow_paused':
-    case 'workflow_completed':
+    case 'workflow_completed': {
+      removeResumeWorkflowComponent(components);
+      break;
+    }
+
     case 'workflow_failed': {
       removeResumeWorkflowComponent(components);
+      appendWorkflowProblemComponent(components, event);
       break;
     }
   }
@@ -586,7 +625,14 @@ function processEventForFlat(
         c => c.type === 'tool-call' && c.id === event.toolCallEventId,
       );
       if (target) {
-        target.data.result = event.data.result;
+        target.data.outcome = event.data.outcome;
+        if (event.data.outcome.status === 'success') {
+          target.data.result = event.data.outcome.result;
+          target.data.problem = undefined;
+        } else {
+          target.data.result = undefined;
+          target.data.problem = event.data.outcome.problem;
+        }
         target.data.metadata = event.data.metadata;
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
         stamp(components, target);
@@ -599,7 +645,7 @@ function processEventForFlat(
         c => c.type === 'tool-call' && c.id === event.toolCallEventId,
       );
       if (target) {
-        target.data.toolEffects = event.data.toolEffects;
+        target.data.toolEffects = toApplicationToolEffects(event.data.toolEffects);
         target.data.sessionEvents = [...(target.data.sessionEvents || []), event];
         stamp(components, target);
       }
@@ -662,9 +708,14 @@ function processEventForFlat(
     case 'workflow_started':
     case 'workflow_resumed':
     case 'workflow_paused':
-    case 'workflow_completed':
+    case 'workflow_completed': {
+      removeResumeWorkflowComponent(components);
+      break;
+    }
+
     case 'workflow_failed': {
       removeResumeWorkflowComponent(components);
+      appendWorkflowProblemComponent(components, event);
       break;
     }
   }
@@ -678,6 +729,23 @@ function removeResumeWorkflowComponent(components: SessionComponent[]): void {
   for (let i = components.length - 1; i >= 0; i--) {
     if (components[i]?.type === 'resume-workflow') components.splice(i, 1);
   }
+}
+
+function appendWorkflowProblemComponent(
+  components: SessionComponent[],
+  event: Extract<SessionEvent, { type: 'workflow_failed' }>,
+): void {
+  if (components.some((component) => component.id === event.eventId)) return;
+  components.push({
+    id: event.eventId,
+    role: 'system',
+    type: 'workflow-problem',
+    isStreaming: false,
+    data: {
+      problem: event.data.problem,
+      sessionEvents: [event],
+    },
+  });
 }
 
 function upsertResumeWorkflowComponent(
@@ -703,8 +771,8 @@ function handleEmbeddedSessionComponents(
   components: SessionComponent[],
   event: SessionEvent,
 ): void {
-  const toolEffectsData = event.data as { toolEffects?: { sessionComponents?: SessionComponent[] } };
-  const embedded = toolEffectsData.toolEffects?.sessionComponents;
+  if (event.type !== 'tool-effects') return;
+  const embedded = toApplicationToolEffects(event.data.toolEffects).sessionComponents;
   if (!Array.isArray(embedded)) return;
 
   for (const comp of embedded) {
@@ -717,4 +785,50 @@ function handleEmbeddedSessionComponents(
       components.push(comp);
     }
   }
+}
+
+function toApplicationToolEffects(
+  effects: Extract<SessionEvent, { type: 'tool-effects' }>['data']['toolEffects'],
+): ToolEffects {
+  return {
+    ...(effects.updateConfig ? { updateConfig: effects.updateConfig } : {}),
+    ...(effects.userActions
+      ? {
+          userActions: {
+            prompt: effects.userActions.prompt,
+            actions: effects.userActions.actions.map((action): FeedbackAction => ({
+              id: action.id,
+              label: action.label,
+              ...(action.variant && FEEDBACK_ACTION_VARIANTS.has(
+                action.variant as NonNullable<FeedbackAction['variant']>,
+              )
+                ? { variant: action.variant as NonNullable<FeedbackAction['variant']> }
+                : {}),
+              ...(action.icon ? { icon: action.icon } : {}),
+              ...(action.iconPosition === 'left' || action.iconPosition === 'right'
+                ? { iconPosition: action.iconPosition }
+                : {}),
+              ...(action.description ? { description: action.description } : {}),
+              ...(action.shortcut ? { shortcut: action.shortcut } : {}),
+              ...(action.primary !== undefined ? { primary: action.primary } : {}),
+              ...(action.dangerous !== undefined ? { dangerous: action.dangerous } : {}),
+              ...(action.data !== undefined ? { data: action.data } : {}),
+            })),
+          },
+        }
+      : {}),
+    ...(effects.stateUpdates ? { stateUpdates: effects.stateUpdates } : {}),
+    ...(effects.sessionComponents
+      ? {
+          sessionComponents: effects.sessionComponents.flatMap((component) => {
+            if (!SESSION_COMPONENT_TYPES.has(component.type as SessionComponentType)) return [];
+            return [{
+              ...component,
+              type: component.type as SessionComponentType,
+              data: { ...component.data },
+            }];
+          }),
+        }
+      : {}),
+  };
 }

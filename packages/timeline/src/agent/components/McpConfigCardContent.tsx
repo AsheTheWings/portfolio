@@ -34,7 +34,7 @@ interface McpConfigCardContentProps {
 export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
   const { client } = useAgentConnection();
   const mcpClientStatus = useAgentStore(state => state.mcpClientStatus);
-  const mcpHostStatus = useAgentStore(state => state.mcpHostStatus);
+  const localMcpProblems = useAgentStore((state) => Object.values(state.localMcpProblems));
   
   const connectMcp = async (cfg: McpConfig) => {
     await client.updateMcpConfig(cfg);
@@ -81,7 +81,15 @@ export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
         await connectMcp(config);
       }
     } catch (err: unknown) {
-      console.error('Failed to restart MCP connection:', err);
+      useAgentStore.getState().setLocalMcpProblem({
+        id: 'local-mcp:registration:host',
+        code: 'MCP_HOST_UNAVAILABLE',
+        message: 'The local MCP connection could not be restarted.',
+        operation: 'registration',
+        retryable: true,
+        recoveryActions: ['retry', 'inspect_mcp_configuration'],
+        observedAt: new Date().toISOString(),
+      });
     } finally {
       setIsReconnecting(false);
     }
@@ -120,7 +128,15 @@ export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
       onClose?.();
     } catch (err: unknown) {
       // Keep panel open, show error
-      console.error('Failed to save MCP config:', err);
+      useAgentStore.getState().setLocalMcpProblem({
+        id: 'local-mcp:configuration:host',
+        code: 'MCP_CONFIGURATION_INVALID',
+        message: 'The local MCP configuration could not be applied.',
+        operation: 'configuration',
+        retryable: false,
+        recoveryActions: ['inspect_mcp_configuration'],
+        observedAt: new Date().toISOString(),
+      });
     } finally {
       setIsReconnecting(false);
     }
@@ -229,6 +245,27 @@ export function McpConfigCardContent({ onClose }: McpConfigCardContentProps) {
                 Error: {mcpError}
               </p>
             )}
+          </div>
+        )}
+
+        {localMcpProblems.length > 0 && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="space-y-2 rounded-md border border-red-500/40 bg-red-500/5 p-3"
+          >
+            <Label className="text-red-600 dark:text-red-400">
+              Local MCP needs attention
+            </Label>
+            {localMcpProblems.map((problem) => (
+              <div key={problem.id} className="text-xs">
+                <p className="font-medium">{problem.message}</p>
+                <p className="mt-1 font-mono text-muted-foreground">
+                  {problem.code}
+                  {problem.server ? ` · ${problem.server}` : ''}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 

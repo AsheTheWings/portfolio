@@ -14,29 +14,6 @@ import type { SessionEvent } from '../types';
 
 hljs.registerLanguage('json', json);
 
-/**
- * Truncate base64 image data in events for readable debug display
- */
-function truncateImageData(events: SessionEvent[]): SessionEvent[] {
-  return events.map(event => {
-    if (event.type !== 'user-input-committed') return event;
-    
-    const { data } = event;
-    if (!data.encodedImages?.length) return event;
-    
-    return {
-      ...event,
-      data: {
-        ...data,
-        encodedImages: data.encodedImages.map((img) => ({
-          mimeType: img.mimeType,
-          data: img.data.slice(0, 100) + '...[truncated]',
-        })),
-      },
-    };
-  });
-}
-
 interface DebugViewProps {
   sessionEvents?: SessionEvent[];
 }
@@ -44,8 +21,7 @@ interface DebugViewProps {
 export function DebugView({ sessionEvents }: DebugViewProps) {
   const highlightedJson = useMemo(() => {
     if (!sessionEvents || sessionEvents.length === 0) return null;
-    const truncatedEvents = truncateImageData(sessionEvents);
-    const jsonString = JSON.stringify(truncatedEvents, null, 2);
+    const jsonString = JSON.stringify(sessionEvents, null, 2);
     return hljs.highlight(jsonString, { language: 'json' }).value;
   }, [sessionEvents]);
 
